@@ -1,0 +1,118 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-primary);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.empty {
+  flex: 1;
+  padding: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.section {
+  margin-bottom: var(--space-4);
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-muted);
+  margin-bottom: var(--space-2);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.panel input[type="text"],
+.panel input[type="number"] {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.panel input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.panel label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+
+.select {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  margin-top: var(--space-2);
+  cursor: pointer;
+}
+
+.colorRow {
+  margin-bottom: var(--space-4);
+}
+
+.colorInputWrap {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.colorSwatch {
+  width: 32px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.colorText {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}

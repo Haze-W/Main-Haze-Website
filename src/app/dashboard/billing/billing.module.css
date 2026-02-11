@@ -1,0 +1,332 @@
+/* Subscription / Billing page - Dark theme, pricing cards */
+
+.billing {
+  position: relative;
+  min-height: 100%;
+  padding: var(--space-8);
+  overflow: auto;
+}
+
+.bgBlur {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(168, 85, 247, 0.2),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 60%,
+      rgba(236, 72, 153, 0.15),
+      transparent
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.subscriptionPanel {
+  position: relative;
+  z-index: 1;
+  background: rgba(30, 35, 45, 0.9);
+  border: 1px solid var(--border-muted);
+  border-radius: 16px;
+  padding: var(--space-8);
+  margin-bottom: var(--space-8);
+  box-shadow: var(--shadow-lg);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.panelTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+}
+
+.panelActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btnSecondary:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.btnPrimary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: white;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.btnPrimary:hover {
+  opacity: 0.95;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.detailCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-base);
+  border-radius: 12px;
+  border: 1px solid var(--border-muted);
+}
+
+.detailIcon {
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.detailCard > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detailLabel {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.detailValue {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.sliderSection {
+  margin-top: var(--space-6);
+}
+
+.sliderLabel {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sliderMin,
+.sliderMax {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  min-width: 48px;
+}
+
+.slider {
+  flex: 1;
+  height: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-overlay);
+  border-radius: 4px;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.sliderHandle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+}
+
+.planCards {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  max-width: 1200px;
+}
+
+.planCard {
+  position: relative;
+  padding: var(--space-6);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-muted);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow: hidden;
+}
+
+.planCard.gradientorangeblue::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(59, 130, 246, 0.3));
+  border-radius: 0 0 0 100%;
+}
+
+.planCard.gradientpurplepink {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(236, 72, 153, 0.1) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.planName {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: white;
+}
+
+.planPrice {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+}
+
+.planPeriod {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.planUsers {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.planBtn {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: white;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.planBtn:hover {
+  opacity: 0.95;
+}
+
+.planBtnDisabled {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.planDesc {
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+
+.planFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.planFeatures li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+
+.checkIcon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .detailsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .planCards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+  .panelHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+}

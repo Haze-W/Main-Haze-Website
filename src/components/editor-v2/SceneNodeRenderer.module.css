@@ -1,0 +1,364 @@
+/* Base */
+.iconNode,
+.inputNode,
+.checkboxNode,
+.selectNode,
+.imageNode,
+.dividerNode,
+.spacerNode,
+.progressNode,
+.badgeNode,
+.alertNode,
+.spinnerNode,
+.skeletonNode,
+.textNode,
+.rectNode,
+.genericNode {
+  border: 1px solid var(--border-default);
+}
+
+/* Icon */
+.iconNode {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Button */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: white;
+}
+
+.btnSecondary {
+  background: var(--bg-muted);
+  color: var(--fg-primary);
+}
+
+.btnOutline {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--fg-primary);
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--fg-primary);
+}
+
+.btnGhost:hover {
+  background: var(--bg-muted);
+}
+
+.btnDanger {
+  background: #dc2626;
+  color: white;
+}
+
+.btnIcon {
+  background: var(--bg-muted);
+  color: var(--fg-primary);
+  padding: 0;
+}
+
+/* Input */
+.inputNode {
+  background: var(--bg-base);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.inputPlaceholder,
+.textareaPlaceholder {
+  padding: 8px 12px;
+  color: var(--fg-muted);
+  font-size: 14px;
+  width: 100%;
+}
+
+.textareaPlaceholder {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Checkbox */
+.checkboxNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+}
+
+.checkboxBox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-default);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+}
+
+.checkboxBox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Switch */
+.switchNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.switchTrack {
+  width: 44px;
+  height: 24px;
+  background: var(--border-default);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.switchTrack.switchOn {
+  background: var(--accent);
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.switchOn .switchThumb {
+  transform: translateX(20px);
+}
+
+/* Select */
+.selectNode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-base);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--fg-secondary);
+}
+
+.selectArrow {
+  font-size: 10px;
+  margin-left: 8px;
+}
+
+/* Image */
+.imageNode {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.imageNode.rounded {
+  border-radius: 50%;
+}
+
+.imageNode img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-muted);
+  font-size: 32px;
+}
+
+/* Divider */
+.dividerNode {
+  background: var(--border-default);
+  border: none;
+  height: 2px !important;
+  min-height: 2px;
+}
+
+/* Spacer */
+.spacerNode {
+  background: transparent;
+  border: 1px dashed var(--border-muted);
+}
+
+/* Progress */
+.progressNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-muted);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.2s;
+}
+
+/* Badge */
+.badgeNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: none;
+}
+
+/* Alert */
+.alertNode {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.alertInfo {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.alertSuccess {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #166534;
+}
+
+.alertWarning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.alertError {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+/* Spinner */
+.spinnerNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton */
+.skeletonNode {
+  background: linear-gradient(
+    90deg,
+    var(--bg-muted) 25%,
+    var(--bg-overlay) 50%,
+    var(--bg-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  border: none;
+}
+
+@keyframes skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Text */
+.textNode {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rectangle */
+.rectNode {
+  background: var(--bg-muted);
+  border-radius: 4px;
+}
+
+/* Generic */
+.genericNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  border-radius: 4px;
+}
+
+.genericLabel {
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-align: center;
+  padding: 8px;
+}
