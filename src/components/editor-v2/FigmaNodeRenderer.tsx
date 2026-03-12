@@ -141,7 +141,7 @@ function mapAlign(val: string | null | undefined): string | undefined {
   }
 }
 
-/** Get text color from segment fills, falling back to white */
+/** Get text color from segment fills, falling back to black */
 function getTextColor(props: Record<string, unknown>): string {
   const textFills = props._textFills as Paint[] | undefined;
   if (textFills && textFills.length > 0) {
@@ -151,7 +151,7 @@ function getTextColor(props: Record<string, unknown>): string {
     }
     return "transparent";
   }
-  return "#ffffff";
+  return "#000000";
 }
 
 /** Render multi-segment text with per-segment styling */
@@ -200,28 +200,59 @@ export function FigmaNodeRenderer({
   parentLayout = "NONE",
   isChild = false,
 }: FigmaNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, selectedIds } =
-    useEditorStore();
+  const {
+    setSelectedIds,
+    toggleSelection,
+    moveNodes,
+    resizeNode,
+    pushHistory,
+    enteredFrameId,
+    enterFrame,
+    exitFrame,
+  } = useEditorStore();
 
   const figma = node.props?._figma as FigmaProps | undefined;
   const isEllipse = !!node.props?._ellipse;
   const isText = figma?.originalType === "TEXT";
   const hasImageFill = !!node.props?._hasImageFill;
   const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
+  const isVector = figma?.originalType === "VECTOR" ||
+    figma?.originalType === "BOOLEAN_OPERATION" ||
+    figma?.originalType === "STAR" ||
+    figma?.originalType === "POLYGON";
+
+  const isFrameEntered = enteredFrameId === node.id;
+  const isInsideEnteredFrame = isChild && enteredFrameId != null;
+  const isSelectableChild = isInsideEnteredFrame;
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isChild) return;
+      if (isChild && !isSelectableChild) return;
       e.stopPropagation();
-      if (e.shiftKey) toggleSelection(node.id);
-      else setSelectedIds([node.id]);
+      if (e.shiftKey) {
+        toggleSelection(node.id);
+      } else {
+        setSelectedIds([node.id]);
+      }
     },
-    [node.id, toggleSelection, setSelectedIds, isChild]
+    [node.id, toggleSelection, setSelectedIds, isChild, isSelectableChild]
   );
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!isChild && node.children && node.children.length > 0) {
+        enterFrame(node.id);
+      }
+    },
+    [node.id, node.children, isChild, enterFrame]
+  );
+
+  const canDrag = !isChild || isSelectableChild;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (isChild) return;
+      if (!canDrag) return;
       if (e.button !== 0) return;
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
@@ -245,7 +276,7 @@ export function FigmaNodeRenderer({
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, zoom, moveNodes, pushHistory, isChild]
+    [node.id, zoom, moveNodes, pushHistory, canDrag]
   );
 
   const handleResizeStart = useCallback(
@@ -274,6 +305,7 @@ export function FigmaNodeRenderer({
   );
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
+  const showSelection = (isSelected && !isChild) || (isSelected && isSelectableChild);
 
   const style: React.CSSProperties = {
     position: usesFlex ? "relative" : "absolute",
@@ -282,11 +314,10 @@ export function FigmaNodeRenderer({
     width: node.width,
     height: node.height,
     boxSizing: "border-box",
-    cursor: isChild ? "default" : "pointer",
+    cursor: canDrag ? "pointer" : "default",
   };
 
-  // Only show selection outline on root (non-child) nodes
-  if (!isChild && isSelected) {
+  if (showSelection) {
     style.outline = "2px solid var(--accent)";
     style.outlineOffset = -1;
   }
@@ -306,7 +337,6 @@ export function FigmaNodeRenderer({
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
 
-    // Only render background if NOT a text node
     if (!hasImageFill && !isTextNode) {
       const bg = getBackground(figma.fills ?? [], fillEnabled, false);
       if (bg) {
@@ -355,17 +385,23 @@ export function FigmaNodeRenderer({
   if (isText) {
     const props = node.props ?? {};
 
-    // Text color from segments or text fills
     style.color = getTextColor(props);
-
-    style.display = "flex";
-    style.alignItems = "flex-start";
     style.whiteSpace = "pre-wrap";
     style.wordBreak = "break-word";
+    style.margin = 0;
+    style.padding = 0;
 
     // No background for text nodes
     style.backgroundColor = undefined;
     style.background = undefined;
+
+    // Vertical alignment: only use flex when CENTER or BOTTOM
+    const vAlign = (props._textAlignVertical as string) ?? "TOP";
+    if (vAlign === "CENTER" || vAlign === "BOTTOM") {
+      style.display = "flex";
+      style.flexDirection = "column";
+      style.justifyContent = vAlign === "CENTER" ? "center" : "flex-end";
+    }
 
     const noOverflow = props._textNoOverflow === true;
     const truncation = props._textTruncation as string | undefined;
@@ -385,7 +421,6 @@ export function FigmaNodeRenderer({
       style.WebkitBoxOrient = "vertical";
     }
 
-    // WIDTH_AND_HEIGHT means auto-sized text box — don't constrain
     const autoResize = props._textAutoResize as string | undefined;
     if (autoResize === "WIDTH_AND_HEIGHT") {
       style.width = undefined;
@@ -421,28 +456,32 @@ export function FigmaNodeRenderer({
       <div
         style={style}
         onClick={handleClick}
-        onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
+        onDoubleClick={handleDoubleClick}
+        onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
         onPointerDown={handlePointerDown}
       >
         {renderTextContent(props)}
-        {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
   }
 
   // ── IMAGE NODE ────────────────────────────────────────────────
-  if (hasImageFill) {
+  if (hasImageFill || (isVector && node.props?._imageData)) {
     const imageData = node.props?._imageData as string | undefined;
     const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
     const objectFit =
       scaleMode === "FIT" ? "contain" :
       scaleMode === "TILE" ? "none" : "cover";
 
+    const isSvgDataUrl = imageData?.includes("image/svg+xml");
+
     return (
       <div
         style={{ ...style, overflow: "hidden" }}
         onClick={handleClick}
-        onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
+        onDoubleClick={handleDoubleClick}
+        onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
         onPointerDown={handlePointerDown}
       >
         {imageData ? (
@@ -453,8 +492,9 @@ export function FigmaNodeRenderer({
             style={{
               width: "100%",
               height: "100%",
-              objectFit: objectFit as React.CSSProperties["objectFit"],
+              objectFit: isSvgDataUrl ? "contain" : objectFit as React.CSSProperties["objectFit"],
               display: "block",
+              pointerEvents: "none",
             }}
             draggable={false}
           />
@@ -474,7 +514,7 @@ export function FigmaNodeRenderer({
             Image
           </div>
         )}
-        {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
   }
@@ -482,19 +522,37 @@ export function FigmaNodeRenderer({
   // ── FRAME / SHAPE / GROUP ─────────────────────────────────────
   const childLayout = layout !== "NONE" ? layout : "NONE";
 
+  // When a frame is "entered" via double-click, show a subtle dashed outline
+  if (isFrameEntered) {
+    style.outline = "2px dashed var(--accent)";
+    style.outlineOffset = 2;
+  }
+
   return (
     <div
       style={style}
-      onClick={handleClick}
-      onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
+      onClick={(e) => {
+        if (isChild && !isSelectableChild) return;
+        e.stopPropagation();
+        if (e.shiftKey) {
+          toggleSelection(node.id);
+        } else {
+          if (isFrameEntered) {
+            exitFrame();
+          }
+          setSelectedIds([node.id]);
+        }
+      }}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
       onPointerDown={handlePointerDown}
     >
-      {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       {node.children?.map((child) => (
         <FigmaNodeRenderer
           key={child.id}
           node={child}
-          isSelected={false}
+          isSelected={isSelectableChild ? useEditorStore.getState().selectedIds.has(child.id) : false}
           zoom={zoom}
           parentLayout={childLayout}
           isChild={true}

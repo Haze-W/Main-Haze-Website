@@ -34,8 +34,15 @@ export function useFigmaPasteListener() {
 
       e.preventDefault();
 
-      const nodes = figmaToSceneNodes(data);
+      let nodes = figmaToSceneNodes(data);
       const store = useEditorStore.getState();
+
+      const pt = store.lastCanvasPoint;
+      if (pt && nodes.length > 0) {
+        const dx = pt.x - nodes[0].x;
+        const dy = pt.y - nodes[0].y;
+        nodes = nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+      }
 
       store.pushHistory();
       store.setNodes([...store.nodes, ...nodes]);

@@ -217,7 +217,12 @@ export function EditorShell() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  const lastCanvasPoint = useEditorStore((s) => s.lastCanvasPoint);
+
   const getPlacement = () => {
+    if (lastCanvasPoint) {
+      return { x: lastCanvasPoint.x, y: lastCanvasPoint.y };
+    }
     const offset = nodes.length * 24;
     return { x: 120 + offset, y: 120 };
   };
@@ -296,7 +301,12 @@ export function EditorShell() {
         return;
       }
       if (e.key === "Escape") {
-        useEditorStore.getState().setSelectedIds([]);
+        const store = useEditorStore.getState();
+        if (store.enteredFrameId) {
+          store.exitFrame();
+        } else {
+          store.setSelectedIds([]);
+        }
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {

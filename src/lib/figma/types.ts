@@ -107,6 +107,8 @@ export interface RenderPayload {
   preview: string | null;
   frame: FigmaNode;
   assets?: Record<string, string>;
+  /** Some plugins use "images" instead of "assets" */
+  images?: Record<string, string>;
 }
 
 /** Convert Figma {hex, alpha} paint to CSS rgba string */

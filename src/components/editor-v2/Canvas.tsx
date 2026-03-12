@@ -56,6 +56,7 @@ export function Canvas() {
     canvasBg,
     showGrid,
     gridType,
+    setLastCanvasPoint,
   } = useEditorStore();
 
 
@@ -184,6 +185,9 @@ export function Canvas() {
         const h = Math.abs(pt.y - dragState.startY);
         const ids = w > 2 && h > 2 ? findNodesInRect({ x, y, width: w, height: h }) : [];
         setSelectedIds(ids);
+        if (ids.length === 0) {
+          useEditorStore.getState().exitFrame();
+        }
       } else if (dragState.type === "frame") {
         finishCreateFrame(pt.x, pt.y);
       }
@@ -298,7 +302,20 @@ export function Canvas() {
         cursor: isPanning || isSpacePressed ? "grabbing" : tool === "HAND" ? "grab" : "default",
       }}
       onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
+      onPointerMove={(e) => {
+        handlePointerMove(e);
+        if (containerRect) {
+          const pt = screenToCanvas(
+            e.clientX,
+            e.clientY,
+            containerRect,
+            viewport.panX,
+            viewport.panY,
+            viewport.zoom
+          );
+          setLastCanvasPoint(pt);
+        }
+      }}
       onPointerUp={handlePointerUp}
       onPointerLeave={() => {
         if (dragState) {

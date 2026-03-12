@@ -73,6 +73,10 @@ interface EditorState {
   gridType: "dots" | "lines" | "cross" | "none";
   // Snap
   snapLines: Array<{ id: string; type: "h" | "v"; pos: number }>;
+  // Figma deep selection: which frame is "entered" for child editing
+  enteredFrameId: string | null;
+  // Last mouse position in canvas coords (for paste/drop placement)
+  lastCanvasPoint: { x: number; y: number } | null;
 }
 
 type EditorActions = {
@@ -101,6 +105,9 @@ type EditorActions = {
   setCanvasBg: (v: string) => void;
   setShowGrid: (v: boolean) => void;
   setGridType: (v: "dots" | "lines" | "cross" | "none") => void;
+  enterFrame: (id: string) => void;
+  exitFrame: () => void;
+  setLastCanvasPoint: (pt: { x: number; y: number } | null) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -188,6 +195,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   showGrid: true,
   gridType: "dots",
   snapLines: [],
+  enteredFrameId: null,
+  lastCanvasPoint: null,
 
   setNodes: (nodes) => set({ nodes }),
   addNode: (partial, parentId) => {
@@ -336,6 +345,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   setCanvasBg: (canvasBg) => set({ canvasBg }),
   setShowGrid: (showGrid) => set({ showGrid }),
   setGridType: (gridType) => set({ gridType }),
+  enterFrame: (id) => set({ enteredFrameId: id }),
+  exitFrame: () => set({ enteredFrameId: null }),
+  setLastCanvasPoint: (pt) => set({ lastCanvasPoint: pt }),
   pushHistory: () => {
     set((s) => {
       const next = { nodes: serializeNodesForHistory(s.nodes) };

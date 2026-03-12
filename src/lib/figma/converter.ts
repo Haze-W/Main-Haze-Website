@@ -17,6 +17,10 @@ function mapType(figmaType: string): SceneNodeType {
       return "RECTANGLE";
     case "LINE":
     case "VECTOR":
+    case "BOOLEAN_OPERATION":
+    case "STAR":
+    case "POLYGON":
+    case "IMAGE":
       return "RECTANGLE";
     default:
       return "FRAME";
@@ -32,7 +36,13 @@ function mapLayoutMode(mode: string | null): "NONE" | "HORIZONTAL" | "VERTICAL" 
 function toDataUrl(value: string): string {
   if (!value) return "";
   if (value.startsWith("data:")) return value;
-  if (value.startsWith("<svg")) return `data:image/svg+xml;base64,${btoa(value)}`;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+
+  const trimmed = value.trim();
+  if (trimmed.startsWith("<svg") || trimmed.startsWith("<?xml") || trimmed.includes("<svg")) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(trimmed)}`;
+  }
+
   return `data:image/png;base64,${value}`;
 }
 
@@ -50,8 +60,12 @@ function resolveImageSrc(
   node: FigmaNode,
   assets: Record<string, string> | undefined
 ): string | null {
+  // Direct image data on the node (plugin may populate after export)
   if (node.imageData) return toDataUrl(node.imageData);
   if (node.src) return toDataUrl(node.src);
+
+  // SVG data on the node (common for VECTOR/BOOLEAN_OPERATION nodes)
+  if (node.svgData) return toDataUrl(node.svgData);
 
   // Check fills for IMAGE type
   if (node.fills) {
@@ -69,13 +83,30 @@ function resolveImageSrc(
     }
   }
 
-  // Asset lookup by node ID
-  if (assets?.[node.id]) return toDataUrl(assets[node.id]);
-  const svgKey = `${node.id}_svg`;
-  if (assets?.[svgKey]) return toDataUrl(assets[svgKey]);
+  if (!assets) return null;
 
-  // SVG data on the node itself
-  if (node.svgData) return toDataUrl(node.svgData);
+  // Try exact node ID keys
+  if (assets[node.id]) return toDataUrl(assets[node.id]);
+  const svgKey = `${node.id}_svg`;
+  if (assets[svgKey]) return toDataUrl(assets[svgKey]);
+
+  // Colon-stripped IDs (e.g., "123:4" → "123-4", "123_4")
+  const altIds = [
+    node.id.replace(/:/g, "-"),
+    node.id.replace(/:/g, "_"),
+  ];
+  for (const altId of altIds) {
+    if (assets[altId]) return toDataUrl(assets[altId]);
+    if (assets[`${altId}_svg`]) return toDataUrl(assets[`${altId}_svg`]);
+  }
+
+  // Fallback: any key that ends with or contains node.id (plugin-specific formats)
+  for (const [key, value] of Object.entries(assets)) {
+    if (!value || typeof value !== "string") continue;
+    if (key === node.id || key.endsWith(`_${node.id}`) || key.endsWith(`_${node.id.replace(/:/g, "-")}`)) {
+      return toDataUrl(value);
+    }
+  }
 
   return null;
 }
@@ -160,6 +191,9 @@ function convertNode(
       props._textSegments = node.text.segments;
     }
 
+    // Vertical text alignment
+    props._textAlignVertical = node.text.textAlignVertical ?? "TOP";
+
     // Overflow flags
     const noOverflow =
       node.text.noOverflow === true ||
@@ -203,6 +237,14 @@ function convertNode(
   };
 }
 
+/** Merge assets from payload - some plugins use "images" or other keys */
+function getMergedAssets(payload: RenderPayload): Record<string, string> | undefined {
+  const assets = payload.assets ?? {};
+  const images = payload.images ?? {};
+  const merged = { ...assets, ...images };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 /** Convert a RenderPayload into SceneNode[]. Returns an array with the root frame. */
 export function figmaToSceneNodes(
   payload: RenderPayload,
@@ -210,7 +252,7 @@ export function figmaToSceneNodes(
 ): SceneNode[] {
   const prefix =
     idPrefix ?? `figma-${Date.now()}-${Math.random().toString(36).slice(2, 9)}-`;
-  const assets = payload.assets;
+  const assets = getMergedAssets(payload);
   const rootNode = convertNode(payload.frame, undefined, prefix, assets);
   return [rootNode];
 }
