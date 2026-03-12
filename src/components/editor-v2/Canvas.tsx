@@ -53,6 +53,9 @@ export function Canvas() {
     cancelCreateFrame,
     findNodesInRect,
     setTool,
+    canvasBg,
+    showGrid,
+    gridType,
   } = useEditorStore();
 
   const measure = useCallback(() => {
@@ -198,7 +201,7 @@ export function Canvas() {
     ]
   );
 
-  // Movement: Scroll wheel = pan. Shift+scroll = zoom. Middle-mouse drag = pan.
+  // Figma-style: Scroll = pan. Ctrl/Cmd+scroll or Shift+scroll = zoom (cursor-centered).
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -207,10 +210,11 @@ export function Canvas() {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      if (e.shiftKey) {
-        // Shift + scroll = zoom
-        const delta = -e.deltaY * 0.002;
-        const newZoom = clampZoom(viewport.zoom * (1 + delta));
+      const isZoom = e.ctrlKey || e.metaKey || e.shiftKey;
+
+      if (isZoom) {
+        const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
+        const newZoom = clampZoom(viewport.zoom * factor);
         const vx = e.clientX - rect.left;
         const vy = e.clientY - rect.top;
         const mx = vx - viewport.panX;
@@ -221,7 +225,6 @@ export function Canvas() {
         const clamped = clampPan(rawPanX, rawPanY, newZoom, rect.width, rect.height);
         setViewport({ zoom: newZoom, ...clamped });
       } else {
-        // Scroll wheel (no Shift) = pan
         const rawPanX = viewport.panX - e.deltaX;
         const rawPanY = viewport.panY - e.deltaY;
         const clamped = clampPan(rawPanX, rawPanY, viewport.zoom, rect.width, rect.height);
@@ -289,6 +292,10 @@ export function Canvas() {
         setDroppableRef(el as HTMLElement);
       }}
       className={`${styles.wrapper} ${isPanning ? styles.panning : ""}`}
+      style={{
+        background: canvasBg,
+        cursor: isPanning || isSpacePressed ? "grabbing" : tool === "HAND" ? "grab" : "default",
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -306,7 +313,6 @@ export function Canvas() {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY });
       }}
-      style={{ cursor: isPanning || isSpacePressed ? "grabbing" : tool === "HAND" ? "grab" : "default" }}
     >
       <div
         className={styles.transform}
@@ -315,11 +321,16 @@ export function Canvas() {
         }}
       >
         <div className={styles.canvas}>
-          <div className={styles.grid} aria-hidden />
+          {showGrid && gridType !== "none" && (
+            <div
+              className={`${styles.grid} ${styles[`grid${gridType.charAt(0).toUpperCase() + gridType.slice(1)}`]}`}
+              aria-hidden
+            />
+          )}
           <div className={styles.content}>
-            {nodes.map((node) => (
+            {nodes.map((node, i) => (
               <SceneNodeRenderer
-                key={node.id}
+                key={`${node.id}-${i}`}
                 node={node}
                 isSelected={selectedIds.has(node.id)}
                 zoom={viewport.zoom}
@@ -327,6 +338,11 @@ export function Canvas() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className={styles.zoomTooltip} title="Ctrl/Cmd + scroll or Shift + scroll to zoom">
+        <span className={styles.zoomTooltipValue}>{Math.round(viewport.zoom * 100)}%</span>
+        <span className={styles.zoomTooltipHint}>Ctrl + scroll</span>
       </div>
 
       {marqueeRect && marqueeRect.width > 1 && marqueeRect.height > 1 && (

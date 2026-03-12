@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
+import { Search, Sparkles } from "lucide-react";
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
-import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import styles from "./ComponentsPanel.module.css";
 
 interface ComponentsPanelProps {
   onAddComponent: (key: string, x?: number, y?: number) => void;
-  onAddIcon: (iconName: string, x?: number, y?: number) => void;
+  onOpenIconPicker: () => void;
 }
 
 function DraggableComponent({
@@ -19,11 +19,11 @@ function DraggableComponent({
   onAdd: (key: string) => void;
 }) {
   const preset = COMPONENT_PRESETS[presetKey];
-  if (!preset) return null;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `component-${presetKey}`,
     data: { type: "component", key: presetKey },
   });
+  if (!preset) return null;
   return (
     <div
       ref={setNodeRef}
@@ -32,7 +32,7 @@ function DraggableComponent({
       className={`${styles.componentItem} ${isDragging ? styles.dragging : ""}`}
       onClick={() => onAdd(presetKey)}
     >
-      <span className={styles.componentIcon}>{getIcon(preset.type)}</span>
+      <div className={styles.componentIcon}>{getIcon(preset.type)}</div>
       <span>{preset.name}</span>
     </div>
   );
@@ -45,7 +45,7 @@ function getIcon(type: string): string {
     BUTTON: "⬚",
     INPUT: "▭",
     CHECKBOX: "☐",
-    SELECT: "▼",
+    SELECT: "▾",
     IMAGE: "🖼",
     ICON: "◆",
     CONTAINER: "▦",
@@ -58,9 +58,8 @@ function getIcon(type: string): string {
   return icons[type] ?? "•";
 }
 
-export function ComponentsPanel({ onAddComponent, onAddIcon }: ComponentsPanelProps) {
+export function ComponentsPanel({ onAddComponent, onOpenIconPicker }: ComponentsPanelProps) {
   const [search, setSearch] = useState("");
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const filtered = COMPONENT_CATEGORIES.map((cat) => ({
     ...cat,
@@ -73,22 +72,27 @@ export function ComponentsPanel({ onAddComponent, onAddIcon }: ComponentsPanelPr
 
   return (
     <div className={styles.panel}>
-      <div className={styles.header}>Components</div>
-      <input
-        type="search"
-        placeholder="Search..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className={styles.search}
-      />
+      <div className={styles.searchContainer}>
+        <Search size={14} className={styles.searchIcon} />
+        <input
+          type="search"
+          placeholder="Filter components..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={styles.search}
+          spellCheck={false}
+        />
+      </div>
+
       <button
         type="button"
         className={styles.iconLibraryBtn}
-        onClick={() => setIconPickerOpen(true)}
+        onClick={onOpenIconPicker}
       >
-        <span className={styles.iconLibraryIcon}>◆</span>
-        Icon Library
+        <Sparkles size={16} className={styles.iconLibraryIcon} />
+        Browse Icons
       </button>
+
       <div className={styles.list}>
         {filtered.map((cat) => (
           <div key={cat.label} className={styles.category}>
@@ -102,15 +106,12 @@ export function ComponentsPanel({ onAddComponent, onAddIcon }: ComponentsPanelPr
             ))}
           </div>
         ))}
+        {filtered.length === 0 && (
+          <div style={{ padding: 12, color: "var(--fg-muted)", fontSize: 13, textAlign: "center" }}>
+            No components found
+          </div>
+        )}
       </div>
-      <IconPickerModal
-        isOpen={iconPickerOpen}
-        onClose={() => setIconPickerOpen(false)}
-        onSelect={(iconName) => {
-          onAddIcon(iconName);
-          setIconPickerOpen(false);
-        }}
-      />
     </div>
   );
 }

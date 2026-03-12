@@ -1,6 +1,6 @@
 /**
  * Viewport - Screen ↔ Canvas coordinate transforms
- * Pixel-perfect at any zoom level
+ * Figma-style: smooth pan, cursor-centered zoom
  */
 
 export interface Point {
@@ -70,31 +70,24 @@ export function canvasToScreen(
   return { x: v.x + containerRect.left, y: v.y + containerRect.top };
 }
 
-export const MIN_ZOOM = 40;
-export const MAX_ZOOM = 100;
+/** Zoom: 0.01 = 1%, 1 = 100%, 40 = 4000% */
+export const MIN_ZOOM = 0.01;
+export const MAX_ZOOM = 40;
 
 export function clampZoom(zoom: number): number {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 }
 
-/** Canvas content size (used for pan bounds) */
-export const CANVAS_SIZE = 5000;
+/** Canvas size (matches Canvas.module.css) */
+export const CANVAS_SIZE = 8000;
 
-/** Border (px) - prevents scrolling fully off canvas */
-export const PAN_BORDER = 96;
-
-/** Clamp pan so at least PAN_BORDER of canvas stays visible in viewport */
+/** Figma-style: free pan, allow panning anywhere on infinite canvas */
 export function clampPan(
   panX: number,
   panY: number,
-  zoom: number,
-  containerWidth: number,
-  containerHeight: number
+  _zoom: number,
+  _containerWidth: number,
+  _containerHeight: number
 ): { panX: number; panY: number } {
-  const canvasW = CANVAS_SIZE * zoom;
-  const canvasH = CANVAS_SIZE * zoom;
-  return {
-    panX: Math.max(PAN_BORDER - canvasW, Math.min(containerWidth - PAN_BORDER, panX)),
-    panY: Math.max(PAN_BORDER - canvasH, Math.min(containerHeight - PAN_BORDER, panY)),
-  };
+  return { panX, panY };
 }

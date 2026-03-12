@@ -38,17 +38,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_KEY);
-      if (stored) {
-        const data = JSON.parse(stored) as AuthUser;
-        setState({ user: data, isAuthenticated: true, isLoading: false });
-        return;
+    const load = () => {
+      try {
+        const stored = localStorage.getItem(AUTH_KEY);
+        if (stored) {
+          const data = JSON.parse(stored) as AuthUser;
+          setState({ user: data, isAuthenticated: true, isLoading: false });
+          return;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-    setState((s) => ({ ...s, isLoading: false }));
+      setState((s) => ({ ...s, isLoading: false }));
+    };
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const login = useCallback((email: string, _password?: string) => {

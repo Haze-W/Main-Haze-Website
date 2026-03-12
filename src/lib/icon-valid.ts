@@ -8,10 +8,11 @@ let validNamesSet: Set<string> | null = null;
 function getValidNames(): Set<string> {
   if (!validNamesSet) {
     try {
-      const mod = require("lucide-react/dynamic");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic validation at runtime
+      const mod = require("lucide-react/dynamic") as { iconNames?: string[] };
       const names = mod?.iconNames;
       if (names && Array.isArray(names)) {
-        validNamesSet = new Set(names as string[]);
+        validNamesSet = new Set(names);
       } else {
         validNamesSet = new Set(["circle", "star", "home", "settings", "user"]);
       }

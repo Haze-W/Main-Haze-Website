@@ -126,7 +126,6 @@ export function TopBar() {
             const { frames, activeFrameId } = useEditorStore.getState();
             await downloadProject(frames, activeFrameId, "my-tauri-app");
           }}
-          projectName="my-tauri-app"
         />
         <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
         <div className={styles.userControls}>

@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════
+   Properties Panel - Raycast Style
+═══════════════════════════════════════════════════════════════ */
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -5,114 +9,569 @@
 }
 
 .header {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  height: 38px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--fg-primary);
   border-bottom: 1px solid var(--border-muted);
+  flex-shrink: 0;
 }
 
 .empty {
   flex: 1;
-  padding: var(--space-6);
-  font-size: var(--text-sm);
+  padding: var(--space-6) var(--space-4);
+  font-size: 13px;
   color: var(--fg-muted);
   text-align: center;
+  line-height: 1.6;
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .section {
-  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .label {
-  font-size: var(--text-xs);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--fg-muted);
-  margin-bottom: var(--space-2);
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-left: 2px;
 }
 
 .row {
   display: flex;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+}
+
+.inputGroup {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  overflow: hidden;
+  flex: 1;
+}
+
+.inputGroup:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
+}
+
+.inputPrefix {
+  padding: 0 0 0 8px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  user-select: none;
 }
 
 .panel input[type="text"],
 .panel input[type="number"] {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  padding: 6px 8px;
+  font-size: 13px;
   color: var(--fg-primary);
-  background: var(--bg-base);
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-}
-
-.panel input:focus {
+  background: transparent;
+  border: none;
   outline: none;
-  border-color: var(--accent);
 }
 
-.panel label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--fg-secondary);
+/* Standalone inputs */
+.standaloneInput {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--fg-primary);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.standaloneInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
 }
 
 .select {
   flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  padding: 6px 8px;
+  font-size: 13px;
   color: var(--fg-primary);
-  background: var(--bg-base);
-  border: 1px solid var(--border-muted);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
+  outline: none;
+  transition: all var(--transition-fast);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b949e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
 }
 
 .checkbox {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--fg-secondary);
-  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--fg-primary);
   cursor: pointer;
+  user-select: none;
+  padding: 4px 2px;
+}
+
+.checkbox input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.checkbox input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .colorRow {
-  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .colorInputWrap {
   display: flex;
-  gap: var(--space-2);
   align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  transition: all var(--transition-fast);
+}
+
+.colorInputWrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
+}
+
+.colorSwatchWrapper {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.colorSwatchBtn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.colorSwatchBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .colorSwatch {
-  width: 32px;
-  height: 28px;
-  padding: 2px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
   background: transparent;
   cursor: pointer;
 }
 
 .colorText {
   flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: var(--font-mono);
   color: var(--fg-primary);
-  background: var(--bg-base);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* ── Modern checkbox (toggle style) ───────────────────────── */
+.checkboxModern {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--fg-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxTrack {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.checkboxInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkboxThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.checkboxInput:checked + .checkboxThumb {
+  transform: translateX(16px);
+}
+
+.checkboxTrack:has(.checkboxInput:checked) {
+  background: var(--accent);
+}
+
+/* ── Grid type selector ──────────────────────────────────── */
+.gridTypeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.gridTypeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.gridTypeBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-primary);
+}
+
+.gridTypeBtnActive {
+  background: rgba(94, 92, 230, 0.2) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+
+.gridPreviewDots,
+.gridPreviewLines,
+.gridPreviewCross {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background-size: 6px 6px;
+}
+
+.gridPreviewDots {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
+}
+
+.gridPreviewLines {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px);
+}
+
+.gridPreviewCross {
+  background-image:
+    radial-gradient(circle at center, rgba(255,255,255,0.6) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px);
+}
+
+/* ── Modern color picker (Page background) ─────────────────── */
+.colorPickerModern {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.colorPickerModern:focus-within {
+  border-color: var(--accent);
+}
+
+.colorPickerTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.colorTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.colorTab:hover {
+  color: var(--fg-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.colorTabActive {
+  color: var(--accent) !important;
+  background: rgba(94, 92, 230, 0.1) !important;
+}
+
+.colorSolidRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.colorSwatchModern {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.colorInputNative {
+  position: absolute;
+  inset: -4px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.colorSwatchPreview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.colorHexInput {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--fg-primary);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
+  outline: none;
+}
+
+.colorHexInput:focus {
+  border-color: var(--accent);
+}
+
+.colorGradientRow {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gradientInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gradientAngle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+}
+
+.gradientAngleInput {
+  width: 72px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--fg-primary);
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+
+.gradientAngleInput:focus {
+  border-color: var(--accent);
+}
+
+.gradientStops {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.gradientStop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gradientStopLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 32px;
+}
+
+.gradientStopSwatch {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.gradientStopSwatch:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.gradientApplyBtn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.gradientApplyBtn:hover {
+  background: var(--accent-muted);
+}
+
+.colorImageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.colorImageUrl {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--fg-primary);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  outline: none;
+}
+
+.colorImageUrl:focus {
+  border-color: var(--accent);
+}
+
+.colorFileInput {
+  display: none;
+}
+
+.colorUploadBtn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-primary);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.colorUploadBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
 }

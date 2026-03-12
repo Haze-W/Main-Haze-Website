@@ -67,6 +67,10 @@ interface EditorState {
   historyIndex: number;
   // UI
   mode: "design" | "code" | "settings";
+  // Canvas appearance
+  canvasBg: string;
+  showGrid: boolean;
+  gridType: "dots" | "lines" | "cross" | "none";
   // Snap
   snapLines: Array<{ id: string; type: "h" | "v"; pos: number }>;
 }
@@ -94,6 +98,9 @@ type EditorActions = {
   cancelCreateFrame: () => void;
   setSnapLines: (lines: Array<{ id: string; type: "h" | "v"; pos: number }>) => void;
   setMode: (mode: "design" | "code" | "settings") => void;
+  setCanvasBg: (v: string) => void;
+  setShowGrid: (v: boolean) => void;
+  setGridType: (v: "dots" | "lines" | "cross" | "none") => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -177,6 +184,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   history: [{ nodes: JSON.parse(JSON.stringify(initialNodes)) }],
   historyIndex: 0,
   mode: "design",
+  canvasBg: "#1e1e1e",
+  showGrid: true,
+  gridType: "dots",
   snapLines: [],
 
   setNodes: (nodes) => set({ nodes }),
@@ -323,6 +333,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   cancelCreateFrame: () => set({ isCreatingFrame: false, createFrameStart: null }),
   setSnapLines: (snapLines) => set({ snapLines }),
   setMode: (mode) => set({ mode }),
+  setCanvasBg: (canvasBg) => set({ canvasBg }),
+  setShowGrid: (showGrid) => set({ showGrid }),
+  setGridType: (gridType) => set({ gridType }),
   pushHistory: () => {
     set((s) => {
       const next = { nodes: serializeNodesForHistory(s.nodes) };

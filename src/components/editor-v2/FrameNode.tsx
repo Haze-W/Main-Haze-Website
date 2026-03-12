@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
 import { ResizeHandles } from "./ResizeHandles";
+import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
 
 interface FrameNodeProps {
   node: SceneNode;
@@ -12,7 +13,7 @@ interface FrameNodeProps {
 }
 
 export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory } = useEditorStore();
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, selectedIds } = useEditorStore();
 
   const handleResizeStart = useCallback(
     (handle: string) => (e: React.PointerEvent) => {
@@ -100,28 +101,40 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         {node.name}
       </div>
       <div style={{ flex: 1, position: "relative", minHeight: node.height - 40 }}>
-        {node.children?.map((child) => (
-          <div
-            key={child.id}
-            style={{
-              position: "absolute",
-              left: child.x,
-              top: child.y,
-              width: child.width,
-              height: child.height,
-              background: "var(--bg-hover)",
-              border: "1px dashed var(--border-muted)",
-              borderRadius: 4,
-              fontSize: 10,
-              color: "var(--fg-muted)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {child.type}
-          </div>
-        ))}
+        {node.children?.map((child) => {
+          if (child.props?._figma) {
+            return (
+              <FigmaNodeRenderer
+                key={child.id}
+                node={child}
+                isSelected={selectedIds.has(child.id)}
+                zoom={zoom}
+              />
+            );
+          }
+          return (
+            <div
+              key={child.id}
+              style={{
+                position: "absolute",
+                left: child.x,
+                top: child.y,
+                width: child.width,
+                height: child.height,
+                background: "var(--bg-hover)",
+                border: "1px dashed var(--border-muted)",
+                borderRadius: 4,
+                fontSize: 10,
+                color: "var(--fg-muted)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {child.type}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

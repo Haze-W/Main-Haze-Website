@@ -74,8 +74,8 @@ export function sceneNodesToFrames(nodes: SceneNode[]): Frame[] {
 
   const nonFrames = nodes.filter((n) => n.type !== "FRAME");
 
-  return nodes.map((n) => {
-    if (n.type !== "FRAME") return null;
+  return nodes.flatMap((n) => {
+    if (n.type !== "FRAME") return [];
     const frameChildren = (n.children ?? []).map((c) => sceneToCanvasNode(c));
     const rootNodesInside = nonFrames.filter((node) => isInsideFrame(node, n));
     const rootAsChildren = rootNodesInside.map((node) =>
@@ -92,5 +92,5 @@ export function sceneNodesToFrames(nodes: SceneNode[]): Frame[] {
       y: n.y,
       children: allChildren,
     };
-  }).filter((f): f is Frame => f !== null);
+  });
 }

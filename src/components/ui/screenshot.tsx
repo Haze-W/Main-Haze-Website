@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -24,13 +23,11 @@ export default function Screenshot({
   className,
 }: ScreenshotProps) {
   const { resolvedTheme } = useTheme();
-  const [src, setSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (resolvedTheme) {
-      setSrc(resolvedTheme === "light" ? srcLight : srcDark || srcLight);
-    }
-  }, [resolvedTheme, srcLight, srcDark]);
+  const src = resolvedTheme
+    ? resolvedTheme === "light"
+      ? srcLight
+      : srcDark ?? srcLight
+    : null;
 
   if (!src) {
     return (

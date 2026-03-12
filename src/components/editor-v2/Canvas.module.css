@@ -1,10 +1,8 @@
 .wrapper {
   flex: 1;
   overflow: hidden;
-  background: var(--canvas-bg);
+  background: #1e1e1e;
   position: relative;
-  /* Inner border so pan stops before scrolling fully off */
-  box-shadow: inset 0 0 0 1px var(--border-muted);
 }
 
 .wrapper.panning {
@@ -25,17 +23,41 @@
   height: 8000px;
 }
 
+/* Grid – fits entire canvas (8000×8000) */
 .grid {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  background-image:
-    linear-gradient(var(--canvas-grid-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--canvas-grid-color) 1px, transparent 1px);
-  background-size: var(--canvas-grid) var(--canvas-grid);
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
   pointer-events: none;
-  opacity: 0.6;
+}
+
+/* Dots (Figma-style) */
+.gridDots {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.18) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* Lines (horizontal + vertical) */
+.gridLines {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Cross (dots at intersections, subtle) */
+.gridCross {
+  background-image:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 .content {
@@ -51,12 +73,42 @@
   pointer-events: auto;
 }
 
+/* Zoom tooltip – top center */
+.zoomTooltip {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.zoomTooltipValue {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoomTooltipHint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .marquee {
   position: absolute;
   top: 0;
   left: 0;
-  border: 2px solid var(--accent);
-  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid var(--accent);
+  background: rgba(88, 166, 255, 0.08);
   pointer-events: none;
   z-index: 1000;
 }
@@ -67,24 +119,26 @@
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: var(--fg-muted);
+  color: rgba(255, 255, 255, 0.2);
   font-size: var(--text-sm);
   pointer-events: none;
   z-index: 100;
+  line-height: 1.8;
 }
 
 .emptyHint {
   margin-top: var(--space-2);
   font-size: var(--text-xs);
   max-width: 280px;
+  color: rgba(255, 255, 255, 0.12);
 }
 
 .createFramePreview {
   position: absolute;
   top: 0;
   left: 0;
-  border: 2px dashed var(--accent);
-  background: rgba(88, 166, 255, 0.05);
+  border: 1px solid var(--accent);
+  background: rgba(88, 166, 255, 0.04);
   pointer-events: none;
   z-index: 1000;
 }
