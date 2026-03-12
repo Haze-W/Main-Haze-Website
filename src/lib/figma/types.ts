@@ -4,12 +4,13 @@ export interface Paint {
   opacity?: number;
   transparent?: boolean;
   visible?: boolean;
-  type?: "SOLID" | "IMAGE" | "GRADIENT_LINEAR" | string;
+  type?: "SOLID" | "IMAGE" | "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND" | string;
   imageRef?: string;
   imageBytes?: string;
   imageData?: string;
   src?: string;
   scaleMode?: string;
+  stops?: Array<{ position: number; hex: string; alpha: number }>;
 }
 
 export interface Effect {
@@ -20,6 +21,18 @@ export interface Effect {
   y?: number;
   blur?: number;
   spread?: number;
+}
+
+export interface TextSegment {
+  characters: string;
+  fontFamily: string | null;
+  fontStyle: string | null;
+  fontSize: number;
+  fills: Paint[];
+  textDecoration?: string;
+  fontWeight?: number;
+  letterSpacing?: number;
+  lineHeight?: number | string;
 }
 
 export interface TextStyle {
@@ -33,8 +46,12 @@ export interface TextStyle {
   textAlign: string | null;
   textDecoration: string | null;
   fills: Paint[];
+  segments?: TextSegment[];
   noOverflow?: boolean;
+  overflowVisible?: boolean;
+  textShouldNotClip?: boolean;
   textTruncation?: string;
+  textAutoResize?: string;
   textAlignHorizontal?: string;
   textAlignVertical?: string;
   maxLines?: number | null;
@@ -56,8 +73,10 @@ export interface FigmaNode {
   overflowDirection?: string;
   fillEnabled?: boolean;
   strokeEnabled?: boolean;
+  textHasNoBackgroundFill?: boolean;
   imageData?: string;
   src?: string;
+  svgData?: string;
   cornerRadius: number | null;
   topLeftRadius: number | null;
   topRightRadius: number | null;

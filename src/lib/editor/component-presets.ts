@@ -123,6 +123,11 @@ export const COMPONENT_PRESETS: Record<string, ComponentPreset> = {
   EMPTY_STATE: { type: "CONTAINER", name: "Empty State", width: 280, height: 160 },
   ERROR_STATE: { type: "CONTAINER", name: "Error State", width: 280, height: 120 },
   SUCCESS_STATE: { type: "CONTAINER", name: "Success State", width: 280, height: 120 },
+
+  // Window Top Bar
+  TOPBAR_WIN: { type: "TOPBAR", name: "Top Bar (Windows)", width: 800, height: 36, props: { _topBarLayout: "windows" } },
+  TOPBAR_MAC: { type: "TOPBAR", name: "Top Bar (macOS)", width: 800, height: 36, props: { _topBarLayout: "mac" } },
+  TOPBAR_CUSTOM: { type: "TOPBAR", name: "Top Bar (Custom)", width: 800, height: 36, props: { _topBarLayout: "custom" } },
 };
 
 export const COMPONENT_CATEGORIES: { label: string; keys: string[] }[] = [
@@ -141,4 +146,5 @@ export const COMPONENT_CATEGORIES: { label: string; keys: string[] }[] = [
   { label: "Widgets", keys: ["SETTINGS_PANEL", "STATS_WIDGET", "GAUGE", "MAP_PLACEHOLDER"] },
   { label: "App Blocks", keys: ["TIMELINE", "KANBAN_COLUMN", "CHAT_BUBBLE", "COMMENT_THREAD", "USER_PROFILE"] },
   { label: "States", keys: ["EMPTY_STATE", "ERROR_STATE", "SUCCESS_STATE"] },
+  { label: "Window", keys: ["TOPBAR_WIN", "TOPBAR_MAC", "TOPBAR_CUSTOM"] },
 ];

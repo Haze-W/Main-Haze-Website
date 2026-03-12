@@ -105,8 +105,9 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
               <FigmaNodeRenderer
                 key={child.id}
                 node={child}
-                isSelected={selectedIds.has(child.id)}
+                isSelected={false}
                 zoom={zoom}
+                isChild={true}
               />
             );
           }

@@ -5,6 +5,7 @@ import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import { Image, Palette } from "lucide-react";
 import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
+import { TopBarConfigPanel } from "./TopBarConfigPanel";
 import type { Paint } from "@/lib/figma/types";
 import styles from "./PropertiesPanel.module.css";
 
@@ -579,6 +580,10 @@ export function PropertiesPanel() {
 
   if (!node) {
     return <CanvasProperties />;
+  }
+
+  if (node.type === "TOPBAR") {
+    return <TopBarConfigPanel nodeId={node.id} />;
   }
 
   const props = node.props ?? {};

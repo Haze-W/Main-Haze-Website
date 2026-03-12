@@ -32,6 +32,7 @@ function mapLayoutMode(mode: string | null): "NONE" | "HORIZONTAL" | "VERTICAL" 
 function toDataUrl(value: string): string {
   if (!value) return "";
   if (value.startsWith("data:")) return value;
+  if (value.startsWith("<svg")) return `data:image/svg+xml;base64,${btoa(value)}`;
   return `data:image/png;base64,${value}`;
 }
 
@@ -50,22 +51,32 @@ function resolveImageSrc(
   assets: Record<string, string> | undefined
 ): string | null {
   if (node.imageData) return toDataUrl(node.imageData);
-  if (node.src) return node.src;
-  const imageFillIndex = node.fills?.findIndex((f) => f.type === "IMAGE");
-  const imageFill =
-    imageFillIndex >= 0 ? node.fills?.[imageFillIndex] : undefined;
-  if (imageFill) {
-    if (imageFill.imageData) return toDataUrl(imageFill.imageData);
-    if (imageFill.src) return imageFill.src;
-    if (imageFill.imageBytes) return toDataUrl(imageFill.imageBytes);
-    if (imageFill.imageRef && assets?.[imageFill.imageRef])
-      return toDataUrl(assets[imageFill.imageRef]);
-    const fillKey = `${node.id}_fill_${imageFillIndex}`;
-    if (assets?.[fillKey]) return toDataUrl(assets[fillKey]);
+  if (node.src) return toDataUrl(node.src);
+
+  // Check fills for IMAGE type
+  if (node.fills) {
+    for (let i = 0; i < node.fills.length; i++) {
+      const fill = node.fills[i];
+      if (fill.type === "IMAGE") {
+        if (fill.imageData) return toDataUrl(fill.imageData);
+        if (fill.src) return toDataUrl(fill.src);
+        if (fill.imageBytes) return toDataUrl(fill.imageBytes);
+        if (fill.imageRef && assets?.[fill.imageRef])
+          return toDataUrl(assets[fill.imageRef]);
+        const fillKey = `${node.id}_fill_${i}`;
+        if (assets?.[fillKey]) return toDataUrl(assets[fillKey]);
+      }
+    }
   }
+
+  // Asset lookup by node ID
   if (assets?.[node.id]) return toDataUrl(assets[node.id]);
   const svgKey = `${node.id}_svg`;
   if (assets?.[svgKey]) return toDataUrl(assets[svgKey]);
+
+  // SVG data on the node itself
+  if (node.svgData) return toDataUrl(node.svgData);
+
   return null;
 }
 
@@ -76,6 +87,7 @@ function convertNode(
   assets: Record<string, string> | undefined
 ): SceneNode {
   const type = mapType(node.type);
+  const isTextNode = node.type === "TEXT";
 
   const props: Record<string, unknown> = {
     _figma: {
@@ -95,6 +107,7 @@ function convertNode(
       overflowDirection: node.overflowDirection,
       fillEnabled: node.fillEnabled,
       strokeEnabled: node.strokeEnabled,
+      textHasNoBackgroundFill: node.textHasNoBackgroundFill ?? isTextNode,
     },
     _originalFigmaId: node.id,
   };
@@ -113,25 +126,50 @@ function convertNode(
 
   if (node.text) {
     props.content = node.text.content;
-    if (node.text.fontSize != null) props.fontSize = node.text.fontSize;
-    if (node.text.fontWeight != null) props.fontWeight = String(node.text.fontWeight);
-    if (node.text.fontFamily) props.fontFamily = node.text.fontFamily;
-    if (node.text.fontStyle) props.fontStyle = node.text.fontStyle;
+
+    // Extract typography from segments if available, fall back to top-level text props
+    const seg0 = node.text.segments?.[0];
+    props.fontSize = seg0?.fontSize ?? node.text.fontSize ?? 14;
+    props.fontWeight = String(seg0?.fontWeight ?? node.text.fontWeight ?? 400);
+    props.fontFamily = seg0?.fontFamily ?? node.text.fontFamily;
+    props.fontStyle = seg0?.fontStyle ?? node.text.fontStyle;
+
     const textAlign =
-      node.text.textAlign ??
       node.text.textAlignHorizontal ??
+      node.text.textAlign ??
       "LEFT";
     props.textAlign = String(textAlign).toLowerCase();
-    if (node.text.letterSpacing) props.letterSpacing = node.text.letterSpacing;
-    if (node.text.lineHeight != null) props.lineHeight = node.text.lineHeight;
-    if (node.text.textDecoration) props.textDecoration = node.text.textDecoration;
-    if (node.text.fills && node.text.fills.length > 0) {
-      props._textFills = node.text.fills;
+
+    props.letterSpacing = seg0?.letterSpacing ?? node.text.letterSpacing ?? 0;
+    props.lineHeight = seg0?.lineHeight ?? node.text.lineHeight;
+    props.textDecoration = seg0?.textDecoration ?? node.text.textDecoration;
+
+    // Text fills: prefer segments[0].fills, then text.fills, then fallback to white
+    const segFills = seg0?.fills;
+    const textFills = node.text.fills;
+    if (segFills && segFills.length > 0) {
+      props._textFills = segFills;
+    } else if (textFills && textFills.length > 0) {
+      props._textFills = textFills;
+    } else {
+      props._textFills = [{ hex: "#ffffff", alpha: 1 }];
     }
-    props._textNoOverflow =
-      node.text.noOverflow ?? node.text.textTruncation === "DISABLED";
+
+    // Store all segments for multi-style text rendering
+    if (node.text.segments && node.text.segments.length > 0) {
+      props._textSegments = node.text.segments;
+    }
+
+    // Overflow flags
+    const noOverflow =
+      node.text.noOverflow === true ||
+      node.text.overflowVisible === true ||
+      node.text.textShouldNotClip === true ||
+      node.text.textTruncation === "DISABLED";
+    props._textNoOverflow = noOverflow;
     props._textTruncation = node.text.textTruncation;
     props._textMaxLines = node.text.maxLines;
+    props._textAutoResize = node.text.textAutoResize;
   }
 
   const nodeId = idPrefix + node.id;

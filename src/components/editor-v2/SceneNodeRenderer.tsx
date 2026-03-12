@@ -6,6 +6,7 @@ import { getValidIconName } from "@/lib/icon-valid";
 import { useEditorStore } from "@/lib/editor/store";
 import { FrameNode } from "./FrameNode";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
+import { TopBarNode } from "./TopBarNode";
 import styles from "./SceneNodeRenderer.module.css";
 
 const DynamicIcon = dynamic(
@@ -22,6 +23,9 @@ interface SceneNodeRendererProps {
 export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererProps) {
   if (node.props?._figma) {
     return <FigmaNodeRenderer node={node} isSelected={isSelected} zoom={zoom} />;
+  }
+  if (node.type === "TOPBAR") {
+    return <TopBarNode node={node} isSelected={isSelected} zoom={zoom} />;
   }
   if (node.type === "FRAME") {
     return <FrameNode node={node} isSelected={isSelected} zoom={zoom} />;

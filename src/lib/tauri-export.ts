@@ -4,7 +4,7 @@ import { getIconIcoBytes } from "./icon-data";
 import type { CanvasNode, Frame } from "./types";
 import type { ExportSettings } from "./editor/export-settings";
 
-const TAURI_CONF = (name: string) => JSON.stringify(
+const TAURI_CONF = (name: string, frameless = false) => JSON.stringify(
   {
     productName: name,
     version: "0.1.0",
@@ -24,6 +24,7 @@ const TAURI_CONF = (name: string) => JSON.stringify(
           height: 800,
           resizable: true,
           fullscreen: false,
+          ...(frameless ? { decorations: false } : {}),
         },
       ],
       security: { csp: null },
@@ -74,6 +75,45 @@ fn main() {
 }
 `;
 
+const WINDOW_CONTROLS_JS = `
+// Custom window controls for frameless window
+const { getCurrentWindow } = window.__TAURI_INTERNALS__ ?? {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const topbar = document.querySelector('[data-tauri-drag-region]');
+  if (topbar) {
+    // Double-click to maximize
+    topbar.addEventListener('dblclick', async () => {
+      const win = getCurrentWindow?.();
+      if (!win) return;
+      const maximized = await win.isMaximized();
+      if (maximized) win.unmaximize();
+      else win.maximize();
+    });
+  }
+
+  // Window control buttons
+  document.querySelectorAll('[data-window-control]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const action = btn.getAttribute('data-window-control');
+      const win = getCurrentWindow?.();
+      if (!win) return;
+      switch (action) {
+        case 'minimize': win.minimize(); break;
+        case 'maximize': {
+          const maximized = await win.isMaximized();
+          if (maximized) win.unmaximize();
+          else win.maximize();
+          break;
+        }
+        case 'close': win.close(); break;
+      }
+    });
+  });
+});
+`;
+
 const BUILD_RS = `fn main() {
     tauri_build::build()
 }
@@ -86,6 +126,12 @@ const CAPABILITIES = `{
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
     "shell:allow-open"
   ]
 }
@@ -178,16 +224,17 @@ export function getTauriProjectFiles(
   const nodes = activeFrame?.children ?? [];
   const appName = exportSettings?.appName ?? projectName;
   const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
+  const frameless = exportSettings?.frameless ?? false;
   const html = generateHtml(nodes, activeFrame ?? undefined, { appName, titleBarStyle });
   const css = generateCss(titleBarStyle);
   const name = appName;
 
-  return {
+  const files: TauriProjectFiles = {
     "package.json": PACKAGE_JSON(name),
     "vite.config.ts": VITE_CONFIG,
     "src/index.html": html,
     "src/styles.css": css,
-    "src-tauri/tauri.conf.json": TAURI_CONF(name),
+    "src-tauri/tauri.conf.json": TAURI_CONF(name, frameless),
     "src-tauri/Cargo.toml": CARGO_TOML(name),
     "src-tauri/src/main.rs": MAIN_RS,
     "src-tauri/build.rs": BUILD_RS,
@@ -195,6 +242,12 @@ export function getTauriProjectFiles(
     "src-tauri/icons/icon.ico": "(binary - 16x16 ICO)",
     "README.md": README,
   };
+
+  if (frameless) {
+    files["src/window-controls.js"] = WINDOW_CONTROLS_JS;
+  }
+
+  return files;
 }
 
 export async function createTauriProjectZip(
@@ -208,6 +261,7 @@ export async function createTauriProjectZip(
   const nodes = activeFrame?.children ?? [];
   const appName = exportSettings?.appName ?? projectName;
   const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
+  const frameless = exportSettings?.frameless ?? false;
   const html = generateHtml(nodes, activeFrame ?? undefined, { appName, titleBarStyle });
   const css = generateCss(titleBarStyle);
   const name = appName;
@@ -218,9 +272,12 @@ export async function createTauriProjectZip(
   const src = zip.folder("src")!;
   src.file("index.html", html);
   src.file("styles.css", css);
+  if (frameless) {
+    src.file("window-controls.js", WINDOW_CONTROLS_JS);
+  }
 
   const srcTauri = zip.folder("src-tauri")!;
-  srcTauri.file("tauri.conf.json", TAURI_CONF(name));
+  srcTauri.file("tauri.conf.json", TAURI_CONF(name, frameless));
   srcTauri.file("Cargo.toml", CARGO_TOML(name));
   srcTauri.file("src/main.rs", MAIN_RS);
   srcTauri.file("build.rs", BUILD_RS);

@@ -9,6 +9,8 @@ export interface ExportSettings {
   titleBarStyle: TitleBarStyle;
   /** Custom icon URL - if set, used for app icon (base64 or URL) */
   customIconUrl?: string;
+  /** When true, the exported window is frameless and uses a custom top bar */
+  frameless?: boolean;
 }
 
 const defaultSettings: ExportSettings = {

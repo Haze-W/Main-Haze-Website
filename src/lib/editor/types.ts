@@ -20,6 +20,7 @@ export type SceneNodeType =
   | "SELECT"
   | "DIVIDER"
   | "SPACER"
+  | "TOPBAR"
   | string; // Allow custom component types
 
 export interface Bounds {

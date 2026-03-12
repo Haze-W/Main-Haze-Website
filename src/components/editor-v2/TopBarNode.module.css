@@ -1,0 +1,177 @@
+/* ═══════════════════════════════════════════════════════════════
+   TopBarNode – Custom window title bar component
+═══════════════════════════════════════════════════════════════ */
+
+.topbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  user-select: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.topbar:hover .badge {
+  opacity: 1;
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Title area */
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.appIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.appIconFallback {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #5e5ce6, #a78bfa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.appIconFallback span {
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.titleText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+
+/* Window controls container */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+/* Windows-style control buttons */
+.controlBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  height: 100%;
+  padding: 0 14px;
+  transition: background 0.1s ease;
+  color: inherit;
+}
+
+.controlBtn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.controlBtn:active {
+  background: rgba(255,255,255,0.15);
+}
+
+.closeBtn:hover {
+  background: #e81123 !important;
+  color: white !important;
+}
+
+.closeBtn:active {
+  background: #f1707a !important;
+}
+
+/* macOS traffic-light buttons */
+.macControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.macBtn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+  position: relative;
+}
+
+.macBtn:hover {
+  filter: brightness(1.2);
+}
+
+.macBtn:active {
+  filter: brightness(0.8);
+}
+
+.macClose {
+  background: #ff5f57;
+}
+
+.macMinimize {
+  background: #febc2e;
+}
+
+.macMaximize {
+  background: #28c840;
+}
+
+.macBtn svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.macControls:hover .macBtn svg {
+  opacity: 1;
+}
+
+/* Control icon SVG sizing */
+.controlIcon {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}

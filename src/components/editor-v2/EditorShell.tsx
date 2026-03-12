@@ -99,6 +99,7 @@ function getTypeIcon(type: string): string {
     IMAGE: "🖼",
     CONTAINER: "▦",
     PANEL: "▤",
+    TOPBAR: "▬",
     DIVIDER: "—",
     SPACER: "□",
     LIST: "≡",

@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
 import { hexAlpha } from "@/lib/figma/types";
-import type { Paint, Effect } from "@/lib/figma/types";
+import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import { ResizeHandles } from "./ResizeHandles";
 
 interface FigmaNodeRendererProps {
@@ -12,6 +12,8 @@ interface FigmaNodeRendererProps {
   isSelected: boolean;
   zoom: number;
   parentLayout?: "NONE" | "HORIZONTAL" | "VERTICAL";
+  /** When true, this is a child inside a Figma frame — no independent selection/dragging */
+  isChild?: boolean;
 }
 
 interface FigmaProps {
@@ -31,6 +33,7 @@ interface FigmaProps {
   overflowDirection?: string;
   fillEnabled?: boolean;
   strokeEnabled?: boolean;
+  textHasNoBackgroundFill?: boolean;
 }
 
 function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined {
@@ -59,30 +62,46 @@ function getFillAlpha(fill: Paint): number {
   return 1;
 }
 
+function isFillVisible(fill: Paint): boolean {
+  if (fill.transparent === true) return false;
+  if (fill.visible === false) return false;
+  if (getFillAlpha(fill) === 0) return false;
+  return true;
+}
+
 function getBackground(
   fills: Paint[],
-  fillEnabled: boolean = true
+  fillEnabled: boolean,
+  isTextNode: boolean
 ): string | undefined {
+  if (isTextNode) return undefined;
   if (!fillEnabled || !fills || fills.length === 0) return undefined;
-  const fill = fills[0];
-  const alpha = getFillAlpha(fill);
-  if (fill.transparent === true || alpha === 0) return undefined;
-  if (fill.visible === false) return undefined;
-  return hexAlpha(fill.hex, alpha);
+
+  for (const fill of fills) {
+    if (!isFillVisible(fill)) continue;
+    if (!fill.type || fill.type === "SOLID") {
+      return hexAlpha(fill.hex, getFillAlpha(fill));
+    }
+    if (fill.type === "GRADIENT_LINEAR" && fill.stops && fill.stops.length >= 2) {
+      const stops = fill.stops
+        .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
+        .join(", ");
+      return `linear-gradient(${stops})`;
+    }
+  }
+  return undefined;
 }
 
 function getBorder(
   strokes: Paint[],
   strokeWeight: number,
-  strokeEnabled: boolean = true
+  strokeEnabled: boolean
 ): string | undefined {
   if (!strokeEnabled || !strokes || strokes.length === 0 || strokeWeight === 0)
     return undefined;
   const stroke = strokes[0];
-  const alpha = getFillAlpha(stroke);
-  if (stroke.transparent === true || alpha === 0) return undefined;
-  if (stroke.visible === false) return undefined;
-  return `${strokeWeight}px solid ${hexAlpha(stroke.hex, alpha)}`;
+  if (!isFillVisible(stroke)) return undefined;
+  return `${strokeWeight}px solid ${hexAlpha(stroke.hex, getFillAlpha(stroke))}`;
 }
 
 function getBoxShadow(effects: Effect[]): string | undefined {
@@ -122,11 +141,64 @@ function mapAlign(val: string | null | undefined): string | undefined {
   }
 }
 
+/** Get text color from segment fills, falling back to white */
+function getTextColor(props: Record<string, unknown>): string {
+  const textFills = props._textFills as Paint[] | undefined;
+  if (textFills && textFills.length > 0) {
+    const tf = textFills[0];
+    if (isFillVisible(tf)) {
+      return hexAlpha(tf.hex, getFillAlpha(tf));
+    }
+    return "transparent";
+  }
+  return "#ffffff";
+}
+
+/** Render multi-segment text with per-segment styling */
+function renderTextContent(props: Record<string, unknown>): React.ReactNode {
+  const segments = props._textSegments as TextSegment[] | undefined;
+  const content = (props.content as string) ?? "";
+
+  if (!segments || segments.length <= 1) {
+    return content;
+  }
+
+  return segments.map((seg, i) => {
+    const segStyle: React.CSSProperties = {};
+
+    if (seg.fontFamily) segStyle.fontFamily = `"${seg.fontFamily}", sans-serif`;
+    if (seg.fontSize) segStyle.fontSize = seg.fontSize;
+    if (seg.fontWeight) segStyle.fontWeight = seg.fontWeight;
+    if (seg.fontStyle?.toLowerCase() === "italic") segStyle.fontStyle = "italic";
+    if (seg.textDecoration) {
+      const dec = seg.textDecoration.toLowerCase();
+      if (dec !== "none") segStyle.textDecoration = dec;
+    }
+    if (seg.letterSpacing != null && seg.letterSpacing !== 0) {
+      segStyle.letterSpacing = seg.letterSpacing;
+    }
+
+    if (seg.fills && seg.fills.length > 0) {
+      const sf = seg.fills[0];
+      if (isFillVisible(sf)) {
+        segStyle.color = hexAlpha(sf.hex, getFillAlpha(sf));
+      } else {
+        segStyle.color = "transparent";
+      }
+    }
+
+    return (
+      <span key={i} style={segStyle}>{seg.characters}</span>
+    );
+  });
+}
+
 export function FigmaNodeRenderer({
   node,
   isSelected,
   zoom,
   parentLayout = "NONE",
+  isChild = false,
 }: FigmaNodeRendererProps) {
   const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, selectedIds } =
     useEditorStore();
@@ -135,42 +207,52 @@ export function FigmaNodeRenderer({
   const isEllipse = !!node.props?._ellipse;
   const isText = figma?.originalType === "TEXT";
   const hasImageFill = !!node.props?._hasImageFill;
+  const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (isChild) return;
       e.stopPropagation();
       if (e.shiftKey) toggleSelection(node.id);
       else setSelectedIds([node.id]);
     },
-    [node.id, toggleSelection, setSelectedIds]
+    [node.id, toggleSelection, setSelectedIds, isChild]
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (isChild) return;
       if (e.button !== 0) return;
       e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
+      let moved = false;
       const onMove = (move: PointerEvent) => {
         const dx = (move.clientX - last.clientX) / zoom;
         const dy = (move.clientY - last.clientY) / zoom;
+        if (dx !== 0 || dy !== 0) moved = true;
         moveNodes([node.id], dx, dy);
         last.clientX = move.clientX;
         last.clientY = move.clientY;
       };
       const onUp = () => {
+        target.releasePointerCapture(e.pointerId);
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
-        pushHistory();
+        if (moved) pushHistory();
       };
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, zoom, moveNodes, pushHistory]
+    [node.id, zoom, moveNodes, pushHistory, isChild]
   );
 
   const handleResizeStart = useCallback(
     (handle: string) => (e: React.PointerEvent) => {
       e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
       const onMove = (move: PointerEvent) => {
         const dx = (move.clientX - last.clientX) / zoom;
@@ -180,6 +262,7 @@ export function FigmaNodeRenderer({
         last.clientY = move.clientY;
       };
       const onUp = () => {
+        target.releasePointerCapture(e.pointerId);
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         pushHistory();
@@ -199,10 +282,14 @@ export function FigmaNodeRenderer({
     width: node.width,
     height: node.height,
     boxSizing: "border-box",
-    cursor: "pointer",
-    outline: isSelected ? "2px solid var(--accent)" : "none",
-    outlineOffset: -1,
+    cursor: isChild ? "default" : "pointer",
   };
+
+  // Only show selection outline on root (non-child) nodes
+  if (!isChild && isSelected) {
+    style.outline = "2px solid var(--accent)";
+    style.outlineOffset = -1;
+  }
 
   if (node.visible === false) {
     style.display = "none";
@@ -218,12 +305,17 @@ export function FigmaNodeRenderer({
 
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
-    const solidFills = (figma.fills ?? []).filter(
-      (f: Paint) => !f.type || f.type === "SOLID"
-    );
-    if (!hasImageFill) {
-      const bg = getBackground(solidFills, fillEnabled);
-      if (bg) style.backgroundColor = bg;
+
+    // Only render background if NOT a text node
+    if (!hasImageFill && !isTextNode) {
+      const bg = getBackground(figma.fills ?? [], fillEnabled, false);
+      if (bg) {
+        if (bg.startsWith("linear-gradient") || bg.startsWith("radial-gradient")) {
+          style.background = bg;
+        } else {
+          style.backgroundColor = bg;
+        }
+      }
     }
 
     const strokeEnabled = figma.strokeEnabled !== false;
@@ -259,25 +351,21 @@ export function FigmaNodeRenderer({
     if (alignItems) style.alignItems = alignItems;
   }
 
+  // ── TEXT NODE ──────────────────────────────────────────────────
   if (isText) {
     const props = node.props ?? {};
-    const textFills = props._textFills as Paint[] | undefined;
-    if (textFills && textFills.length > 0) {
-      const tf = textFills[0];
-      const tfAlpha = getFillAlpha(tf);
-      if (tf.transparent !== true && tfAlpha !== 0) {
-        style.color = hexAlpha(tf.hex, tfAlpha);
-      } else {
-        style.color = "transparent";
-      }
-    } else {
-      style.color = "#000000";
-    }
+
+    // Text color from segments or text fills
+    style.color = getTextColor(props);
 
     style.display = "flex";
     style.alignItems = "flex-start";
     style.whiteSpace = "pre-wrap";
     style.wordBreak = "break-word";
+
+    // No background for text nodes
+    style.backgroundColor = undefined;
+    style.background = undefined;
 
     const noOverflow = props._textNoOverflow === true;
     const truncation = props._textTruncation as string | undefined;
@@ -289,11 +377,20 @@ export function FigmaNodeRenderer({
         style.textOverflow = "ellipsis";
       }
     }
+
     const maxLines = props._textMaxLines as number | null | undefined;
     if (maxLines != null && maxLines > 0 && !noOverflow && truncation !== "DISABLED") {
       style.WebkitLineClamp = maxLines;
       style.display = "-webkit-box";
       style.WebkitBoxOrient = "vertical";
+    }
+
+    // WIDTH_AND_HEIGHT means auto-sized text box — don't constrain
+    const autoResize = props._textAutoResize as string | undefined;
+    if (autoResize === "WIDTH_AND_HEIGHT") {
+      style.width = undefined;
+      style.height = undefined;
+      style.minWidth = node.width;
     }
 
     if (props.fontFamily) style.fontFamily = `"${props.fontFamily as string}", sans-serif`;
@@ -324,15 +421,16 @@ export function FigmaNodeRenderer({
       <div
         style={style}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
+        onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
         onPointerDown={handlePointerDown}
       >
-        {(props.content as string) ?? ""}
-        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {renderTextContent(props)}
+        {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
   }
 
+  // ── IMAGE NODE ────────────────────────────────────────────────
   if (hasImageFill) {
     const imageData = node.props?._imageData as string | undefined;
     const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
@@ -344,7 +442,7 @@ export function FigmaNodeRenderer({
       <div
         style={{ ...style, overflow: "hidden" }}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
+        onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
         onPointerDown={handlePointerDown}
       >
         {imageData ? (
@@ -376,33 +474,32 @@ export function FigmaNodeRenderer({
             Image
           </div>
         )}
-        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
   }
 
+  // ── FRAME / SHAPE / GROUP ─────────────────────────────────────
   const childLayout = layout !== "NONE" ? layout : "NONE";
 
   return (
     <div
       style={style}
       onClick={handleClick}
-      onContextMenu={(e) => e.stopPropagation()}
+      onContextMenu={(e) => { if (!isChild) e.stopPropagation(); }}
       onPointerDown={handlePointerDown}
     >
-      {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-      {node.children?.map((child) => {
-        const childSelected = selectedIds.has(child.id);
-        return (
-          <FigmaNodeRenderer
-            key={child.id}
-            node={child}
-            isSelected={childSelected}
-            zoom={zoom}
-            parentLayout={childLayout}
-          />
-        );
-      })}
+      {!isChild && isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      {node.children?.map((child) => (
+        <FigmaNodeRenderer
+          key={child.id}
+          node={child}
+          isSelected={false}
+          zoom={zoom}
+          parentLayout={childLayout}
+          isChild={true}
+        />
+      ))}
     </div>
   );
 }
