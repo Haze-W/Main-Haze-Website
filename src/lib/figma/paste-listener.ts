@@ -3,8 +3,50 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useEditorStore } from "@/lib/editor/store";
+import type { SceneNode } from "@/lib/editor/types";
 import { isRenderPayload } from "./types";
 import { figmaToSceneNodes } from "./converter";
+
+function isRenderCopyPayload(data: unknown): data is { _renderCopy: true; nodes: SceneNode[] } {
+  if (typeof data !== "object" || data === null) return false;
+  const d = data as Record<string, unknown>;
+  if (d._renderCopy !== true || !Array.isArray(d.nodes)) return false;
+  return d.nodes.length > 0 && typeof (d.nodes[0] as SceneNode).id === "string";
+}
+
+/** Process clipboard text and paste into the scene. Returns true if pasted. */
+export async function tryPasteFromClipboard(text: string): Promise<boolean> {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return false;
+  }
+
+  const store = useEditorStore.getState();
+
+  if (isRenderCopyPayload(data)) {
+    store.pasteNodes(data.nodes);
+    return true;
+  }
+
+  if (!isRenderPayload(data)) return false;
+
+  let payload = data as Parameters<typeof figmaToSceneNodes>[0];
+  let nodes = figmaToSceneNodes(payload);
+
+  const pt = store.lastCanvasPoint;
+  if (pt && nodes.length > 0) {
+    const dx = pt.x - nodes[0].x;
+    const dy = pt.y - nodes[0].y;
+    nodes = nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+  }
+
+  store.pushHistory();
+  store.setNodes([...store.nodes, ...nodes]);
+  if (nodes.length > 0) store.setSelectedIds(new Set([nodes[0].id]));
+  return true;
+}
 
 /** Convert clipboard image blob to base64 data URL */
 async function blobToDataUrl(file: File): Promise<string> {
@@ -77,6 +119,14 @@ export function useFigmaPasteListener() {
       try {
         data = JSON.parse(text);
       } catch {
+        return;
+      }
+
+      if (isRenderCopyPayload(data)) {
+        e.preventDefault();
+        const store = useEditorStore.getState();
+        store.pasteNodes(data.nodes);
+        if (!window.location.pathname.startsWith("/editor")) router.push("/editor");
         return;
       }
 

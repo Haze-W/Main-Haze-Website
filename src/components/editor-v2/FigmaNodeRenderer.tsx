@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
+import { loadGoogleFont } from "@/lib/editor/fonts";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import { ResizeHandles } from "./ResizeHandles";
@@ -197,6 +198,7 @@ function getTextColor(props: Record<string, unknown>): string {
 function renderTextContent(props: Record<string, unknown>): React.ReactNode {
   const segments = props._textSegments as TextSegment[] | undefined;
   const content = (props.content as string) ?? "";
+  const fallbackFont = props.fontFamily as string | undefined;
 
   if (!segments || segments.length <= 1) {
     return content;
@@ -205,7 +207,8 @@ function renderTextContent(props: Record<string, unknown>): React.ReactNode {
   return segments.map((seg, i) => {
     const segStyle: React.CSSProperties = {};
 
-    if (seg.fontFamily) segStyle.fontFamily = `"${seg.fontFamily}", sans-serif`;
+    const fontFamily = seg.fontFamily ?? fallbackFont;
+    if (fontFamily) segStyle.fontFamily = `"${fontFamily}", sans-serif`;
     if (seg.fontSize) segStyle.fontSize = seg.fontSize;
     if (seg.fontWeight) segStyle.fontWeight = seg.fontWeight;
     if (seg.fontStyle?.toLowerCase() === "italic") segStyle.fontStyle = "italic";
@@ -249,7 +252,23 @@ export function FigmaNodeRenderer({
     enteredFrameId,
     enterFrame,
     exitFrame,
+    updateNode,
   } = useEditorStore();
+
+  const [isEditingText, setIsEditingText] = useState(false);
+  const textEditRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isEditingText && textEditRef.current) {
+      textEditRef.current.focus();
+      const range = document.createRange();
+      range.selectNodeContents(textEditRef.current);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [isEditingText]);
 
   const VECTOR_TYPES = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
   const figma = node.props?._figma as FigmaProps | undefined;
@@ -265,7 +284,6 @@ export function FigmaNodeRenderer({
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isChild && !isSelectableChild) return;
       e.stopPropagation();
       if (e.shiftKey) {
         toggleSelection(node.id);
@@ -273,7 +291,7 @@ export function FigmaNodeRenderer({
         setSelectedIds([node.id]);
       }
     },
-    [node.id, toggleSelection, setSelectedIds, isChild, isSelectableChild]
+    [node.id, toggleSelection, setSelectedIds]
   );
 
   const handleDoubleClick = useCallback(
@@ -286,11 +304,8 @@ export function FigmaNodeRenderer({
     [node.id, node.children, isChild, enterFrame]
   );
 
-  const canDrag = !isChild || isSelectableChild;
-
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!canDrag) return;
       if (e.button !== 0) return;
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
@@ -343,7 +358,7 @@ export function FigmaNodeRenderer({
   );
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
-  const showSelection = (isSelected && !isChild) || (isSelected && isSelectableChild);
+  const showSelection = isSelected;
 
   const strokeWeight = figma?.strokeWeight ?? 0;
   const hasStroke = figma?.strokeEnabled !== false && (figma?.strokes?.length ?? 0) > 0 && strokeWeight > 0;
@@ -479,7 +494,11 @@ export function FigmaNodeRenderer({
       style.minWidth = node.width;
     }
 
-    if (props.fontFamily) style.fontFamily = `"${props.fontFamily as string}", sans-serif`;
+    if (props.fontFamily) {
+      const font = props.fontFamily as string;
+      loadGoogleFont(font);
+      style.fontFamily = `"${font}", sans-serif`;
+    }
     if (props.fontSize) style.fontSize = props.fontSize as number;
     if (props.fontWeight) {
       const fw = props.fontWeight as string;
@@ -507,11 +526,34 @@ export function FigmaNodeRenderer({
       <div
         style={style}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
-        onPointerDown={handlePointerDown}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          setIsEditingText(true);
+        }}
+        onPointerDown={isEditingText ? undefined : handlePointerDown}
       >
-        {renderTextContent(props)}
+        {isEditingText ? (
+          <div
+            ref={textEditRef}
+            contentEditable
+            suppressContentEditableWarning
+            style={{ outline: "none", cursor: "text", width: "100%", height: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            onBlur={(e) => {
+              setIsEditingText(false);
+              const text = e.currentTarget.textContent ?? "";
+              updateNode(node.id, { props: { ...(node.props ?? {}), content: text } });
+              pushHistory();
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") {
+                setIsEditingText(false);
+                (e.currentTarget as HTMLElement).blur();
+              }
+            }}
+            dangerouslySetInnerHTML={{ __html: (props.content as string) ?? "" }}
+          />
+        ) : renderTextContent(props)}
         {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
@@ -539,7 +581,6 @@ export function FigmaNodeRenderer({
         style={containerStyle}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
         onPointerDown={handlePointerDown}
       >
         {imageData ? (
@@ -593,7 +634,6 @@ export function FigmaNodeRenderer({
     <div
       style={style}
       onClick={(e) => {
-        if (isChild && !isSelectableChild) return;
         e.stopPropagation();
         if (e.shiftKey) {
           toggleSelection(node.id);
@@ -605,7 +645,6 @@ export function FigmaNodeRenderer({
         }
       }}
       onDoubleClick={handleDoubleClick}
-      onContextMenu={(e) => { if (canDrag) e.stopPropagation(); }}
       onPointerDown={handlePointerDown}
     >
       {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
@@ -613,7 +652,7 @@ export function FigmaNodeRenderer({
         <FigmaNodeRenderer
           key={child.id}
           node={child}
-          isSelected={isSelectableChild ? useEditorStore.getState().selectedIds.has(child.id) : false}
+          isSelected={useEditorStore.getState().selectedIds.has(child.id)}
           zoom={zoom}
           parentLayout={childLayout}
           isChild={true}

@@ -139,7 +139,7 @@ await navigator.clipboard.write([
 
 **Critical:** Render needs `fills` and `strokes` to display shapes correctly. When serializing each node, always include:
 
-- **`fills`**: Array of paint objects. For SOLID fills use `{ type: "SOLID", hex: "#RRGGBB", alpha: 1 }` or Figma's `{ type: "SOLID", color: { r, g, b, a } }` (r,g,b in 0-1).
+- **`fills`**: Array of paint objects. For SOLID fills use `{ type: "SOLID", hex: "#RRGGBB", alpha: 1 }` or Figma's `{ type: "SOLID", color: { r, g, b, a } }` (r,g,b in 0-1). For GRADIENT_LINEAR fills, include either `stops: [{ hex: "#RRGGBB", alpha: 1, position: 0.5 }]` OR `gradientStops: [{ color: { r, g, b, a }, position: 0.5 }]` and `gradientHandlePositions: [{ x, y }, { x, y }]` for angle.
 - **`strokes`**: Same format as fills. Required for LINE nodes and divider lines.
 - **`strokeWeight`**: Number (e.g. 1 for thin dividers).
 - **`cornerRadius`**, **`topLeftRadius`**, etc. for rounded corners.

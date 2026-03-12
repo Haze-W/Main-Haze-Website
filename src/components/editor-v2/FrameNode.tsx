@@ -5,6 +5,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
 import { ResizeHandles } from "./ResizeHandles";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
+import { SceneNodeRenderer } from "./SceneNodeRenderer";
 
 interface FrameNodeProps {
   node: SceneNode;
@@ -13,7 +14,20 @@ interface FrameNodeProps {
 }
 
 export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, selectedIds } = useEditorStore();
+  const {
+    setSelectedIds,
+    toggleSelection,
+    moveNodes,
+    resizeNode,
+    pushHistory,
+    selectedIds,
+    enteredFrameId,
+    enterFrame,
+    exitFrame,
+  } = useEditorStore();
+
+  const isFrameEntered = enteredFrameId === node.id;
+  const hasChildren = node.children && node.children.length > 0;
 
   const handleResizeStart = useCallback(
     (handle: string) => (e: React.PointerEvent) => {
@@ -46,11 +60,30 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
       if (e.shiftKey) {
         toggleSelection(node.id);
       } else {
+        if (isFrameEntered) {
+          exitFrame();
+        }
         setSelectedIds([node.id]);
       }
     },
-    [node.id, toggleSelection, setSelectedIds]
+    [node.id, toggleSelection, setSelectedIds, isFrameEntered, exitFrame]
   );
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (hasChildren) {
+        enterFrame(node.id);
+      }
+    },
+    [node.id, hasChildren, enterFrame]
+  );
+
+  const frameOutline = isFrameEntered
+    ? "2px dashed var(--accent)"
+    : isSelected
+      ? "2px solid var(--accent)"
+      : "none";
 
   return (
     <div
@@ -61,19 +94,20 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         top: node.y,
         width: node.width,
         height: node.height,
-        border: isSelected ? "none" : "1px solid rgba(255,255,255,0.06)",
+        border: isSelected && !isFrameEntered ? "none" : "1px solid rgba(255,255,255,0.06)",
         borderRadius: 6,
         background: (node.props?.backgroundColor as string) ?? "rgba(30,30,34,0.95)",
         overflow: node.overflow === "HIDDEN" ? "hidden" : "visible",
         cursor: "pointer",
         boxSizing: "border-box",
-        outline: isSelected ? "2px solid var(--accent)" : "none",
-        outlineOffset: -1,
+        outline: frameOutline,
+        outlineOffset: isFrameEntered ? 2 : -1,
       }}
       onClick={handleClick}
-      onContextMenu={(e) => e.stopPropagation()}
+      onDoubleClick={handleDoubleClick}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
+        if (isFrameEntered) return; // Don't drag frame when editing children
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
@@ -97,33 +131,28 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         document.addEventListener("pointerup", onUp);
       }}
     >
-      {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {isSelected && !isFrameEntered && <ResizeHandles onResizeStart={handleResizeStart} />}
+      <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 1 }}>
         {node.children?.map((child) => {
+          const childSelected = selectedIds.has(child.id);
           if (child.props?._figma) {
             return (
               <FigmaNodeRenderer
                 key={child.id}
                 node={child}
-                isSelected={false}
+                isSelected={childSelected}
                 zoom={zoom}
                 isChild={true}
+                parentLayout={(node.layoutMode as "NONE" | "HORIZONTAL" | "VERTICAL") ?? "NONE"}
               />
             );
           }
           return (
-            <div
+            <SceneNodeRenderer
               key={child.id}
-              style={{
-                position: "absolute",
-                left: child.x,
-                top: child.y,
-                width: child.width,
-                height: child.height,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 4,
-              }}
+              node={child}
+              isSelected={childSelected}
+              zoom={zoom}
             />
           );
         })}

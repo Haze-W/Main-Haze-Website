@@ -85,6 +85,7 @@ type EditorActions = {
   updateNode: (id: string, updates: Partial<SceneNode>) => void;
   deleteNodes: (ids: string[]) => void;
   duplicateNodes: (ids: string[]) => void;
+  pasteNodes: (nodes: SceneNode[]) => void;
   moveNodes: (ids: string[], dx: number, dy: number) => void;
   resizeNode: (id: string, handle: string, dx: number, dy: number) => void;
   setViewport: (v: Partial<Viewport>) => void;
@@ -111,6 +112,14 @@ type EditorActions = {
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
+  // Layer ordering
+  bringToFront: (ids: string[]) => void;
+  sendToBack: (ids: string[]) => void;
+  bringForward: (ids: string[]) => void;
+  sendBackward: (ids: string[]) => void;
+  // Group / ungroup
+  groupNodes: (ids: string[]) => void;
+  ungroupNodes: (ids: string[]) => void;
   // Helpers
   getNode: (id: string) => SceneNode | undefined;
   getNodeBounds: (id: string) => { x: number; y: number; width: number; height: number } | null;
@@ -229,7 +238,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   duplicateNodes: (ids) => {
-    const all = collectAllNodes(get().nodes);
     const clones: SceneNode[] = [];
     for (const id of ids) {
       const n = findNodeById(get().nodes, id);
@@ -240,6 +248,25 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         clones.push(c);
       }
     }
+    set((s) => ({
+      nodes: [...s.nodes, ...clones],
+      selectedIds: new Set(clones.map((c) => c.id)),
+    }));
+    get().pushHistory();
+  },
+  pasteNodes: (nodesToPaste) => {
+    if (!nodesToPaste || nodesToPaste.length === 0) return;
+    const pt = get().lastCanvasPoint;
+    const offsetX = pt ? pt.x : 20;
+    const offsetY = pt ? pt.y : 20;
+    const firstX = nodesToPaste[0].x;
+    const firstY = nodesToPaste[0].y;
+    const clones = nodesToPaste.map((n) => {
+      const c = cloneNode(n);
+      c.x += offsetX - firstX;
+      c.y += offsetY - firstY;
+      return c;
+    });
     set((s) => ({
       nodes: [...s.nodes, ...clones],
       selectedIds: new Set(clones.map((c) => c.id)),
@@ -369,6 +396,94 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     if (historyIndex >= history.length - 1) return;
     const next = history[historyIndex + 1];
     set({ nodes: serializeNodesForHistory(next.nodes), historyIndex: historyIndex + 1 });
+  },
+  bringToFront: (ids) => {
+    const idSet = new Set(ids);
+    set((s) => {
+      const selected = s.nodes.filter((n) => idSet.has(n.id));
+      const rest = s.nodes.filter((n) => !idSet.has(n.id));
+      return { nodes: [...rest, ...selected] };
+    });
+    get().pushHistory();
+  },
+  sendToBack: (ids) => {
+    const idSet = new Set(ids);
+    set((s) => {
+      const selected = s.nodes.filter((n) => idSet.has(n.id));
+      const rest = s.nodes.filter((n) => !idSet.has(n.id));
+      return { nodes: [...selected, ...rest] };
+    });
+    get().pushHistory();
+  },
+  bringForward: (ids) => {
+    set((s) => {
+      const nodes = [...s.nodes];
+      for (let i = nodes.length - 2; i >= 0; i--) {
+        if (ids.includes(nodes[i].id) && !ids.includes(nodes[i + 1].id)) {
+          [nodes[i], nodes[i + 1]] = [nodes[i + 1], nodes[i]];
+        }
+      }
+      return { nodes };
+    });
+    get().pushHistory();
+  },
+  sendBackward: (ids) => {
+    set((s) => {
+      const nodes = [...s.nodes];
+      for (let i = 1; i < nodes.length; i++) {
+        if (ids.includes(nodes[i].id) && !ids.includes(nodes[i - 1].id)) {
+          [nodes[i], nodes[i - 1]] = [nodes[i - 1], nodes[i]];
+        }
+      }
+      return { nodes };
+    });
+    get().pushHistory();
+  },
+  groupNodes: (ids) => {
+    if (ids.length < 2) return;
+    const idSet = new Set(ids);
+    const selected = get().nodes.filter((n) => idSet.has(n.id));
+    if (selected.length === 0) return;
+    const minX = Math.min(...selected.map((n) => n.x));
+    const minY = Math.min(...selected.map((n) => n.y));
+    const maxX = Math.max(...selected.map((n) => n.x + n.width));
+    const maxY = Math.max(...selected.map((n) => n.y + n.height));
+    const group = createNode({
+      type: "FRAME",
+      name: "Group",
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      children: selected.map((n) => ({ ...n, x: n.x - minX, y: n.y - minY, parentId: undefined })),
+    });
+    set((s) => ({
+      nodes: [...s.nodes.filter((n) => !idSet.has(n.id)), group],
+      selectedIds: new Set([group.id]),
+    }));
+    get().pushHistory();
+  },
+  ungroupNodes: (ids) => {
+    set((s) => {
+      let nodes = [...s.nodes];
+      const newIds: string[] = [];
+      for (const id of ids) {
+        const idx = nodes.findIndex((n) => n.id === id);
+        if (idx === -1) continue;
+        const group = nodes[idx];
+        if (!group.children || group.children.length === 0) continue;
+        const ungrouped = group.children.map((c) => ({
+          ...c,
+          x: c.x + group.x,
+          y: c.y + group.y,
+          parentId: undefined,
+        }));
+        nodes = [...nodes.slice(0, idx), ...ungrouped, ...nodes.slice(idx + 1)];
+        newIds.push(...ungrouped.map((n) => n.id));
+      }
+      return { nodes, selectedIds: new Set(newIds) };
+    });
+    get().pushHistory();
   },
   getNode: (id) => findNodeById(get().nodes, id),
   getNodeBounds: (id) => {

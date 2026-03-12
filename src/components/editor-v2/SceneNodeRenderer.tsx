@@ -1,12 +1,15 @@
 "use client";
 
+import { useCallback } from "react";
 import dynamic from "next/dynamic";
 import type { SceneNode } from "@/lib/editor/types";
 import { getValidIconName } from "@/lib/icon-valid";
 import { useEditorStore } from "@/lib/editor/store";
+import { loadGoogleFont } from "@/lib/editor/fonts";
 import { FrameNode } from "./FrameNode";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
 import { TopBarNode } from "./TopBarNode";
+import { ResizeHandles } from "./ResizeHandles";
 import styles from "./SceneNodeRenderer.module.css";
 
 const DynamicIcon = dynamic(
@@ -34,7 +37,32 @@ export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererP
 }
 
 function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, pushHistory } = useEditorStore();
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory } = useEditorStore();
+
+  const handleResizeStart = useCallback(
+    (handle: string) => (e: React.PointerEvent) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(e.pointerId);
+      const last = { clientX: e.clientX, clientY: e.clientY };
+      const onMove = (move: PointerEvent) => {
+        const dx = (move.clientX - last.clientX) / zoom;
+        const dy = (move.clientY - last.clientY) / zoom;
+        resizeNode(node.id, handle, dx, dy);
+        last.clientX = move.clientX;
+        last.clientY = move.clientY;
+      };
+      const onUp = () => {
+        target.releasePointerCapture(e.pointerId);
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        pushHistory();
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [node.id, zoom, resizeNode, pushHistory]
+  );
   const props = node.props ?? {};
   const name = node.name;
 
@@ -72,9 +100,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
           justifyContent: "center",
         }}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <DynamicIcon
           name={iconName as never}
           size={size}
@@ -106,7 +134,6 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={btnClass}
         style={btnStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
         {variant === "icon" && (props.iconName as string) ? (
@@ -127,9 +154,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.inputNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {multiline ? (
           <div className={styles.textareaPlaceholder}>{ph}</div>
         ) : (
@@ -149,10 +176,10 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         <div
           className={styles.switchNode}
           style={baseStyle}
-          onClick={handleClick}
-          onContextMenu={(e) => e.stopPropagation()}
-          onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
+        onClick={handleClick}
+        onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
         >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
           <div className={`${styles.switchTrack} ${checked ? styles.switchOn : ""}`}>
             <div className={styles.switchThumb} />
           </div>
@@ -164,9 +191,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.checkboxNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <div className={`${styles.checkboxBox} ${checked ? styles.checked : ""}`}>
           {checked && "✓"}
         </div>
@@ -183,9 +210,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.selectNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <span>{ph}</span>
         <span className={styles.selectArrow}>▼</span>
       </div>
@@ -201,9 +228,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={`${styles.imageNode} ${rounded ? styles.rounded : ""}`}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {src ? (
           <img src={src} alt={(props.alt as string) ?? ""} />
         ) : (
@@ -220,9 +247,10 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.dividerNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-      />
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
     );
   }
 
@@ -233,9 +261,10 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.spacerNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-      />
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
     );
   }
 
@@ -247,9 +276,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.progressNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <div className={styles.progressTrack}>
           <div className={styles.progressFill} style={{ width: `${value}%` }} />
         </div>
@@ -267,9 +296,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.badgeNode}
         style={{ ...baseStyle, ...(bg && { backgroundColor: bg }), ...(fg && { color: fg }) }}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {content}
       </div>
     );
@@ -288,9 +317,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={`${styles.alertNode} ${variantClass}`}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {content}
       </div>
     );
@@ -303,9 +332,9 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.spinnerNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <div className={styles.spinner} />
       </div>
     );
@@ -318,19 +347,22 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.skeletonNode}
         style={baseStyle}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-      />
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
     );
   }
 
   // TEXT / HEADING / PARAGRAPH / LABEL
-  if (node.type === "TEXT") {
+  if (node.type === "TEXT" || node.name === "Label") {
     const content = (props.content as string) ?? "Text";
     const fontSize = (props.fontSize as number) ?? 14;
     const fontWeight = (props.fontWeight as string) ?? "normal";
     const textAlign = (props.textAlign as string) ?? "left";
     const color = (props.color as string) || undefined;
+    const fontFamily = (props.fontFamily as string) || undefined;
+    if (fontFamily) loadGoogleFont(fontFamily);
     return (
       <div
         className={styles.textNode}
@@ -340,11 +372,12 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
           fontWeight,
           textAlign: textAlign as React.CSSProperties["textAlign"],
           ...(color && { color }),
+          ...(fontFamily && { fontFamily: `"${fontFamily}", sans-serif` }),
         }}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
       >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {content}
       </div>
     );
@@ -363,9 +396,10 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
           ...(borderColor && { borderColor: borderColor, borderStyle: "solid" }),
         }}
         onClick={handleClick}
-        onContextMenu={(e) => e.stopPropagation()}
         onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-      />
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
     );
   }
 
@@ -375,9 +409,10 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       className={styles.genericNode}
       style={baseStyle}
       onClick={handleClick}
-      onContextMenu={(e) => e.stopPropagation()}
       onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-    />
+    >
+      {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+    </div>
   );
 }
 

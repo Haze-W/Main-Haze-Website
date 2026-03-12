@@ -1,13 +1,84 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import { Image, Palette } from "lucide-react";
 import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
 import { TopBarConfigPanel } from "./TopBarConfigPanel";
 import type { Paint } from "@/lib/figma/types";
+import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
 import styles from "./PropertiesPanel.module.css";
+
+/** Number input that shows empty when value is 0, so typing "245" doesn't become "0245" */
+function NumberInput({
+  value,
+  onChange,
+  min,
+  max,
+  className,
+  ...rest
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  className?: string;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [pending, setPending] = useState<string | null>(null);
+  const displayValue = pending !== null ? pending : (value === 0 ? "" : String(value));
+
+  // Reset pending when value changes from parent (e.g. different node selected)
+  useEffect(() => {
+    setPending(null);
+  }, [value]);
+
+  const commit = (v: string) => {
+    if (v === "" || v === "-") {
+      onChange(0);
+    } else {
+      const n = Number(v);
+      if (!Number.isNaN(n)) {
+        let out = n;
+        if (min != null && out < min) out = min;
+        if (max != null && out > max) out = max;
+        onChange(out);
+      }
+    }
+    setPending(null);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={displayValue}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v === "" || v === "-" || v.endsWith(".")) {
+          setPending(v);
+          if (v === "") onChange(0);
+          return;
+        }
+        const n = Number(v);
+        if (!Number.isNaN(n)) {
+          let out = n;
+          if (min != null && out < min) out = min;
+          if (max != null && out > max) out = max;
+          onChange(out);
+          setPending(null);
+        } else {
+          setPending(v);
+        }
+      }}
+      onBlur={(e) => {
+        if (pending !== null) commit(e.target.value);
+      }}
+      {...rest}
+    />
+  );
+}
 
 function findNode(nodes: SceneNode[], id: string): SceneNode | null {
   for (const n of nodes) {
@@ -25,6 +96,72 @@ function updateProps(
   value: unknown
 ) {
   updateNode(node.id, { props: { ...(node.props ?? {}), [key]: value } });
+}
+
+function FontSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    if (!search) return GOOGLE_FONTS;
+    const q = search.toLowerCase();
+    return GOOGLE_FONTS.filter((f) => f.toLowerCase().includes(q));
+  }, [search]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={styles.fontSelectorBtn}
+        onClick={() => setOpen(!open)}
+        style={{ fontFamily: `"${value}", sans-serif` }}
+      >
+        <span className={styles.fontSelectorLabel}>{value}</span>
+        <span className={styles.fontSelectorArrow}>&#9662;</span>
+      </button>
+      {open && (
+        <div className={styles.fontDropdown}>
+          <input
+            type="text"
+            className={styles.fontSearchInput}
+            placeholder="Search fonts..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoFocus
+          />
+          <div className={styles.fontList}>
+            {filtered.map((font) => (
+              <button
+                key={font}
+                type="button"
+                className={`${styles.fontItem} ${font === value ? styles.fontItemActive : ""}`}
+                onClick={() => {
+                  onChange(font);
+                  setOpen(false);
+                  setSearch("");
+                }}
+                onMouseEnter={() => loadGoogleFont(font)}
+                style={{ fontFamily: `"${font}", sans-serif` }}
+              >
+                {font}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className={styles.fontEmpty}>No fonts found</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 type FillMode = "solid" | "gradient" | "image";
@@ -102,12 +239,11 @@ function PageColorPicker({
             <div className={styles.gradientInputs}>
               <div className={styles.gradientAngle}>
                 <span>Angle</span>
-                <input
-                  type="number"
+                <NumberInput
                   min={0}
                   max={360}
                   value={gradientAngle}
-                  onChange={(e) => setGradientAngle(Number(e.target.value))}
+                  onChange={setGradientAngle}
                   className={styles.gradientAngleInput}
                 />
               </div>
@@ -321,13 +457,12 @@ function FigmaProperties({
         <div className={styles.label}>Fill opacity</div>
         <div className={styles.inputGroup}>
           <span className={styles.inputPrefix}>%</span>
-          <input
-            type="number"
+          <NumberInput
             min={0}
             max={100}
             value={Math.round(fillAlpha * 100)}
-            onChange={(e) => {
-              const a = Number(e.target.value) / 100;
+            onChange={(v) => {
+              const a = v / 100;
               const newFills: Paint[] = [{ hex: fillHex, alpha: a }];
               updateFigmaProp("fills", newFills);
             }}
@@ -364,23 +499,29 @@ function FigmaProperties({
         <>
           <div className={styles.section}>
             <div className={styles.label}>Content</div>
-            <input
-              type="text"
-              className={styles.standaloneInput}
+            <textarea
+              className={styles.contentTextarea}
               value={(props.content as string) ?? ""}
               onChange={(e) => updateNode(node.id, { props: { ...props, content: e.target.value } })}
               placeholder="Text content"
+              rows={3}
             />
           </div>
           <div className={styles.section}>
             <div className={styles.label}>Typography</div>
-            <div className={styles.row}>
+            <FontSelector
+              value={(props.fontFamily as string) ?? "Inter"}
+              onChange={(v) => {
+                loadGoogleFont(v);
+                updateNode(node.id, { props: { ...props, fontFamily: v } });
+              }}
+            />
+            <div className={styles.row} style={{ marginTop: 4 }}>
               <div className={styles.inputGroup}>
                 <span className={styles.inputPrefix}>Size</span>
-                <input
-                  type="number"
+                <NumberInput
                   value={(props.fontSize as number) ?? 16}
-                  onChange={(e) => updateNode(node.id, { props: { ...props, fontSize: Number(e.target.value) } })}
+                  onChange={(v) => updateNode(node.id, { props: { ...props, fontSize: v } })}
                 />
               </div>
               <select
@@ -413,10 +554,9 @@ function FigmaProperties({
             <div className={styles.row} style={{ marginTop: 4 }}>
               <div className={styles.inputGroup}>
                 <span className={styles.inputPrefix}>Spacing</span>
-                <input
-                  type="number"
+                <NumberInput
                   value={(props.letterSpacing as number) ?? 0}
-                  onChange={(e) => updateNode(node.id, { props: { ...props, letterSpacing: Number(e.target.value) } })}
+                  onChange={(v) => updateNode(node.id, { props: { ...props, letterSpacing: v } })}
                 />
               </div>
               <div className={styles.inputGroup}>
@@ -460,29 +600,28 @@ function FigmaProperties({
               <div className={styles.row} style={{ marginTop: 4 }}>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>Gap</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={node.itemSpacing ?? 0}
-                    onChange={(e) => updateNode(node.id, { itemSpacing: Number(e.target.value) })}
+                    onChange={(v) => updateNode(node.id, { itemSpacing: v })}
                   />
                 </div>
               </div>
               <div className={styles.row} style={{ marginTop: 4 }}>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>T</span>
-                  <input type="number" value={node.paddingTop ?? 0} onChange={(e) => updateNode(node.id, { paddingTop: Number(e.target.value) })} />
+                  <NumberInput value={node.paddingTop ?? 0} onChange={(v) => updateNode(node.id, { paddingTop: v })} />
                 </div>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>R</span>
-                  <input type="number" value={node.paddingRight ?? 0} onChange={(e) => updateNode(node.id, { paddingRight: Number(e.target.value) })} />
+                  <NumberInput value={node.paddingRight ?? 0} onChange={(v) => updateNode(node.id, { paddingRight: v })} />
                 </div>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>B</span>
-                  <input type="number" value={node.paddingBottom ?? 0} onChange={(e) => updateNode(node.id, { paddingBottom: Number(e.target.value) })} />
+                  <NumberInput value={node.paddingBottom ?? 0} onChange={(v) => updateNode(node.id, { paddingBottom: v })} />
                 </div>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>L</span>
-                  <input type="number" value={node.paddingLeft ?? 0} onChange={(e) => updateNode(node.id, { paddingLeft: Number(e.target.value) })} />
+                  <NumberInput value={node.paddingLeft ?? 0} onChange={(v) => updateNode(node.id, { paddingLeft: v })} />
                 </div>
               </div>
             </>
@@ -494,10 +633,9 @@ function FigmaProperties({
         <div className={styles.label}>Rotation</div>
         <div className={styles.inputGroup}>
           <span className={styles.inputPrefix}>deg</span>
-          <input
-            type="number"
+          <NumberInput
             value={node.rotation ?? 0}
-            onChange={(e) => updateNode(node.id, { rotation: Number(e.target.value) })}
+            onChange={(v) => updateNode(node.id, { rotation: v })}
           />
         </div>
       </div>
@@ -608,18 +746,16 @@ export function PropertiesPanel() {
           <div className={styles.row}>
             <div className={styles.inputGroup}>
               <span className={styles.inputPrefix}>X</span>
-              <input
-                type="number"
+              <NumberInput
                 value={Math.round(node.x)}
-                onChange={(e) => updateNode(node.id, { x: Number(e.target.value) })}
+                onChange={(v) => updateNode(node.id, { x: v })}
               />
             </div>
             <div className={styles.inputGroup}>
               <span className={styles.inputPrefix}>Y</span>
-              <input
-                type="number"
+              <NumberInput
                 value={Math.round(node.y)}
-                onChange={(e) => updateNode(node.id, { y: Number(e.target.value) })}
+                onChange={(v) => updateNode(node.id, { y: v })}
               />
             </div>
           </div>
@@ -630,18 +766,16 @@ export function PropertiesPanel() {
           <div className={styles.row}>
             <div className={styles.inputGroup}>
               <span className={styles.inputPrefix}>W</span>
-              <input
-                type="number"
+              <NumberInput
                 value={Math.round(node.width)}
-                onChange={(e) => updateNode(node.id, { width: Number(e.target.value) })}
+                onChange={(v) => updateNode(node.id, { width: v })}
               />
             </div>
             <div className={styles.inputGroup}>
               <span className={styles.inputPrefix}>H</span>
-              <input
-                type="number"
+              <NumberInput
                 value={Math.round(node.height)}
-                onChange={(e) => updateNode(node.id, { height: Number(e.target.value) })}
+                onChange={(v) => updateNode(node.id, { height: v })}
               />
             </div>
           </div>
@@ -651,23 +785,29 @@ export function PropertiesPanel() {
           <>
             <div className={styles.section}>
               <div className={styles.label}>Content</div>
-              <input
-                type="text"
-                className={styles.standaloneInput}
+              <textarea
+                className={styles.contentTextarea}
                 value={(props.content as string) ?? ""}
                 onChange={(e) => updateProps(node, updateNode, "content", e.target.value)}
                 placeholder="Text content"
+                rows={3}
               />
             </div>
             <div className={styles.section}>
               <div className={styles.label}>Typography</div>
-              <div className={styles.row}>
+              <FontSelector
+                value={(props.fontFamily as string) ?? "Inter"}
+                onChange={(v) => {
+                  loadGoogleFont(v);
+                  updateProps(node, updateNode, "fontFamily", v);
+                }}
+              />
+              <div className={styles.row} style={{ marginTop: 4 }}>
                 <div className={styles.inputGroup}>
                   <span className={styles.inputPrefix}>Size</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={(props.fontSize as number) ?? 14}
-                    onChange={(e) => updateProps(node, updateNode, "fontSize", Number(e.target.value))}
+                    onChange={(v) => updateProps(node, updateNode, "fontSize", v)}
                   />
                 </div>
                 <select
@@ -832,12 +972,11 @@ export function PropertiesPanel() {
           <div className={styles.label}>Opacity</div>
           <div className={styles.inputGroup}>
             <span className={styles.inputPrefix}>%</span>
-            <input
-              type="number"
+            <NumberInput
               min={0}
               max={100}
               value={Math.round((node.opacity ?? 1) * 100)}
-              onChange={(e) => updateNode(node.id, { opacity: Number(e.target.value) / 100 })}
+              onChange={(v) => updateNode(node.id, { opacity: v / 100 })}
             />
           </div>
         </div>

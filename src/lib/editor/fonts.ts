@@ -1,0 +1,71 @@
+export const GOOGLE_FONTS = [
+  "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins", "Raleway",
+  "Source Sans 3", "Nunito", "Nunito Sans", "Ubuntu", "Rubik", "Work Sans",
+  "Playfair Display", "Merriweather", "PT Sans", "PT Serif", "Noto Sans",
+  "Noto Serif", "Oswald", "Quicksand", "Mulish", "Barlow", "Cabin",
+  "DM Sans", "DM Serif Display", "Fira Sans", "Fira Code", "IBM Plex Sans",
+  "IBM Plex Mono", "IBM Plex Serif", "Josefin Sans", "Josefin Slab",
+  "Karla", "Libre Baskerville", "Libre Franklin", "Manrope", "Maven Pro",
+  "Outfit", "Overpass", "Oxygen", "Philosopher", "Plus Jakarta Sans",
+  "Crimson Text", "Crimson Pro", "Cormorant", "Cormorant Garamond",
+  "EB Garamond", "Spectral", "Source Serif 4", "Bitter", "Vollkorn",
+  "Arvo", "Lora", "Alegreya", "Alegreya Sans", "Zilla Slab",
+  "Roboto Slab", "Roboto Mono", "Roboto Condensed", "Roboto Flex",
+  "Space Grotesk", "Space Mono", "JetBrains Mono", "Inconsolata",
+  "Source Code Pro", "Fira Mono", "Red Hat Display", "Red Hat Text",
+  "Red Hat Mono", "Sora", "Lexend", "Lexend Deca", "Albert Sans",
+  "Atkinson Hyperlegible", "Be Vietnam Pro", "Figtree", "Geist",
+  "Instrument Sans", "Instrument Serif", "Kumbh Sans", "Wix Madefor Display",
+  "Bricolage Grotesque", "Onest", "Gabarito", "Urbanist", "Catamaran",
+  "Exo 2", "Exo", "Kanit", "Sarabun", "Hind", "Hind Siliguri",
+  "Hind Madurai", "Mukta", "Heebo", "Assistant", "Varela Round",
+  "Comfortaa", "Righteous", "Fredoka", "Lilita One", "Pacifico",
+  "Lobster", "Lobster Two", "Dancing Script", "Great Vibes", "Satisfy",
+  "Permanent Marker", "Caveat", "Shadows Into Light", "Indie Flower",
+  "Amatic SC", "Gloria Hallelujah", "Patrick Hand", "Handlee",
+  "Architects Daughter", "Kalam", "Covered By Your Grace",
+  "Rock Salt", "Reenie Beanie", "Just Another Hand",
+  "Bebas Neue", "Anton", "Teko", "Russo One", "Passion One",
+  "Black Ops One", "Bungee", "Bungee Shade", "Bungee Inline",
+  "Abril Fatface", "Alfa Slab One", "Bowlby One SC", "Monoton",
+  "Ultra", "Changa One", "Coda", "Fugaz One",
+  "Archivo", "Archivo Black", "Archivo Narrow", "Barlow Condensed",
+  "Barlow Semi Condensed", "Chivo", "Encode Sans", "Encode Sans Condensed",
+  "Saira", "Saira Condensed", "Signika", "Signika Negative",
+  "Titillium Web", "Yanone Kaffeesatz", "Yantramanav",
+  "Abel", "Acme", "Alata", "Aleo", "Antic Slab",
+  "Arima", "Asap", "Asap Condensed", "Audiowide",
+  "Baloo 2", "BenchNine", "Bree Serif", "Cantarell",
+  "Cardo", "Changa", "Cinzel", "Cinzel Decorative",
+  "Concert One", "Courgette", "Cuprum", "Didact Gothic",
+  "Domine", "Dosis", "Electrolize", "Encode Sans Semi Condensed",
+  "Fira Sans Condensed", "Fira Sans Extra Condensed",
+  "Forum", "Gelasio", "Glegoo", "Gothic A1",
+  "Hammersmith One", "Jost", "Julius Sans One", "Khand",
+  "Lemonada", "Literata", "Lustria", "Mada",
+  "Mali", "Marcellus", "Martel", "Merienda",
+  "Nanum Gothic", "Nanum Myeongjo", "Neuton",
+  "News Cycle", "Noticia Text", "Old Standard TT",
+  "Overlock", "Padauk", "Pathway Gothic One", "Paytone One",
+  "Play", "Playball", "Poiret One", "Pontano Sans",
+  "Prata", "Prompt", "Proza Libre", "Public Sans",
+  "Quattrocento", "Quattrocento Sans", "Rajdhani",
+  "Ramabhadra", "Readex Pro", "Recursive", "Rokkitt",
+  "Ropa Sans", "Rosario", "Ruda", "Saira Semi Condensed",
+  "Sanchez", "Secular One", "Sen", "Shanti",
+  "Silkscreen", "Slabo 27px", "Sorts Mill Goudy",
+  "Special Elite", "Syne", "Tangerine", "Tenor Sans",
+  "Tinos", "Trirong", "Unna", "Volkhov",
+  "Yeseva One", "Zen Kaku Gothic New", "Zen Maru Gothic",
+];
+
+const loadedFonts = new Set<string>();
+
+export function loadGoogleFont(family: string): void {
+  if (loadedFonts.has(family)) return;
+  loadedFonts.add(family);
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@100;200;300;400;500;600;700;800;900&display=swap`;
+  document.head.appendChild(link);
+}

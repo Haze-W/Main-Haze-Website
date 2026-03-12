@@ -3,6 +3,7 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useEditorStore } from "@/lib/editor/store";
+import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { screenToCanvas, clampZoom, clampPan } from "@/lib/editor/viewport";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
@@ -10,18 +11,93 @@ import styles from "./Canvas.module.css";
 
 function buildContextMenuItems(
   selectedIds: Set<string>,
-  duplicate: (ids: string[]) => void,
-  remove: (ids: string[]) => void
+  store: ReturnType<typeof useEditorStore.getState>
 ): ContextMenuItem[] {
   const ids = [...selectedIds];
   const hasSelection = ids.length > 0;
+  const multiSelect = ids.length > 1;
   return [
-    { id: "paste", label: "Paste", shortcut: "Ctrl+V", disabled: true },
-    { id: "paste-in-place", label: "Paste in Place", shortcut: "Ctrl+Shift+V", disabled: true },
+    {
+      id: "copy", label: "Copy", shortcut: "Ctrl+C", disabled: !hasSelection,
+      onClick: () => {
+        const nodes = ids.map((id) => store.getNode(id)).filter(Boolean);
+        if (nodes.length > 0) {
+          const payload = { _renderCopy: true, nodes };
+          navigator.clipboard.writeText(JSON.stringify(payload)).catch(() => {});
+        }
+      },
+    },
+    {
+      id: "paste", label: "Paste here", shortcut: "Ctrl+V",
+      onClick: async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) await tryPasteFromClipboard(text);
+        } catch {
+          /* Clipboard read may fail without user gesture */
+        }
+      },
+    },
     { id: "div1", divider: true },
-    { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", disabled: !hasSelection, onClick: () => duplicate(ids) },
+    { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", disabled: !hasSelection, onClick: () => store.duplicateNodes(ids) },
     { id: "div2", divider: true },
-    { id: "delete", label: "Delete", shortcut: "Del", disabled: !hasSelection, onClick: () => remove(ids) },
+    { id: "bring-front", label: "Bring to front", shortcut: "]", disabled: !hasSelection, onClick: () => store.bringToFront(ids) },
+    { id: "bring-forward", label: "Bring forward", disabled: !hasSelection, onClick: () => store.bringForward(ids) },
+    { id: "send-backward", label: "Send backward", disabled: !hasSelection, onClick: () => store.sendBackward(ids) },
+    { id: "send-back", label: "Send to back", shortcut: "[", disabled: !hasSelection, onClick: () => store.sendToBack(ids) },
+    { id: "div3", divider: true },
+    { id: "group", label: "Group selection", shortcut: "Ctrl+G", disabled: !multiSelect, onClick: () => store.groupNodes(ids) },
+    { id: "ungroup", label: "Ungroup", shortcut: "Ctrl+Shift+G", disabled: !hasSelection, onClick: () => store.ungroupNodes(ids) },
+    { id: "div4", divider: true },
+    {
+      id: "show-hide", label: hasSelection ? "Show/Hide" : "Show/Hide", shortcut: "Ctrl+Shift+H", disabled: !hasSelection,
+      onClick: () => {
+        for (const id of ids) {
+          const n = store.getNode(id);
+          if (n) store.updateNode(id, { visible: n.visible === false });
+        }
+        store.pushHistory();
+      },
+    },
+    {
+      id: "lock-unlock", label: "Lock/Unlock", shortcut: "Ctrl+Shift+L", disabled: !hasSelection,
+      onClick: () => {
+        for (const id of ids) {
+          const n = store.getNode(id);
+          if (n) store.updateNode(id, { locked: !n.locked });
+        }
+        store.pushHistory();
+      },
+    },
+    { id: "div5", divider: true },
+    {
+      id: "flip-h", label: "Flip horizontal", shortcut: "Shift+H", disabled: !hasSelection,
+      onClick: () => {
+        for (const id of ids) {
+          const n = store.getNode(id);
+          if (n) {
+            const scaleX = (n.props?.scaleX as number) ?? 1;
+            store.updateNode(id, { props: { ...(n.props ?? {}), scaleX: scaleX * -1 } });
+          }
+        }
+        store.pushHistory();
+      },
+    },
+    {
+      id: "flip-v", label: "Flip vertical", shortcut: "Shift+V", disabled: !hasSelection,
+      onClick: () => {
+        for (const id of ids) {
+          const n = store.getNode(id);
+          if (n) {
+            const scaleY = (n.props?.scaleY as number) ?? 1;
+            store.updateNode(id, { props: { ...(n.props ?? {}), scaleY: scaleY * -1 } });
+          }
+        }
+        store.pushHistory();
+      },
+    },
+    { id: "div6", divider: true },
+    { id: "delete", label: "Delete", shortcut: "Del", disabled: !hasSelection, onClick: () => store.deleteNodes(ids) },
   ];
 }
 
@@ -240,15 +316,21 @@ export function Canvas() {
   );
 
   useEffect(() => {
+    const isInputFocused = () => {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el as HTMLElement).isContentEditable;
+    };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (e.code === "Space" && !isInputFocused()) {
         e.preventDefault();
         setSpacePressed(true);
         setTool("HAND");
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (e.code === "Space" && !isInputFocused()) {
         setSpacePressed(false);
         setTool("SELECT");
       }
@@ -327,8 +409,9 @@ export function Canvas() {
         }
       }}
       onWheel={handleWheel}
-      onContextMenu={(e) => {
+      onContextMenuCapture={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         setContextMenu({ x: e.clientX, y: e.clientY });
       }}
     >
@@ -387,7 +470,7 @@ export function Canvas() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-          items={buildContextMenuItems(selectedIds, duplicateNodes, deleteNodes)}
+          items={buildContextMenuItems(selectedIds, useEditorStore.getState())}
         />
       )}
 

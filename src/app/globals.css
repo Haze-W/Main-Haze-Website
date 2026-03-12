@@ -7,6 +7,7 @@
   --bg-base: #000000;
   --bg-raised: rgba(28, 28, 30, 0.6);
   --bg-overlay: rgba(40, 40, 44, 0.7);
+  --bg-dropdown: #1c1c1e;
   --bg-hover: rgba(255, 255, 255, 0.08);
   --bg-active: rgba(255, 255, 255, 0.12);
   

@@ -178,7 +178,6 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
         paddingRight: isMac ? config.paddingX : 0,
       }}
       onClick={handleClick}
-      onContextMenu={(e) => e.stopPropagation()}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.stopPropagation();

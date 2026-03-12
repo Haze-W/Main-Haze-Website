@@ -211,6 +211,10 @@ export function EditorShell() {
     viewport,
     setViewport,
     duplicateNodes,
+    bringToFront,
+    sendToBack,
+    groupNodes,
+    ungroupNodes,
   } = useEditorStore();
 
   const sensors = useSensors(
@@ -284,7 +288,8 @@ export function EditorShell() {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement
+        e.target instanceof HTMLSelectElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
       )
         return;
 
@@ -325,9 +330,35 @@ export function EditorShell() {
         redo();
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          const nodes = [...selectedIds].map((id) => useEditorStore.getState().getNode(id)).filter(Boolean);
+          if (nodes.length > 0) {
+            navigator.clipboard.writeText(JSON.stringify({ _renderCopy: true, nodes })).catch(() => {});
+          }
+        }
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
         e.preventDefault();
         duplicateNodes([...selectedIds]);
+        return;
+      }
+      if (e.key === "]") {
+        e.preventDefault();
+        bringToFront([...selectedIds]);
+        return;
+      }
+      if (e.key === "[") {
+        e.preventDefault();
+        sendToBack([...selectedIds]);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "g") {
+        e.preventDefault();
+        if (e.shiftKey) ungroupNodes([...selectedIds]);
+        else groupNodes([...selectedIds]);
         return;
       }
       const step = e.shiftKey ? 10 : 1;
@@ -350,7 +381,7 @@ export function EditorShell() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool]);
+  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes]);
 
   // Close menu on outside click
   useEffect(() => {
