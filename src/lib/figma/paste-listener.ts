@@ -6,11 +6,61 @@ import { useEditorStore } from "@/lib/editor/store";
 import { isRenderPayload } from "./types";
 import { figmaToSceneNodes } from "./converter";
 
+/** Convert clipboard image blob to base64 data URL */
+async function blobToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Inject clipboard image into payload when plugin sends image as separate clipboard item */
+async function injectClipboardImage<T extends { frame: unknown; assets?: Record<string, unknown> }>(
+  data: T,
+  clipboardData: DataTransfer
+): Promise<T> {
+  const items = clipboardData.items;
+  if (!items) return data;
+
+  let imageFile: File | null = null;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type === "image/png" || items[i].type === "image/jpeg") {
+      const file = items[i].getAsFile();
+      if (file) {
+        imageFile = file;
+        break;
+      }
+    }
+  }
+  if (!imageFile) return data;
+
+  const dataUrl = await blobToDataUrl(imageFile);
+  const assets = { ...(data.assets ?? {}) } as Record<string, unknown>;
+
+  const frame = data.frame as { id: string; type: string; children?: unknown[] };
+  const findFirstImageOrVectorId = (node: { id: string; type: string; children?: unknown[] }): string | null => {
+    if (node.type === "IMAGE" || node.type === "VECTOR") return node.id;
+    for (const c of node.children ?? []) {
+      const found = findFirstImageOrVectorId(c as { id: string; type: string; children?: unknown[] });
+      if (found) return found;
+    }
+    return null;
+  };
+  const targetId = findFirstImageOrVectorId(frame);
+  if (targetId && !assets[targetId]) {
+    assets[targetId] = dataUrl;
+  }
+
+  return { ...data, assets } as T;
+}
+
 export function useFigmaPasteListener() {
   const router = useRouter();
 
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
+    const handlePaste = async (e: ClipboardEvent) => {
       const active = document.activeElement;
       if (
         active instanceof HTMLInputElement ||
@@ -34,7 +84,12 @@ export function useFigmaPasteListener() {
 
       e.preventDefault();
 
-      let nodes = figmaToSceneNodes(data);
+      let payload = data as Parameters<typeof figmaToSceneNodes>[0];
+      if (e.clipboardData) {
+        payload = await injectClipboardImage(payload, e.clipboardData);
+      }
+
+      let nodes = figmaToSceneNodes(payload);
       const store = useEditorStore.getState();
 
       const pt = store.lastCanvasPoint;

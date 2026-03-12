@@ -432,9 +432,10 @@ function FigmaProperties({
           {props._textFills && (props._textFills as Paint[]).length > 0 && (
             <ColorRow
               label="Text color"
-              value={(props._textFills as Paint[])[0].hex}
+              value={(props._textFills as Paint[])[0].hex ?? "#000000"}
               onChange={(v) => {
-                const alpha = (props._textFills as Paint[])[0].alpha;
+                const f = (props._textFills as Paint[])[0];
+                const alpha = f.alpha ?? f.opacity ?? 1;
                 updateNode(node.id, { props: { ...props, _textFills: [{ hex: v, alpha }] } });
               }}
             />

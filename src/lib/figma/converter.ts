@@ -46,6 +46,15 @@ function toDataUrl(value: string): string {
   return `data:image/png;base64,${value}`;
 }
 
+/** Extract string data from asset value (handles object format from some plugins) */
+function extractAssetString(
+  val: string | { data?: string; base64?: string; svg?: string } | undefined
+): string | null {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  return val.data ?? val.base64 ?? val.svg ?? null;
+}
+
 function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
   if (!node.clipsContent) return "VISIBLE";
   const dir = node.overflowDirection;
@@ -56,10 +65,9 @@ function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
   return "HIDDEN";
 }
 
-function resolveImageSrc(
-  node: FigmaNode,
-  assets: Record<string, string> | undefined
-): string | null {
+type AssetMap = Record<string, string | { data?: string; base64?: string; svg?: string }>;
+
+function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string | null {
   // Direct image data on the node (plugin may populate after export)
   if (node.imageData) return toDataUrl(node.imageData);
   if (node.src) return toDataUrl(node.src);
@@ -75,36 +83,50 @@ function resolveImageSrc(
         if (fill.imageData) return toDataUrl(fill.imageData);
         if (fill.src) return toDataUrl(fill.src);
         if (fill.imageBytes) return toDataUrl(fill.imageBytes);
-        if (fill.imageRef && assets?.[fill.imageRef])
-          return toDataUrl(assets[fill.imageRef]);
+        const refVal = fill.imageRef && assets?.[fill.imageRef];
+        const refStr = extractAssetString(refVal as string | { data?: string } | undefined);
+        if (refStr) return toDataUrl(refStr);
         const fillKey = `${node.id}_fill_${i}`;
-        if (assets?.[fillKey]) return toDataUrl(assets[fillKey]);
+        const fillVal = assets?.[fillKey];
+        const fillStr = extractAssetString(fillVal as string | { data?: string } | undefined);
+        if (fillStr) return toDataUrl(fillStr);
       }
     }
   }
 
   if (!assets) return null;
 
-  // Try exact node ID keys
-  if (assets[node.id]) return toDataUrl(assets[node.id]);
+  const getStr = (val: unknown) => extractAssetString(val as string | { data?: string } | undefined);
+  const vectorTypes = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
+  const isVectorType = vectorTypes.includes(node.type);
+
   const svgKey = `${node.id}_svg`;
-  if (assets[svgKey]) return toDataUrl(assets[svgKey]);
+  const svgVal = getStr(assets[svgKey]);
+  const direct = getStr(assets[node.id]);
+
+  if (isVectorType && svgVal) return toDataUrl(svgVal);
+  if (direct) return toDataUrl(direct);
+  if (svgVal) return toDataUrl(svgVal);
 
   // Colon-stripped IDs (e.g., "123:4" → "123-4", "123_4")
-  const altIds = [
-    node.id.replace(/:/g, "-"),
-    node.id.replace(/:/g, "_"),
-  ];
+  const altIds = [node.id.replace(/:/g, "-"), node.id.replace(/:/g, "_")];
   for (const altId of altIds) {
-    if (assets[altId]) return toDataUrl(assets[altId]);
-    if (assets[`${altId}_svg`]) return toDataUrl(assets[`${altId}_svg`]);
+    const a = getStr(assets[altId]);
+    if (a) return toDataUrl(a);
+    const aSvg = getStr(assets[`${altId}_svg`]);
+    if (aSvg) return toDataUrl(aSvg);
   }
 
   // Fallback: any key that ends with or contains node.id (plugin-specific formats)
   for (const [key, value] of Object.entries(assets)) {
-    if (!value || typeof value !== "string") continue;
-    if (key === node.id || key.endsWith(`_${node.id}`) || key.endsWith(`_${node.id.replace(/:/g, "-")}`)) {
-      return toDataUrl(value);
+    const str = getStr(value);
+    if (!str) continue;
+    if (
+      key === node.id ||
+      key.endsWith(`_${node.id}`) ||
+      key.endsWith(`_${node.id.replace(/:/g, "-")}`)
+    ) {
+      return toDataUrl(str);
     }
   }
 
@@ -115,7 +137,7 @@ function convertNode(
   node: FigmaNode,
   parentId: string | undefined,
   idPrefix: string,
-  assets: Record<string, string> | undefined
+  assets: AssetMap | undefined
 ): SceneNode {
   const type = mapType(node.type);
   const isTextNode = node.type === "TEXT";
@@ -237,11 +259,12 @@ function convertNode(
   };
 }
 
-/** Merge assets from payload - some plugins use "images" or other keys */
-function getMergedAssets(payload: RenderPayload): Record<string, string> | undefined {
+/** Merge assets from payload - some plugins use "images", "exports", or other keys */
+function getMergedAssets(payload: RenderPayload): AssetMap | undefined {
   const assets = payload.assets ?? {};
   const images = payload.images ?? {};
-  const merged = { ...assets, ...images };
+  const exports = payload.exports ?? {};
+  const merged = { ...assets, ...images, ...exports };
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 

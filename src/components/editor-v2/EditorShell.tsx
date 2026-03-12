@@ -813,10 +813,9 @@ export function EditorShell() {
         onDownload={async (settings) => {
           const { preloadLucideIcons } = await import("@/lib/icon-svg");
           await preloadLucideIcons();
-          const { downloadProject } = await import("@/lib/tauri-export");
-          const frames = sceneNodesToFrames(useEditorStore.getState().nodes);
-          const activeId = frames[0]?.id ?? null;
-          await downloadProject(frames, activeId, "my-tauri-app", settings);
+          const { downloadProjectFromSceneNodes } = await import("@/lib/tauri-export");
+          const nodes = useEditorStore.getState().nodes;
+          await downloadProjectFromSceneNodes(nodes, "my-tauri-app", settings);
         }}
       />
     </div>

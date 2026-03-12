@@ -1,7 +1,9 @@
 export interface Paint {
-  hex: string;
-  alpha: number;
+  hex?: string;
+  alpha?: number;
   opacity?: number;
+  /** Figma native format: r,g,b in 0-1, a optional */
+  color?: { r: number; g: number; b: number; a?: number };
   transparent?: boolean;
   visible?: boolean;
   type?: "SOLID" | "IMAGE" | "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND" | string;
@@ -11,6 +13,8 @@ export interface Paint {
   src?: string;
   scaleMode?: string;
   stops?: Array<{ position: number; hex: string; alpha: number }>;
+  gradientStops?: Array<{ color: { r: number; g: number; b: number; a?: number }; position: number }>;
+  gradientHandlePositions?: Array<{ x: number; y: number }>;
 }
 
 export interface Effect {
@@ -106,9 +110,11 @@ export interface RenderPayload {
   pageName: string;
   preview: string | null;
   frame: FigmaNode;
-  assets?: Record<string, string>;
+  assets?: Record<string, string | { data?: string; base64?: string; svg?: string }>;
   /** Some plugins use "images" instead of "assets" */
-  images?: Record<string, string>;
+  images?: Record<string, string | { data?: string; base64?: string }>;
+  /** Some plugins use "exports" */
+  exports?: Record<string, string | { data?: string; base64?: string; format?: string }>;
 }
 
 /** Convert Figma {hex, alpha} paint to CSS rgba string */
@@ -118,6 +124,21 @@ export function hexAlpha(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Convert SOLID paint to CSS color - supports hex or Figma color {r,g,b,a} */
+export function paintToSolidColor(fill: Paint): string | undefined {
+  const alpha = fill.alpha ?? fill.opacity ?? 1;
+  if (fill.hex) return hexAlpha(fill.hex, alpha);
+  const c = fill.color as { r?: number; g?: number; b?: number; a?: number } | undefined;
+  if (c && typeof c.r === "number" && typeof c.g === "number" && typeof c.b === "number") {
+    const r = Math.round(c.r * 255);
+    const g = Math.round(c.g * 255);
+    const b = Math.round(c.b * 255);
+    const a = typeof c.a === "number" ? c.a : alpha;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  return undefined;
 }
 
 /** Type guard for validating a pasted object as RenderPayload (v2.1) */

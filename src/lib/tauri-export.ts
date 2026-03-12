@@ -1,10 +1,12 @@
 import JSZip from "jszip";
 import { generateHtml, generateCss } from "./code-generator";
 import { getIconIcoBytes } from "./icon-data";
+import { sceneNodesToHtml, sceneExportCss, getFrameDimensions } from "./editor/scene-export";
+import type { SceneNode } from "./editor/types";
 import type { CanvasNode, Frame } from "./types";
 import type { ExportSettings } from "./editor/export-settings";
 
-const TAURI_CONF = (name: string, frameless = false) => JSON.stringify(
+const TAURI_CONF = (name: string, frameless = false, width = 1200, height = 800) => JSON.stringify(
   {
     productName: name,
     version: "0.1.0",
@@ -20,8 +22,8 @@ const TAURI_CONF = (name: string, frameless = false) => JSON.stringify(
       windows: [
         {
           title: name,
-          width: 1200,
-          height: 800,
+          width: Math.max(200, Math.round(width)),
+          height: Math.max(100, Math.round(height)),
           resizable: true,
           fullscreen: false,
           ...(frameless ? { decorations: false } : {}),
@@ -225,6 +227,8 @@ export function getTauriProjectFiles(
   const appName = exportSettings?.appName ?? projectName;
   const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
   const frameless = exportSettings?.frameless ?? false;
+  const w = activeFrame?.width ?? 1200;
+  const h = activeFrame?.height ?? 800;
   const html = generateHtml(nodes, activeFrame ?? undefined, { appName, titleBarStyle });
   const css = generateCss(titleBarStyle);
   const name = appName;
@@ -234,7 +238,7 @@ export function getTauriProjectFiles(
     "vite.config.ts": VITE_CONFIG,
     "src/index.html": html,
     "src/styles.css": css,
-    "src-tauri/tauri.conf.json": TAURI_CONF(name, frameless),
+    "src-tauri/tauri.conf.json": TAURI_CONF(name, frameless, w, h),
     "src-tauri/Cargo.toml": CARGO_TOML(name),
     "src-tauri/src/main.rs": MAIN_RS,
     "src-tauri/build.rs": BUILD_RS,
@@ -262,6 +266,8 @@ export async function createTauriProjectZip(
   const appName = exportSettings?.appName ?? projectName;
   const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
   const frameless = exportSettings?.frameless ?? false;
+  const w = activeFrame?.width ?? 1200;
+  const h = activeFrame?.height ?? 800;
   const html = generateHtml(nodes, activeFrame ?? undefined, { appName, titleBarStyle });
   const css = generateCss(titleBarStyle);
   const name = appName;
@@ -277,7 +283,7 @@ export async function createTauriProjectZip(
   }
 
   const srcTauri = zip.folder("src-tauri")!;
-  srcTauri.file("tauri.conf.json", TAURI_CONF(name, frameless));
+  srcTauri.file("tauri.conf.json", TAURI_CONF(name, frameless, w, h));
   srcTauri.file("Cargo.toml", CARGO_TOML(name));
   srcTauri.file("src/main.rs", MAIN_RS);
   srcTauri.file("build.rs", BUILD_RS);
@@ -301,6 +307,51 @@ export async function downloadProject(
 ): Promise<void> {
   const blob = await createTauriProjectZip(frames, activeFrameId, name, exportSettings);
   const appName = exportSettings?.appName ?? name;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${appName.toLowerCase().replace(/\s+/g, "-")}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export from SceneNodes - 1:1 with Render display.
+ * No custom top bar. Uses frame size. Preserves Figma colors, images, vectors.
+ */
+export async function downloadProjectFromSceneNodes(
+  nodes: SceneNode[],
+  name = "tauri-app",
+  exportSettings?: Partial<ExportSettings>
+): Promise<void> {
+  const zip = new JSZip();
+  const appName = exportSettings?.appName ?? name;
+  const { width, height } = getFrameDimensions(nodes);
+  const html = sceneNodesToHtml(nodes, appName);
+  const css = sceneExportCss();
+
+  zip.file("package.json", PACKAGE_JSON(appName));
+  zip.file("vite.config.ts", VITE_CONFIG);
+
+  const src = zip.folder("src")!;
+  src.file("index.html", html);
+  src.file("styles.css", css);
+
+  const srcTauri = zip.folder("src-tauri")!;
+  srcTauri.file("tauri.conf.json", TAURI_CONF(appName, false, width, height));
+  srcTauri.file("Cargo.toml", CARGO_TOML(appName));
+  srcTauri.file("src/main.rs", MAIN_RS);
+  srcTauri.file("build.rs", BUILD_RS);
+
+  const icons = srcTauri.folder("icons")!;
+  icons.file("icon.ico", getIconIcoBytes());
+
+  const capabilities = srcTauri.folder("capabilities")!;
+  capabilities.file("default.json", CAPABILITIES);
+
+  zip.file("README.md", README);
+
+  const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
