@@ -208,6 +208,7 @@ export function EditorShell() {
     mode,
     setMode,
     addNode,
+    setNodes,
     viewport,
     setViewport,
     duplicateNodes,
@@ -809,6 +810,10 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
+                onAIGenerate={(nodes) => {
+                  useEditorStore.getState().setNodes(nodes);
+                  useEditorStore.getState().pushHistory();
+                }}
               />
             )}
           </aside>

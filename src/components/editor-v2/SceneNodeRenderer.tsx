@@ -368,6 +368,8 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         className={styles.textNode}
         style={{
           ...baseStyle,
+          overflow: "visible",
+          whiteSpace: "nowrap",
           fontSize,
           fontWeight,
           textAlign: textAlign as React.CSSProperties["textAlign"],

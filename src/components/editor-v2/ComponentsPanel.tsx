@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, Wand2, Loader2 } from "lucide-react";
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
+import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
 interface ComponentsPanelProps {
   onAddComponent: (key: string, x?: number, y?: number) => void;
   onOpenIconPicker: () => void;
+  onAIGenerate?: (nodes: SceneNode[]) => void;
 }
 
 function DraggableComponent({
@@ -58,8 +60,33 @@ function getIcon(type: string): string {
   return icons[type] ?? "•";
 }
 
-export function ComponentsPanel({ onAddComponent, onOpenIconPicker }: ComponentsPanelProps) {
+export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate }: ComponentsPanelProps) {
   const [search, setSearch] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim() || !onAIGenerate) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Generation failed");
+      if (data.nodes?.length) {
+        onAIGenerate(data.nodes);
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Failed to generate");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const filtered = COMPONENT_CATEGORIES.map((cat) => ({
     ...cat,
@@ -83,6 +110,33 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker }: Components
           spellCheck={false}
         />
       </div>
+
+      {onAIGenerate && (
+        <div className={styles.aiSection}>
+          <div className={styles.aiLabel}>
+            <Wand2 size={14} />
+            AI Generate
+          </div>
+          <textarea
+            className={styles.aiInput}
+            placeholder="e.g. Modern SaaS dashboard with sidebar and KPI cards"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            rows={2}
+            disabled={aiLoading}
+          />
+          <button
+            type="button"
+            className={styles.aiBtn}
+            onClick={handleAIGenerate}
+            disabled={aiLoading || !aiPrompt.trim()}
+          >
+            {aiLoading ? <Loader2 size={14} className={styles.aiSpinner} /> : <Sparkles size={14} />}
+            {aiLoading ? "Generating…" : "Generate UI"}
+          </button>
+          {aiError && <div className={styles.aiError}>{aiError}</div>}
+        </div>
+      )}
 
       <button
         type="button"
