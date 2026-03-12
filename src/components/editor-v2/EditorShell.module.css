@@ -43,32 +43,62 @@
   flex-shrink: 0;
 }
 
-/* Logo button */
-.logoBtn {
+/* Logo mark */
+.logoMark {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   background: linear-gradient(135deg, var(--accent), var(--accent-muted));
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform var(--transition-fast), filter var(--transition-fast);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-}
-
-.logoBtn:hover {
-  transform: scale(1.05);
-  filter: brightness(1.1);
-}
-
-.logoMark {
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 700;
   color: white;
   line-height: 1;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Menu bar (File, Edit, View...) */
+.menuBar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.menuBarItem {
+  position: relative;
+}
+
+.menuBarBtn {
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--fg-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 80ms ease;
+  white-space: nowrap;
+}
+
+.menuBarBtn:hover {
+  color: var(--fg-primary);
+  background: rgba(255,255,255,0.08);
+}
+
+.menuBarActive {
+  color: var(--fg-primary) !important;
+  background: rgba(255,255,255,0.12) !important;
+}
+
+.menuDividerV {
+  width: 1px;
+  height: 16px;
+  background: var(--border-muted);
+  flex-shrink: 0;
 }
 
 /* Project name */
@@ -104,22 +134,27 @@
   outline: none;
 }
 
-/* App menu (Raycast style popover) */
+/* Dropdown menu (positioned under each menu bar button) */
 .menuDropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
   left: 0;
   min-width: 220px;
   padding: 6px;
-  background: var(--bg-overlay);
+  background: rgba(32,32,38,0.98);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
   z-index: 1000;
-  animation: popIn var(--transition-fast) forwards;
+  animation: menuSlideIn 120ms ease forwards;
   transform-origin: top left;
+}
+
+@keyframes menuSlideIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes popIn {
@@ -127,83 +162,28 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-.menuGroup {
-  position: relative;
-}
-
-.menuGroupRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 6px 8px;
-  font-size: var(--text-sm);
-  color: var(--fg-primary);
-  border-radius: var(--radius-sm);
-  cursor: default;
-  transition: background var(--transition-fast);
-}
-
-.menuGroupRow:hover {
-  background: var(--accent);
-  color: white;
-}
-
-.menuGroupRow:hover .menuGroupIcon,
-.menuGroupRow:hover .menuArrow {
-  color: white;
-}
-
-.menuGroupIcon {
-  flex-shrink: 0;
-  color: var(--fg-secondary);
-}
-
-.menuArrow {
-  margin-left: auto;
-  color: var(--fg-muted);
-  flex-shrink: 0;
-}
-
-.submenu {
-  position: absolute;
-  left: calc(100% + 4px);
-  top: -6px;
-  min-width: 220px;
-  padding: 6px;
-  background: var(--bg-overlay);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 1001;
-  animation: popIn var(--transition-fast) forwards;
-  transform-origin: top left;
-}
-
 .submenuItem {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 8px;
   width: 100%;
-  padding: 6px 8px;
-  font-size: var(--text-sm);
+  padding: 7px 10px;
+  font-size: 13px;
   color: var(--fg-primary);
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   text-align: left;
-  transition: background var(--transition-fast);
+  transition: background 80ms ease;
 }
 
 .submenuItem:hover:not(:disabled) {
-  background: var(--accent);
-  color: white;
+  background: rgba(255,255,255,0.08);
 }
 
 .submenuItem:hover:not(:disabled) .submenuIcon {
-  color: white;
+  color: var(--fg-primary);
 }
 
 .submenuItem:disabled {
@@ -532,6 +512,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Explorer Panel ──────────────────────────────────────────── */
+.explorerPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.explorerHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  flex-shrink: 0;
+}
+
+.explorerIcon {
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.explorerTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  flex: 1;
+}
+
+.explorerCount {
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.layerAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--fg-muted);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0;
+  opacity: 0.6;
+  transition: all 0.1s ease;
+}
+
+.layerAction:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  opacity: 1;
 }
 
 /* ── Canvas Area ───────────────────────────────────────────────── */

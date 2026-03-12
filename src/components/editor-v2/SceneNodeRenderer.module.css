@@ -14,7 +14,9 @@
 .textNode,
 .rectNode,
 .genericNode {
-  border: 1px solid var(--border-default);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  transition: box-shadow 0.15s ease;
 }
 
 /* Icon */
@@ -75,8 +77,7 @@
 
 /* Input */
 .inputNode {
-  background: var(--bg-base);
-  border-radius: 6px;
+  background: rgba(20,20,24,0.9);
   display: flex;
   align-items: center;
 }
@@ -165,8 +166,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: var(--bg-base);
-  border-radius: 6px;
+  background: rgba(20,20,24,0.9);
   font-size: 14px;
   color: var(--fg-secondary);
 }
@@ -334,7 +334,6 @@
   align-items: center;
   padding: 4px 0;
   background: transparent;
-  border: none;
   color: var(--fg-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -343,8 +342,7 @@
 
 /* Rectangle */
 .rectNode {
-  background: var(--bg-muted);
-  border-radius: 4px;
+  background: rgba(50,50,58,0.6);
 }
 
 /* Generic */
@@ -352,13 +350,5 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-overlay);
-  border-radius: 4px;
-}
-
-.genericLabel {
-  font-size: 11px;
-  color: var(--fg-muted);
-  text-align: center;
-  padding: 8px;
+  background: rgba(40,40,46,0.8);
 }

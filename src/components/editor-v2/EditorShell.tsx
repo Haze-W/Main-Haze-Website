@@ -33,6 +33,14 @@ import {
   Plus,
   Minus,
   ChevronRight,
+  Search,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  Trash2,
+  MoreHorizontal,
+  FolderTree,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { useEditorStore as useLegacyStore } from "@/lib/editor-store";
@@ -110,8 +118,11 @@ function LayerItem({
   depth: number;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [hovered, setHovered] = useState(false);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const deleteNodes = useEditorStore((s) => s.deleteNodes);
   const hasChildren = (node.children?.length ?? 0) > 0;
 
   return (
@@ -119,7 +130,12 @@ function LayerItem({
       <div
         className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""}`}
         style={{ paddingLeft: depth * 14 + 6 }}
-        onClick={() => setSelectedIds([node.id])}
+        onClick={(e) => {
+          if (e.shiftKey) toggleSelection(node.id);
+          else setSelectedIds([node.id]);
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         <button
           type="button"
@@ -140,6 +156,19 @@ function LayerItem({
         </button>
         <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
         <span className={styles.layerName}>{node.name}</span>
+        {hovered && (
+          <button
+            type="button"
+            className={styles.layerAction}
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteNodes([node.id]);
+            }}
+            title="Delete"
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
       </div>
       {expanded &&
         hasChildren &&
@@ -158,7 +187,7 @@ function LayerItem({
 export function EditorShell() {
   const [exportOpen, setExportOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [leftTab, setLeftTab] = useState<"layers" | "assets">("layers");
+  const [leftTab, setLeftTab] = useState<"explorer" | "assets">("explorer");
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("Untitled");
@@ -357,11 +386,11 @@ export function EditorShell() {
       setMenuOpen(false);
     },
     "View.Zoom In": () => {
-      setViewport({ zoom: Math.min(40, viewport.zoom * 1.25) });
+      setViewport({ zoom: Math.min(10, viewport.zoom * 1.25) });
       setMenuOpen(false);
     },
     "View.Zoom Out": () => {
-      setViewport({ zoom: Math.max(0.1, viewport.zoom / 1.25) });
+      setViewport({ zoom: Math.max(0.05, viewport.zoom / 1.25) });
       setMenuOpen(false);
     },
     "View.Reset Zoom": () => {
@@ -518,21 +547,62 @@ export function EditorShell() {
     <div className={styles.shell}>
       {/* ── Top Bar ─────────────────────────────────────────────────── */}
       <header className={styles.topbar}>
-        {/* Left: logo/menu + project name */}
+        {/* Left: logo + menus + project name */}
         <div className={styles.topbarLeft} ref={menuRef}>
-          <button
-            type="button"
-            className={styles.logoBtn}
-            onClick={() => {
-              setMenuOpen((v) => !v);
-              setSubmenuOpen(null);
-            }}
-            title="Menu"
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-          >
-            <span className={styles.logoMark}>R</span>
-          </button>
+          <span className={styles.logoMark}>R</span>
+
+          <nav className={styles.menuBar}>
+            {menuStructure.map((group) => (
+              <div key={group.id} className={styles.menuBarItem}>
+                <button
+                  type="button"
+                  className={`${styles.menuBarBtn} ${submenuOpen === group.id ? styles.menuBarActive : ""}`}
+                  onClick={() => {
+                    if (submenuOpen === group.id) {
+                      setSubmenuOpen(null);
+                      setMenuOpen(false);
+                    } else {
+                      setSubmenuOpen(group.id);
+                      setMenuOpen(true);
+                    }
+                  }}
+                  onMouseEnter={() => {
+                    if (menuOpen) setSubmenuOpen(group.id);
+                  }}
+                >
+                  {group.label}
+                </button>
+                {submenuOpen === group.id && (
+                  <div className={styles.menuDropdown}>
+                    {group.items.map((item, idx) =>
+                      item.divider ? (
+                        <div key={`div-${idx}`} className={styles.menuDivider} />
+                      ) : (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={styles.submenuItem}
+                          disabled={item.disabled}
+                          onClick={() => {
+                            const action = menuActions[item.action];
+                            action?.();
+                          }}
+                        >
+                          <item.icon size={13} className={styles.submenuIcon} />
+                          <span className={styles.submenuLabel}>{item.label}</span>
+                          {item.shortcut && (
+                            <span className={styles.shortcut}>{item.shortcut}</span>
+                          )}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </nav>
+
+          <div className={styles.menuDividerV} />
 
           {editingName ? (
             <input
@@ -554,52 +624,6 @@ export function EditorShell() {
             >
               {projectName}
             </button>
-          )}
-
-          {/* App menu dropdown */}
-          {menuOpen && (
-            <div className={styles.menuDropdown}>
-              {menuStructure.map((group) => (
-                <div
-                  key={group.id}
-                  className={styles.menuGroup}
-                  onMouseEnter={() => setSubmenuOpen(group.id)}
-                  onMouseLeave={() => setSubmenuOpen(null)}
-                >
-                  <div className={styles.menuGroupRow}>
-                    <group.icon size={13} className={styles.menuGroupIcon} />
-                    <span>{group.label}</span>
-                    <ChevronRight size={10} className={styles.menuArrow} />
-                  </div>
-                  {submenuOpen === group.id && (
-                    <div className={styles.submenu}>
-                      {group.items.map((item, idx) =>
-                        item.divider ? (
-                          <div key={`div-${idx}`} className={styles.menuDivider} />
-                        ) : (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={styles.submenuItem}
-                            disabled={item.disabled}
-                            onClick={() => {
-                              const action = menuActions[item.action];
-                              action?.();
-                            }}
-                          >
-                            <item.icon size={13} className={styles.submenuIcon} />
-                            <span className={styles.submenuLabel}>{item.label}</span>
-                            {item.shortcut && (
-                              <span className={styles.shortcut}>{item.shortcut}</span>
-                            )}
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           )}
         </div>
 
@@ -667,7 +691,7 @@ export function EditorShell() {
             <button
               type="button"
               className={styles.zoomBtn}
-              onClick={() => setViewport({ zoom: Math.max(0.01, viewport.zoom / 1.25) })}
+              onClick={() => setViewport({ zoom: Math.max(0.05, viewport.zoom / 1.25) })}
               title="Zoom out"
             >
               <Minus size={12} strokeWidth={2.5} />
@@ -676,7 +700,7 @@ export function EditorShell() {
             <button
               type="button"
               className={styles.zoomBtn}
-              onClick={() => setViewport({ zoom: Math.min(40, viewport.zoom * 1.25) })}
+              onClick={() => setViewport({ zoom: Math.min(10, viewport.zoom * 1.25) })}
               title="Zoom in"
             >
               <Plus size={12} strokeWidth={2.5} />
@@ -703,10 +727,10 @@ export function EditorShell() {
             <div className={styles.panelTabs}>
               <button
                 type="button"
-                className={`${styles.panelTab} ${leftTab === "layers" ? styles.tabActive : ""}`}
-                onClick={() => setLeftTab("layers")}
+                className={`${styles.panelTab} ${leftTab === "explorer" ? styles.tabActive : ""}`}
+                onClick={() => setLeftTab("explorer")}
               >
-                Layers
+                Explorer
               </button>
               <button
                 type="button"
@@ -717,20 +741,27 @@ export function EditorShell() {
               </button>
             </div>
 
-            {leftTab === "layers" ? (
-              <div className={styles.layerTree}>
-                {nodes.length === 0 ? (
-                  <div className={styles.layerEmpty}>No layers yet</div>
-                ) : (
-                  nodes.map((node, i) => (
-                    <LayerItem
-                      key={`${node.id}-${i}`}
-                      node={node}
-                      isSelected={selectedIds.has(node.id)}
-                      depth={0}
-                    />
-                  ))
-                )}
+            {leftTab === "explorer" ? (
+              <div className={styles.explorerPanel}>
+                <div className={styles.explorerHeader}>
+                  <FolderTree size={13} className={styles.explorerIcon} />
+                  <span className={styles.explorerTitle}>Explorer</span>
+                  <span className={styles.explorerCount}>{nodes.length}</span>
+                </div>
+                <div className={styles.layerTree}>
+                  {nodes.length === 0 ? (
+                    <div className={styles.layerEmpty}>No layers yet</div>
+                  ) : (
+                    nodes.map((node, i) => (
+                      <LayerItem
+                        key={`${node.id}-${i}`}
+                        node={node}
+                        isSelected={selectedIds.has(node.id)}
+                        depth={0}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
             ) : (
               <ComponentsPanel

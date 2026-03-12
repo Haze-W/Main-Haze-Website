@@ -18,6 +18,8 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
   const handleResizeStart = useCallback(
     (handle: string) => (e: React.PointerEvent) => {
       e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
       const onMove = (move: PointerEvent) => {
         const dx = (move.clientX - last.clientX) / zoom;
@@ -27,6 +29,7 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         last.clientY = move.clientY;
       };
       const onUp = () => {
+        target.releasePointerCapture(e.pointerId);
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         pushHistory();
@@ -58,9 +61,9 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         top: node.y,
         width: node.width,
         height: node.height,
-        border: "1px solid var(--border-default)",
-        borderRadius: 4,
-        background: (node.props?.backgroundColor as string) ?? "var(--bg-overlay)",
+        border: isSelected ? "none" : "1px solid rgba(255,255,255,0.06)",
+        borderRadius: 6,
+        background: (node.props?.backgroundColor as string) ?? "rgba(30,30,34,0.95)",
         overflow: node.overflow === "HIDDEN" ? "hidden" : "visible",
         cursor: "pointer",
         boxSizing: "border-box",
@@ -72,35 +75,30 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.stopPropagation();
+        const target = e.currentTarget as HTMLElement;
+        target.setPointerCapture(e.pointerId);
         const last = { clientX: e.clientX, clientY: e.clientY };
+        let moved = false;
         const onMove = (move: PointerEvent) => {
           const dx = (move.clientX - last.clientX) / zoom;
           const dy = (move.clientY - last.clientY) / zoom;
+          if (dx !== 0 || dy !== 0) moved = true;
           moveNodes([node.id], dx, dy);
           last.clientX = move.clientX;
           last.clientY = move.clientY;
         };
         const onUp = () => {
+          target.releasePointerCapture(e.pointerId);
           document.removeEventListener("pointermove", onMove);
           document.removeEventListener("pointerup", onUp);
-          pushHistory();
+          if (moved) pushHistory();
         };
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp);
       }}
     >
       {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-      <div
-        style={{
-          padding: 8,
-          fontSize: 11,
-          color: "var(--fg-muted)",
-          borderBottom: "1px solid var(--border-muted)",
-        }}
-      >
-        {node.name}
-      </div>
-      <div style={{ flex: 1, position: "relative", minHeight: node.height - 40 }}>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {node.children?.map((child) => {
           if (child.props?._figma) {
             return (
@@ -121,18 +119,11 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
                 top: child.y,
                 width: child.width,
                 height: child.height,
-                background: "var(--bg-hover)",
-                border: "1px dashed var(--border-muted)",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
                 borderRadius: 4,
-                fontSize: 10,
-                color: "var(--fg-muted)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
               }}
-            >
-              {child.type}
-            </div>
+            />
           );
         })}
       </div>

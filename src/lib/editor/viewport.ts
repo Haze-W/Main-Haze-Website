@@ -70,9 +70,9 @@ export function canvasToScreen(
   return { x: v.x + containerRect.left, y: v.y + containerRect.top };
 }
 
-/** Zoom: 0.01 = 1%, 1 = 100%, 40 = 4000% */
-export const MIN_ZOOM = 0.01;
-export const MAX_ZOOM = 40;
+/** Zoom: 0.05 = 5%, 1 = 100%, 10 = 1000% */
+export const MIN_ZOOM = 0.05;
+export const MAX_ZOOM = 10;
 
 export function clampZoom(zoom: number): number {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));

@@ -58,6 +58,7 @@ export function Canvas() {
     gridType,
   } = useEditorStore();
 
+
   const measure = useCallback(() => {
     if (containerRef.current) {
       setContainerRect(containerRef.current.getBoundingClientRect());

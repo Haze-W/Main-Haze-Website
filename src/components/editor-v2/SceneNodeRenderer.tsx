@@ -373,9 +373,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       onClick={handleClick}
       onContextMenu={(e) => e.stopPropagation()}
       onPointerDown={createDragHandler(node.id, zoom, moveNodes, pushHistory)}
-    >
-      <span className={styles.genericLabel}>{node.name}</span>
-    </div>
+    />
   );
 }
 
@@ -388,18 +386,23 @@ function createDragHandler(
   return (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     const last = { clientX: e.clientX, clientY: e.clientY };
+    let moved = false;
     const onMove = (move: PointerEvent) => {
       const dx = (move.clientX - last.clientX) / zoom;
       const dy = (move.clientY - last.clientY) / zoom;
+      if (dx !== 0 || dy !== 0) moved = true;
       moveNodes([nodeId], dx, dy);
       last.clientX = move.clientX;
       last.clientY = move.clientY;
     };
     const onUp = () => {
+      target.releasePointerCapture(e.pointerId);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
-      pushHistory();
+      if (moved) pushHistory();
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);

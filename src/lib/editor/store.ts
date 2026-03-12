@@ -184,7 +184,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   history: [{ nodes: JSON.parse(JSON.stringify(initialNodes)) }],
   historyIndex: 0,
   mode: "design",
-  canvasBg: "#1e1e1e",
+  canvasBg: "#2a2a2e",
   showGrid: true,
   gridType: "dots",
   snapLines: [],
@@ -277,7 +277,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       viewport: {
         ...s.viewport,
         ...v,
-        zoom: v.zoom !== undefined ? Math.max(0.01, Math.min(40, v.zoom)) : s.viewport.zoom,
+        zoom: v.zoom !== undefined ? Math.max(0.05, Math.min(10, v.zoom)) : s.viewport.zoom,
       },
     })),
   setSelectedIds: (ids) =>

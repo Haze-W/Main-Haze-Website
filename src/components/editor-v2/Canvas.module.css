@@ -1,7 +1,7 @@
 .wrapper {
   flex: 1;
   overflow: hidden;
-  background: #1e1e1e;
+  background: #2a2a2e;
   position: relative;
 }
 
@@ -26,10 +26,10 @@
 /* Grid – fits entire canvas (8000×8000) */
 .grid {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 8000px;
-  height: 8000px;
+  top: -50000px;
+  left: -50000px;
+  width: 100000px;
+  height: 100000px;
   pointer-events: none;
 }
 
