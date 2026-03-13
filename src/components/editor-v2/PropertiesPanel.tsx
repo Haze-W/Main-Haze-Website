@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState, useMemo, useEffect } from "react";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
-import { Image, Palette } from "lucide-react";
+import { Image, Palette, Plus, Trash2, ChevronDown, Zap } from "lucide-react";
 import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
 import { TopBarConfigPanel } from "./TopBarConfigPanel";
 import type { Paint } from "@/lib/figma/types";
 import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
+import { BLOCK_TYPE_OPTIONS } from "@/lib/editor/blocks";
+import type { Interaction, Block, BlockType, BlockParams, InteractionList } from "@/lib/editor/blocks";
 import styles from "./PropertiesPanel.module.css";
 
 /** Number input that shows empty when value is 0, so typing "245" doesn't become "0245" */
@@ -712,6 +714,304 @@ function CanvasProperties() {
   );
 }
 
+// ── Interactions Panel ────────────────────────────────────────────────────────
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+const TRIGGER_LABELS: Record<string, string> = {
+  ON_CLICK: "On Click",
+  ON_HOVER: "On Hover",
+  ON_CHANGE: "On Change",
+};
+
+function BlockEditor({
+  block,
+  nodes,
+  onChange,
+  onRemove,
+}: {
+  block: Block;
+  nodes: SceneNode[];
+  onChange: (b: Block) => void;
+  onRemove: () => void;
+}) {
+  const allNodes = useMemo(() => {
+    const flat: SceneNode[] = [];
+    function walk(ns: SceneNode[]) {
+      for (const n of ns) {
+        flat.push(n);
+        if (n.children) walk(n.children);
+      }
+    }
+    walk(nodes);
+    return flat;
+  }, [nodes]);
+
+  const frames = allNodes.filter((n) => n.type === "FRAME");
+  const nonFrames = allNodes.filter((n) => n.type !== "FRAME" && n.type !== "TOPBAR");
+
+  const setParam = useCallback((key: keyof BlockParams, val: unknown) => {
+    onChange({ ...block, params: { ...(block.params ?? {}), [key]: val } });
+  }, [block, onChange]);
+
+  const setType = useCallback((type: BlockType) => {
+    const label = BLOCK_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+    onChange({ ...block, type, label, params: {} });
+  }, [block, onChange]);
+
+  return (
+    <div className={styles.blockEditor}>
+      <div className={styles.blockHeader}>
+        <select
+          className={styles.blockTypeSelect}
+          value={block.type}
+          onChange={(e) => setType(e.target.value as BlockType)}
+        >
+          {BLOCK_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <button type="button" className={styles.blockRemoveBtn} onClick={onRemove} title="Remove action">
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      {/* NAVIGATE_TO_FRAME */}
+      {block.type === "NAVIGATE_TO_FRAME" && (
+        <div className={styles.blockParam}>
+          <span className={styles.blockParamLabel}>Target frame</span>
+          <select
+            className={styles.blockParamSelect}
+            value={block.params?.targetFrameId ?? ""}
+            onChange={(e) => {
+              const frame = frames.find((f) => f.id === e.target.value);
+              setParam("targetFrameId", e.target.value);
+              setParam("targetFrameName", frame?.name ?? "");
+            }}
+          >
+            <option value="">— select frame —</option>
+            {frames.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* OPEN_URL */}
+      {block.type === "OPEN_URL" && (
+        <div className={styles.blockParam}>
+          <span className={styles.blockParamLabel}>URL</span>
+          <input
+            type="text"
+            className={styles.blockParamInput}
+            placeholder="https://example.com"
+            value={(block.params?.url as string) ?? ""}
+            onChange={(e) => setParam("url", e.target.value)}
+          />
+        </div>
+      )}
+
+      {/* SHOW / HIDE / TOGGLE_VISIBILITY */}
+      {(block.type === "SHOW_ELEMENT" || block.type === "HIDE_ELEMENT" || block.type === "TOGGLE_VISIBILITY") && (
+        <div className={styles.blockParam}>
+          <span className={styles.blockParamLabel}>Target element</span>
+          <select
+            className={styles.blockParamSelect}
+            value={block.params?.targetNodeId ?? ""}
+            onChange={(e) => {
+              const n = nonFrames.find((nd) => nd.id === e.target.value);
+              setParam("targetNodeId", e.target.value);
+              setParam("targetNodeName", n?.name ?? "");
+            }}
+          >
+            <option value="">— select element —</option>
+            {nonFrames.map((n) => (
+              <option key={n.id} value={n.id}>{n.name} ({n.type})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* SEND_IPC */}
+      {block.type === "SEND_IPC" && (
+        <>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Event name</span>
+            <input
+              type="text"
+              className={styles.blockParamInput}
+              placeholder="my-event"
+              value={(block.params?.ipcEvent as string) ?? ""}
+              onChange={(e) => setParam("ipcEvent", e.target.value)}
+            />
+          </div>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Payload (JSON)</span>
+            <input
+              type="text"
+              className={styles.blockParamInput}
+              placeholder='{"key":"value"}'
+              value={(block.params?.ipcPayload as string) ?? ""}
+              onChange={(e) => setParam("ipcPayload", e.target.value)}
+            />
+          </div>
+        </>
+      )}
+
+      {/* TRIGGER_EVENT */}
+      {block.type === "TRIGGER_EVENT" && (
+        <div className={styles.blockParam}>
+          <span className={styles.blockParamLabel}>Event name</span>
+          <input
+            type="text"
+            className={styles.blockParamInput}
+            placeholder="my-custom-event"
+            value={(block.params?.ipcEvent as string) ?? ""}
+            onChange={(e) => setParam("ipcEvent", e.target.value)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InteractionEditor({
+  interaction,
+  nodes,
+  onChange,
+  onRemove,
+}: {
+  interaction: Interaction;
+  nodes: SceneNode[];
+  onChange: (i: Interaction) => void;
+  onRemove: () => void;
+}) {
+  const addBlock = () => {
+    const block: Block = {
+      id: uid(),
+      type: "NAVIGATE_TO_FRAME",
+      label: "Navigate to Frame",
+      enabled: true,
+      params: {},
+    };
+    onChange({ ...interaction, blocks: [...interaction.blocks, block] });
+  };
+
+  const updateBlock = (idx: number, b: Block) => {
+    const blocks = [...interaction.blocks];
+    blocks[idx] = b;
+    onChange({ ...interaction, blocks });
+  };
+
+  const removeBlock = (idx: number) => {
+    const blocks = interaction.blocks.filter((_, i) => i !== idx);
+    onChange({ ...interaction, blocks });
+  };
+
+  return (
+    <div className={styles.interactionCard}>
+      <div className={styles.interactionHeader}>
+        <select
+          className={styles.triggerSelect}
+          value={interaction.trigger}
+          onChange={(e) =>
+            onChange({ ...interaction, trigger: e.target.value as Interaction["trigger"] })
+          }
+        >
+          <option value="ON_CLICK">On Click</option>
+          <option value="ON_HOVER">On Hover</option>
+          <option value="ON_CHANGE">On Change</option>
+        </select>
+        <button type="button" className={styles.interactionRemoveBtn} onClick={onRemove} title="Remove interaction">
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      <div className={styles.blockList}>
+        {interaction.blocks.map((block, idx) => (
+          <BlockEditor
+            key={block.id}
+            block={block}
+            nodes={nodes}
+            onChange={(b) => updateBlock(idx, b)}
+            onRemove={() => removeBlock(idx)}
+          />
+        ))}
+      </div>
+
+      <button type="button" className={styles.addBlockBtn} onClick={addBlock}>
+        <Plus size={11} /> Add action
+      </button>
+    </div>
+  );
+}
+
+function InteractionsPanel({ node }: { node: SceneNode }) {
+  const { nodes, updateNode } = useEditorStore();
+  const interactions: InteractionList = (node.props?._interactions as InteractionList) ?? [];
+
+  const save = useCallback((list: InteractionList) => {
+    updateNode(node.id, { props: { ...(node.props ?? {}), _interactions: list } });
+  }, [node, updateNode]);
+
+  const addInteraction = () => {
+    const block: Block = {
+      id: uid(),
+      type: "NAVIGATE_TO_FRAME",
+      label: "Navigate to Frame",
+      enabled: true,
+      params: {},
+    };
+    const interaction: Interaction = {
+      id: uid(),
+      trigger: "ON_CLICK",
+      blocks: [block],
+    };
+    save([...interactions, interaction]);
+  };
+
+  const updateInteraction = (idx: number, i: Interaction) => {
+    const list = [...interactions];
+    list[idx] = i;
+    save(list);
+  };
+
+  const removeInteraction = (idx: number) => {
+    save(interactions.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.interactionsSectionHeader}>
+        <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Zap size={11} /> Interactions
+        </div>
+        <button type="button" className={styles.addInteractionBtn} onClick={addInteraction}>
+          <Plus size={12} /> Add
+        </button>
+      </div>
+
+      {interactions.length === 0 && (
+        <div className={styles.interactionsEmpty}>
+          No interactions yet. Click Add to make this element do something.
+        </div>
+      )}
+
+      {interactions.map((interaction, idx) => (
+        <InteractionEditor
+          key={interaction.id}
+          interaction={interaction}
+          nodes={nodes}
+          onChange={(i) => updateInteraction(idx, i)}
+          onRemove={() => removeInteraction(idx)}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function PropertiesPanel() {
   const { nodes, selectedIds, updateNode } = useEditorStore();
   const selectedId = [...selectedIds][0];
@@ -980,6 +1280,8 @@ export function PropertiesPanel() {
             />
           </div>
         </div>
+
+        <InteractionsPanel node={node} />
       </div>
     </div>
   );
