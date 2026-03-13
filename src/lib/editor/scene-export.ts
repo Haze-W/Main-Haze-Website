@@ -192,14 +192,16 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   if (node.visible === false) return "";
 
   const pad = "  ".repeat(indent);
-  const figma = node.props?._figma as FigmaProps | undefined;
-  const isEllipse = !!node.props?._ellipse;
-  const isText = figma?.originalType === "TEXT";
-  const hasImageFill = !!node.props?._hasImageFill;
+  const props = node.props ?? {};
+  const figma = props._figma as FigmaProps | undefined;
+  const isEllipse = !!props._ellipse;
+  const isTextType = node.type === "TEXT";
+  const isText = isTextType || figma?.originalType === "TEXT";
+  const hasImageFill = !!props._hasImageFill;
   const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
   const VECTOR_TYPES = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
   const isVector = figma ? VECTOR_TYPES.includes(figma.originalType) : false;
-  const isVectorOrImageWithData = hasImageFill || (isVector && node.props?._imageData);
+  const isVectorOrImageWithData = hasImageFill || (isVector && props._imageData);
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
   const layout = node.layoutMode ?? "NONE";
@@ -249,6 +251,14 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     else if (node.overflow === "SCROLL") style.overflow = "auto";
     else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
     else if (isVectorOrImageWithData) style.overflow = "visible";
+  } else {
+    const bg = (props.backgroundColor as string | undefined) ?? undefined;
+    const borderColor = (props.borderColor as string | undefined) ?? undefined;
+    const borderWidth = (props.borderWidth as number | undefined) ?? undefined;
+    if (bg && !isTextType) style.background = bg;
+    if (borderColor && borderWidth != null && borderWidth > 0) {
+      style.border = `${borderWidth}px solid ${borderColor}`;
+    }
   }
 
   if (layout === "HORIZONTAL" || layout === "VERTICAL") {
@@ -272,10 +282,23 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
   // TEXT NODE
   if (isText) {
-    const props = node.props ?? {};
-    const textStyle: Record<string, string> = { ...style, color: getTextColor(props), whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "0", padding: "0" };
-    delete textStyle.background;
-    delete textStyle.backgroundColor;
+    const textStyle: Record<string, string> = {
+      ...style,
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      margin: "0",
+      padding: "0",
+    };
+
+    if (figma) {
+      textStyle.color = getTextColor(props);
+      delete textStyle.background;
+      delete textStyle.backgroundColor;
+    } else {
+      const color = (props.color as string | undefined) ?? "#000000";
+      textStyle.color = color;
+    }
+
     if (props.fontFamily) textStyle.fontFamily = `"${props.fontFamily as string}",sans-serif`;
     if (props.fontSize) textStyle.fontSize = `${props.fontSize}px`;
     if (props.fontWeight) textStyle.fontWeight = String(props.fontWeight);
@@ -285,8 +308,18 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (props.fontStyle === "italic") textStyle.fontStyle = "italic";
     const lh = props.lineHeight;
     if (lh != null && lh !== "auto") textStyle.lineHeight = typeof lh === "number" ? `${lh}px` : String(lh);
-    const textStyleStr = Object.entries(textStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
-    return `${pad}<div style="${escapeHtml(textStyleStr)}">${textSegmentsToHtml(props)}</div>`;
+
+    const textStyleStr = Object.entries(textStyle)
+      .filter(([, v]) => v != null)
+      .map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`)
+      .join(";");
+
+    const htmlContent =
+      props._textSegments && Array.isArray(props._textSegments)
+        ? textSegmentsToHtml(props)
+        : escapeHtml((props.content as string) ?? "");
+
+    return `${pad}<div style="${escapeHtml(textStyleStr)}">${htmlContent}</div>`;
   }
 
   // IMAGE / VECTOR NODE
