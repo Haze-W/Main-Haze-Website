@@ -9,18 +9,56 @@ export interface Block {
   type: BlockType;
   label: string;
   enabled: boolean;
+  params?: BlockParams;
 }
 
+/** A single interaction rule: trigger → block actions */
+export interface Interaction {
+  id: string;
+  trigger: "ON_CLICK" | "ON_HOVER" | "ON_CHANGE";
+  blocks: Block[];
+}
+
+/** Stored on node.props._interactions */
+export type InteractionList = Interaction[];
+
 export type BlockType =
+  // Window controls
   | "CLOSE_APP"
   | "MINIMIZE_WINDOW"
   | "TOGGLE_MAXIMIZE"
+  // Navigation
+  | "NAVIGATE_TO_FRAME"
+  | "OPEN_URL"
+  // Visibility
+  | "SHOW_ELEMENT"
+  | "HIDE_ELEMENT"
+  | "TOGGLE_VISIBILITY"
+  // State
+  | "SET_PROP"
+  | "TOGGLE_CHECKED"
+  // Tauri
   | "SAVE_PROJECT"
   | "OPEN_SETTINGS"
   | "TRIGGER_EVENT"
   | "SEND_IPC"
   | "RUN_SCRIPT"
   | "CUSTOM";
+
+/** Extra parameters stored on a block for configurable actions */
+export interface BlockParams {
+  targetFrameId?: string;
+  targetFrameName?: string;
+  targetNodeId?: string;
+  targetNodeName?: string;
+  url?: string;
+  openInBrowser?: boolean;
+  propKey?: string;
+  propValue?: unknown;
+  ipcEvent?: string;
+  ipcPayload?: string;
+  scriptBody?: string;
+}
 
 export interface BlockChain {
   id: string;
@@ -108,14 +146,22 @@ export function createDefaultTopBarConfig(layout: TopBarLayout = "windows"): Top
   };
 }
 
-export const BLOCK_TYPE_OPTIONS: { value: BlockType; label: string }[] = [
-  { value: "CLOSE_APP", label: "Close Application" },
-  { value: "MINIMIZE_WINDOW", label: "Minimize Window" },
-  { value: "TOGGLE_MAXIMIZE", label: "Toggle Maximize" },
-  { value: "SAVE_PROJECT", label: "Save Project" },
-  { value: "OPEN_SETTINGS", label: "Open Settings" },
-  { value: "TRIGGER_EVENT", label: "Trigger Custom Event" },
-  { value: "SEND_IPC", label: "Send IPC Message" },
-  { value: "RUN_SCRIPT", label: "Run Script" },
-  { value: "CUSTOM", label: "Custom" },
+export const BLOCK_TYPE_OPTIONS: { value: BlockType; label: string; group: string }[] = [
+  // Navigation
+  { value: "NAVIGATE_TO_FRAME", label: "Navigate to Frame", group: "Navigation" },
+  { value: "OPEN_URL", label: "Open URL", group: "Navigation" },
+  // Visibility
+  { value: "SHOW_ELEMENT", label: "Show Element", group: "Visibility" },
+  { value: "HIDE_ELEMENT", label: "Hide Element", group: "Visibility" },
+  { value: "TOGGLE_VISIBILITY", label: "Toggle Visibility", group: "Visibility" },
+  // State
+  { value: "TOGGLE_CHECKED", label: "Toggle Checked", group: "State" },
+  // Window
+  { value: "CLOSE_APP", label: "Close Application", group: "Window" },
+  { value: "MINIMIZE_WINDOW", label: "Minimize Window", group: "Window" },
+  { value: "TOGGLE_MAXIMIZE", label: "Toggle Maximize", group: "Window" },
+  // Tauri
+  { value: "SEND_IPC", label: "Send IPC Message", group: "Tauri" },
+  { value: "TRIGGER_EVENT", label: "Trigger Custom Event", group: "Tauri" },
 ];
+
