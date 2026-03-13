@@ -278,9 +278,7 @@ export async function createTauriProjectZip(
   const src = zip.folder("src")!;
   src.file("index.html", html);
   src.file("styles.css", css);
-  if (frameless) {
-    src.file("window-controls.js", WINDOW_CONTROLS_JS);
-  }
+  src.file("window-controls.js", WINDOW_CONTROLS_JS);
 
   const srcTauri = zip.folder("src-tauri")!;
   srcTauri.file("tauri.conf.json", TAURI_CONF(name, frameless, w, h));
@@ -326,10 +324,9 @@ export async function downloadProjectFromSceneNodes(
 ): Promise<void> {
   const zip = new JSZip();
   const appName = exportSettings?.appName ?? name;
-  const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
   const { width, height } = getFrameDimensions(nodes);
   const html = sceneNodesToHtml(nodes, appName);
-  const css = sceneExportCss(titleBarStyle);
+  const css = sceneExportCss();
 
   zip.file("package.json", PACKAGE_JSON(appName));
   zip.file("vite.config.ts", VITE_CONFIG);
@@ -337,6 +334,7 @@ export async function downloadProjectFromSceneNodes(
   const src = zip.folder("src")!;
   src.file("index.html", html);
   src.file("styles.css", css);
+  src.file("window-controls.js", WINDOW_CONTROLS_JS);
 
   const srcTauri = zip.folder("src-tauri")!;
   srcTauri.file("tauri.conf.json", TAURI_CONF(appName, false, width, height));
