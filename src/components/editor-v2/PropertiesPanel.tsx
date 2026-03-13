@@ -8,8 +8,8 @@ import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
 import { TopBarConfigPanel } from "./TopBarConfigPanel";
 import type { Paint } from "@/lib/figma/types";
 import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
-import { BLOCK_TYPE_OPTIONS } from "@/lib/editor/blocks";
-import type { Interaction, Block, BlockType, BlockParams, InteractionList } from "@/lib/editor/blocks";
+import { BLOCK_TYPE_OPTIONS, TRANSITION_OPTIONS, HOVER_PRESETS } from "@/lib/editor/blocks";
+import type { Interaction, Block, BlockType, BlockParams, InteractionList, HoverPreset } from "@/lib/editor/blocks";
 import styles from "./PropertiesPanel.module.css";
 
 /** Number input that shows empty when value is 0, so typing "245" doesn't become "0245" */
@@ -780,23 +780,37 @@ function BlockEditor({
 
       {/* NAVIGATE_TO_FRAME */}
       {block.type === "NAVIGATE_TO_FRAME" && (
-        <div className={styles.blockParam}>
-          <span className={styles.blockParamLabel}>Target frame</span>
-          <select
-            className={styles.blockParamSelect}
-            value={block.params?.targetFrameId ?? ""}
-            onChange={(e) => {
-              const frame = frames.find((f) => f.id === e.target.value);
-              setParam("targetFrameId", e.target.value);
-              setParam("targetFrameName", frame?.name ?? "");
-            }}
-          >
-            <option value="">— select frame —</option>
-            {frames.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
-        </div>
+        <>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Target frame</span>
+            <select
+              className={styles.blockParamSelect}
+              value={block.params?.targetFrameId ?? ""}
+              onChange={(e) => {
+                const frame = frames.find((f) => f.id === e.target.value);
+                setParam("targetFrameId", e.target.value);
+                setParam("targetFrameName", frame?.name ?? "");
+              }}
+            >
+              <option value="">— select frame —</option>
+              {frames.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Transition</span>
+            <select
+              className={styles.blockParamSelect}
+              value={(block.params?.transition as string) ?? "fade"}
+              onChange={(e) => setParam("transition", e.target.value)}
+            >
+              {TRANSITION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
 
       {/* OPEN_URL */}
@@ -873,6 +887,32 @@ function BlockEditor({
           />
         </div>
       )}
+
+      {/* ANIMATION blocks — duration + delay */}
+      {block.type.startsWith("ANIMATE_") && (
+        <div className={styles.animParamRow}>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Duration (ms)</span>
+            <input
+              type="number"
+              className={styles.blockParamInput}
+              value={(block.params?.duration as number) ?? 400}
+              min={50} max={3000} step={50}
+              onChange={(e) => setParam("duration", Number(e.target.value))}
+            />
+          </div>
+          <div className={styles.blockParam}>
+            <span className={styles.blockParamLabel}>Delay (ms)</span>
+            <input
+              type="number"
+              className={styles.blockParamInput}
+              value={(block.params?.delay as number) ?? 0}
+              min={0} max={5000} step={50}
+              onChange={(e) => setParam("delay", Number(e.target.value))}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -922,7 +962,9 @@ function InteractionEditor({
         >
           <option value="ON_CLICK">On Click</option>
           <option value="ON_HOVER">On Hover</option>
+          <option value="ON_HOVER_END">On Hover End</option>
           <option value="ON_CHANGE">On Change</option>
+          <option value="ON_LOAD">On Load</option>
         </select>
         <button type="button" className={styles.interactionRemoveBtn} onClick={onRemove} title="Remove interaction">
           <Trash2 size={13} />
@@ -951,9 +993,14 @@ function InteractionEditor({
 function InteractionsPanel({ node }: { node: SceneNode }) {
   const { nodes, updateNode } = useEditorStore();
   const interactions: InteractionList = (node.props?._interactions as InteractionList) ?? [];
+  const hoverPreset: HoverPreset = (node.props?._hoverPreset as HoverPreset) ?? "none";
 
   const save = useCallback((list: InteractionList) => {
     updateNode(node.id, { props: { ...(node.props ?? {}), _interactions: list } });
+  }, [node, updateNode]);
+
+  const setHoverPreset = useCallback((preset: HoverPreset) => {
+    updateNode(node.id, { props: { ...(node.props ?? {}), _hoverPreset: preset } });
   }, [node, updateNode]);
 
   const addInteraction = () => {
@@ -962,7 +1009,7 @@ function InteractionsPanel({ node }: { node: SceneNode }) {
       type: "NAVIGATE_TO_FRAME",
       label: "Navigate to Frame",
       enabled: true,
-      params: {},
+      params: { transition: "fade" },
     };
     const interaction: Interaction = {
       id: uid(),
@@ -983,32 +1030,53 @@ function InteractionsPanel({ node }: { node: SceneNode }) {
   };
 
   return (
-    <div className={styles.section}>
-      <div className={styles.interactionsSectionHeader}>
-        <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <Zap size={11} /> Interactions
+    <>
+      {/* Hover Presets */}
+      <div className={styles.section}>
+        <div className={styles.label} style={{ marginBottom: 6 }}>Hover Effect</div>
+        <div className={styles.hoverPresetGrid}>
+          {HOVER_PRESETS.filter((p) => p.value !== "none").map((preset) => (
+            <button
+              key={preset.value}
+              type="button"
+              title={preset.description}
+              className={`${styles.hoverPresetBtn} ${hoverPreset === preset.value ? styles.hoverPresetActive : ""}`}
+              onClick={() => setHoverPreset(hoverPreset === preset.value ? "none" : preset.value)}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-        <button type="button" className={styles.addInteractionBtn} onClick={addInteraction}>
-          <Plus size={12} /> Add
-        </button>
       </div>
 
-      {interactions.length === 0 && (
-        <div className={styles.interactionsEmpty}>
-          No interactions yet. Click Add to make this element do something.
+      {/* Interactions */}
+      <div className={styles.section}>
+        <div className={styles.interactionsSectionHeader}>
+          <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <Zap size={11} /> Interactions
+          </div>
+          <button type="button" className={styles.addInteractionBtn} onClick={addInteraction}>
+            <Plus size={12} /> Add
+          </button>
         </div>
-      )}
 
-      {interactions.map((interaction, idx) => (
-        <InteractionEditor
-          key={interaction.id}
-          interaction={interaction}
-          nodes={nodes}
-          onChange={(i) => updateInteraction(idx, i)}
-          onRemove={() => removeInteraction(idx)}
-        />
-      ))}
-    </div>
+        {interactions.length === 0 && (
+          <div className={styles.interactionsEmpty}>
+            No interactions yet. Click Add to make this element do something.
+          </div>
+        )}
+
+        {interactions.map((interaction, idx) => (
+          <InteractionEditor
+            key={interaction.id}
+            interaction={interaction}
+            nodes={nodes}
+            onChange={(i) => updateInteraction(idx, i)}
+            onRemove={() => removeInteraction(idx)}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
