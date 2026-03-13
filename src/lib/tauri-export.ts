@@ -326,9 +326,10 @@ export async function downloadProjectFromSceneNodes(
 ): Promise<void> {
   const zip = new JSZip();
   const appName = exportSettings?.appName ?? name;
+  const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
   const { width, height } = getFrameDimensions(nodes);
   const html = sceneNodesToHtml(nodes, appName);
-  const css = sceneExportCss();
+  const css = sceneExportCss(titleBarStyle);
 
   zip.file("package.json", PACKAGE_JSON(appName));
   zip.file("vite.config.ts", VITE_CONFIG);

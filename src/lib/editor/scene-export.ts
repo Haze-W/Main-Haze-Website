@@ -7,6 +7,8 @@
 import type { SceneNode } from "./types";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
+import type { TitleBarStyle } from "./export-settings";
+import { generateCss } from "../code-generator";
 
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
@@ -398,25 +400,8 @@ export function getFrameDimensions(nodes: SceneNode[]): { width: number; height:
 /**
  * Generate minimal CSS for exported app - no centering, fills viewport.
  */
-export function sceneExportCss(): string {
-  return `* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0d0f12;
-  color: #e6edf3;
-}
-
-.app-root {
-  width: 100%;
-  height: 100%;
-}
-`;
+export function sceneExportCss(titleBarStyle: TitleBarStyle = "windows"): string {
+  // Reuse the same global styles used for the main Tauri export and allow
+  // the caller to choose the title bar style (windows/macos).
+  return generateCss(titleBarStyle);
 }
