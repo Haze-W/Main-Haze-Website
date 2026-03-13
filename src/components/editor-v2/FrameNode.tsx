@@ -36,8 +36,9 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
       target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
       const onMove = (move: PointerEvent) => {
-        const dx = (move.clientX - last.clientX) / zoom;
-        const dy = (move.clientY - last.clientY) / zoom;
+        const currentZoom = useEditorStore.getState().viewport.zoom;
+        const dx = (move.clientX - last.clientX) / currentZoom;
+        const dy = (move.clientY - last.clientY) / currentZoom;
         resizeNode(node.id, handle, dx, dy);
         last.clientX = move.clientX;
         last.clientY = move.clientY;
@@ -51,7 +52,7 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, zoom, resizeNode, pushHistory]
+    [node.id, resizeNode, pushHistory]
   );
 
   const handleClick = useCallback(
@@ -115,8 +116,9 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         const last = { clientX: e.clientX, clientY: e.clientY };
         let moved = false;
         const onMove = (move: PointerEvent) => {
-          const dx = (move.clientX - last.clientX) / zoom;
-          const dy = (move.clientY - last.clientY) / zoom;
+          const currentZoom = useEditorStore.getState().viewport.zoom;
+          const dx = (move.clientX - last.clientX) / currentZoom;
+          const dy = (move.clientY - last.clientY) / currentZoom;
           if (dx !== 0 || dy !== 0) moved = true;
           moveNodes([node.id], dx, dy);
           last.clientX = move.clientX;
