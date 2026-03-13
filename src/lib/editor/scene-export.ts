@@ -7,7 +7,7 @@
 import type { SceneNode } from "./types";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
-import type { TopBarConfig, InteractionList, Block } from "./blocks";
+import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
 
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
@@ -173,90 +173,101 @@ function mapAlign(val: string | null | undefined): string | undefined {
 
 // ── Interaction JS Generator ──────────────────────────────────────────────────
 
+function animBlockToJs(block: Block): string {
+  const dur = (block.params?.duration as number) ?? 400;
+  const delay = (block.params?.delay as number) ?? 0;
+  const ease = (block.params?.easing as string) ?? "cubic-bezier(0.4,0,0.2,1)";
+  const dist = (block.params?.distance as number) ?? 24;
+  const keyframeMap: Record<string, string> = {
+    ANIMATE_PULSE: "rnd-pulse", ANIMATE_SHAKE: "rnd-shake", ANIMATE_BOUNCE: "rnd-bounce",
+  };
+  const kf = keyframeMap[block.type];
+  if (kf) return `(function(el){el.style.animation='none';void el.offsetWidth;el.style.animation='${kf} ${dur}ms ${ease} ${delay}ms 1';})(this);`;
+  type AnimSpec = { from: Record<string, string>; to: Record<string, string> };
+  const specMap: Record<string, AnimSpec> = {
+    ANIMATE_FADE_IN:    { from: { opacity:"0" }, to: { opacity:"1" } },
+    ANIMATE_FADE_OUT:   { from: { opacity:"1" }, to: { opacity:"0" } },
+    ANIMATE_SLIDE_UP:   { from: { opacity:"0", transform:`translateY(${dist}px)` }, to: { opacity:"1", transform:"translateY(0)" } },
+    ANIMATE_SLIDE_DOWN: { from: { opacity:"0", transform:`translateY(-${dist}px)` }, to: { opacity:"1", transform:"translateY(0)" } },
+    ANIMATE_SLIDE_LEFT: { from: { opacity:"0", transform:`translateX(${dist}px)` }, to: { opacity:"1", transform:"translateX(0)" } },
+    ANIMATE_SLIDE_RIGHT:{ from: { opacity:"0", transform:`translateX(-${dist}px)` }, to: { opacity:"1", transform:"translateX(0)" } },
+    ANIMATE_SCALE_UP:   { from: { opacity:"0", transform:"scale(0.85)" }, to: { opacity:"1", transform:"scale(1)" } },
+    ANIMATE_SCALE_DOWN: { from: { opacity:"0", transform:"scale(1.15)" }, to: { opacity:"1", transform:"scale(1)" } },
+  };
+  const spec = specMap[block.type];
+  if (!spec) return "";
+  const fromStr = Object.entries(spec.from).map(([k,v]) => `el.style['${k}']='${v}'`).join(";");
+  const toStr = Object.entries(spec.to).map(([k,v]) => `el.style['${k}']='${v}'`).join(";");
+  return `(function(el){${fromStr};el.style.transition='all ${dur}ms ${ease} ${delay}ms';requestAnimationFrame(function(){requestAnimationFrame(function(){${toStr};});});})(this);`;
+}
+
 function blockToJs(block: Block): string {
+  if (block.type.startsWith("ANIMATE_")) return animBlockToJs(block);
   const p = block.params ?? {};
   switch (block.type) {
     case "NAVIGATE_TO_FRAME": {
       if (!p.targetFrameId) return "";
-      return `
-  // Navigate to frame: ${p.targetFrameName ?? p.targetFrameId}
-  document.querySelectorAll('[data-frame]').forEach(function(f){f.style.display='none';});
-  var target=document.querySelector('[data-frame-id="${p.targetFrameId}"]');
-  if(target){target.style.display='block';}`;
+      const transition = (p.transition as string) ?? "fade";
+      return `_renderNavigate('${p.targetFrameId}','${transition}');`;
     }
     case "OPEN_URL": {
       if (!p.url) return "";
-      return `
-  // Open URL
-  var _url="${String(p.url).replace(/"/g, '\\"')}";
-  var _tauri=window.__TAURI_INTERNALS__;
-  if(_tauri&&_tauri.invoke){_tauri.invoke('plugin:shell|open',{path:_url});}else{window.open(_url,'_blank');}`;
+      return `var _url="${String(p.url).replace(/"/g, '\\"')}";var _tauri=window.__TAURI_INTERNALS__;if(_tauri&&_tauri.invoke){_tauri.invoke('plugin:shell|open',{path:_url});}else{window.open(_url,'_blank');}`;
     }
     case "SHOW_ELEMENT": {
       if (!p.targetNodeId) return "";
-      return `
-  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
-  if(_el){_el.style.display='';}`;
+      return `var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');if(_el){_el.style.display='';}`;
     }
     case "HIDE_ELEMENT": {
       if (!p.targetNodeId) return "";
-      return `
-  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
-  if(_el){_el.style.display='none';}`;
+      return `var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');if(_el){_el.style.display='none';}`;
     }
     case "TOGGLE_VISIBILITY": {
       if (!p.targetNodeId) return "";
-      return `
-  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
-  if(_el){_el.style.display=_el.style.display==='none'?'':'none';}`;
+      return `var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');if(_el){_el.style.display=_el.style.display==='none'?'':'none';}`;
     }
     case "TOGGLE_CHECKED": {
-      return `
-  var _el=this.querySelector('input[type=checkbox]')||this;
-  if(_el.type==='checkbox'){_el.checked=!_el.checked;}
-  this.classList.toggle('checked');`;
+      return `var _el=this.querySelector('input[type=checkbox]')||this;if(_el.type==='checkbox'){_el.checked=!_el.checked;}this.classList.toggle('checked');`;
     }
-    case "CLOSE_APP": {
-      return `
-  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
-  if(_w){_w.close();}`;
-    }
-    case "MINIMIZE_WINDOW": {
-      return `
-  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
-  if(_w){_w.minimize();}`;
-    }
-    case "TOGGLE_MAXIMIZE": {
-      return `
-  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
-  if(_w){_w.isMaximized().then(function(m){if(m)_w.unmaximize();else _w.maximize();});}`;
-    }
+    case "CLOSE_APP":
+      return `var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(_w){_w.close();}`;
+    case "MINIMIZE_WINDOW":
+      return `var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(_w){_w.minimize();}`;
+    case "TOGGLE_MAXIMIZE":
+      return `var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(_w){_w.isMaximized().then(function(m){if(m)_w.unmaximize();else _w.maximize();});}`;
     case "SEND_IPC":
     case "TRIGGER_EVENT": {
       const evtName = String(p.ipcEvent ?? "render-event");
       const payload = p.ipcPayload ? String(p.ipcPayload) : "{}";
-      return `
-  var _tauri=window.__TAURI_INTERNALS__;
-  if(_tauri&&_tauri.invoke){
-    try{_tauri.invoke('plugin:event|emit',{event:'${evtName}',payload:${payload}});}catch(e){}
-  }
-  window.dispatchEvent(new CustomEvent('${evtName}',{detail:${payload}}));`;
+      return `var _tauri=window.__TAURI_INTERNALS__;if(_tauri&&_tauri.invoke){try{_tauri.invoke('plugin:event|emit',{event:'${evtName}',payload:${payload}});}catch(e){}}window.dispatchEvent(new CustomEvent('${evtName}',{detail:${payload}}));`;
     }
-    default:
-      return "";
+    default: return "";
   }
 }
 
 function interactionToAttr(trigger: string, blocks: Block[]): string {
-  const js = blocks.map(blockToJs).filter(Boolean).join("\n");
+  const js = blocks.map(blockToJs).filter(Boolean).join("");
   if (!js) return "";
   const handler = `(function(event){${js}}).call(this,event)`;
   switch (trigger) {
-    case "ON_CLICK": return `onclick="${escapeHtml(handler)}"`;
-    case "ON_HOVER": return `onmouseenter="${escapeHtml(handler)}"`;
-    case "ON_CHANGE": return `onchange="${escapeHtml(handler)}" oninput="${escapeHtml(handler)}"`;
+    case "ON_CLICK":     return `onclick="${escapeHtml(handler)}"`;
+    case "ON_HOVER":     return `onmouseenter="${escapeHtml(handler)}"`;
+    case "ON_HOVER_END": return `onmouseleave="${escapeHtml(handler)}"`;
+    case "ON_CHANGE":    return `onchange="${escapeHtml(handler)}" oninput="${escapeHtml(handler)}"`;
+    case "ON_LOAD":      return ""; // handled separately
     default: return "";
   }
+}
+
+function getOnLoadJs(node: SceneNode): string {
+  const interactions = node.props?._interactions as InteractionList | undefined;
+  if (!interactions) return "";
+  return interactions
+    .filter((ia) => ia.trigger === "ON_LOAD")
+    .flatMap((ia) => ia.blocks)
+    .map(blockToJs)
+    .filter(Boolean)
+    .join("");
 }
 
 function getInteractionAttrs(node: SceneNode): string {
@@ -266,6 +277,12 @@ function getInteractionAttrs(node: SceneNode): string {
     .map((ia) => interactionToAttr(ia.trigger, ia.blocks))
     .filter(Boolean)
     .join(" ");
+}
+
+function getHoverAttr(node: SceneNode): string {
+  const preset = node.props?._hoverPreset as string | undefined;
+  if (!preset || preset === "none") return "";
+  return `data-hover="${preset}"`;
 }
 
 interface FigmaProps {
@@ -377,9 +394,13 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     .join(";");
 
   const interactionAttrs = getInteractionAttrs(node);
+  const hoverAttr = getHoverAttr(node);
+  const onLoadJs = getOnLoadJs(node);
   const nodeIdAttr = `data-node-id="${node.id}"`;
-  const hasInteraction = !!interactionAttrs;
+  const onLoadAttr = onLoadJs ? `data-onload="${escapeHtml(onLoadJs)}"` : "";
+  const hasInteraction = !!(interactionAttrs || hoverAttr);
   const cursorStyle = hasInteraction ? "cursor:pointer;" : "";
+  const extraAttrs = [nodeIdAttr, interactionAttrs, hoverAttr, onLoadAttr].filter(Boolean).join(" ");
 
   // TEXT NODE
   if (isText) {
@@ -397,7 +418,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     const lh = props.lineHeight;
     if (lh != null && lh !== "auto") textStyle.lineHeight = typeof lh === "number" ? `${lh}px` : String(lh);
     const textStyleStr = Object.entries(textStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
-    return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + textStyleStr)}">${textSegmentsToHtml(props)}</div>`;
+    return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + textStyleStr)}">${textSegmentsToHtml(props)}</div>`;
   }
 
   // IMAGE / VECTOR NODE
@@ -407,7 +428,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const containerStyle = { ...style, overflow: "visible", border: "none", boxShadow: "none" };
       const containerStr = Object.entries(containerStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
       const objectFit = imageData.includes("image/svg+xml") ? "fill" : "fill";
-      return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="width:100%;height:100%;object-fit:${objectFit};display:block;stroke:none;outline:none;border:none" /></div>`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="width:100%;height:100%;object-fit:${objectFit};display:block;stroke:none;outline:none;border:none" /></div>`;
     }
   }
 
@@ -417,7 +438,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     .filter(Boolean)
     .join("\n");
 
-  return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + styleStr)}">\n${childHtml || ""}\n${pad}</div>`;
+  return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + styleStr)}">\n${childHtml || ""}\n${pad}</div>`;
 }
 
 // ── Top Bar Export ────────────────────────────────────────────────────────────
@@ -546,6 +567,73 @@ ${framesHtml}
     </div>
   </div>
   <script src="window-controls.js"></script>
+  <style>
+    /* ── Hover presets ── */
+    [data-hover="lift"]{transition:transform 0.2s ease,box-shadow 0.2s ease;}
+    [data-hover="lift"]:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+    [data-hover="glow"]{transition:box-shadow 0.2s ease;}
+    [data-hover="glow"]:hover{box-shadow:0 0 0 3px rgba(94,92,230,0.5),0 0 16px rgba(94,92,230,0.3);}
+    [data-hover="scale"]{transition:transform 0.15s ease;}
+    [data-hover="scale"]:hover{transform:scale(1.04);}
+    [data-hover="dim"]{transition:opacity 0.2s ease;}
+    [data-hover="dim"]:hover{opacity:0.6;}
+    [data-hover="brighten"]{transition:filter 0.2s ease;}
+    [data-hover="brighten"]:hover{filter:brightness(1.25);}
+    [data-hover="border-glow"]{transition:outline 0.15s ease,box-shadow 0.15s ease;}
+    [data-hover="border-glow"]:hover{outline:2px solid rgba(94,92,230,0.8);box-shadow:0 0 10px rgba(94,92,230,0.3);}
+    /* ── Keyframe animations ── */
+    @keyframes rnd-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+    @keyframes rnd-shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+    @keyframes rnd-bounce{0%,100%{transform:translateY(0);}40%{transform:translateY(-12px);}70%{transform:translateY(-6px);}}
+  </style>
+  <script>
+    // ── Frame navigation with transitions ──
+    function _renderNavigate(targetId, transition) {
+      var frames = document.querySelectorAll('[data-frame]');
+      var target = document.querySelector('[data-frame-id="' + targetId + '"]');
+      if (!target) return;
+      var current = Array.from(frames).find(function(f){ return f.style.display !== 'none'; });
+      if (current === target) return;
+      if (!transition || transition === 'none') {
+        frames.forEach(function(f){ f.style.display = 'none'; });
+        target.style.display = 'block';
+        return;
+      }
+      var dur = 280;
+      var ease = 'cubic-bezier(0.4,0,0.2,1)';
+      var outMap = { fade:'opacity:0', 'slide-left':'opacity:0;transform:translateX(-32px)', 'slide-right':'opacity:0;transform:translateX(32px)', 'slide-up':'opacity:0;transform:translateY(20px)', 'slide-down':'opacity:0;transform:translateY(-20px)', 'scale-up':'opacity:0;transform:scale(0.93)', 'scale-down':'opacity:0;transform:scale(1.07)' };
+      var inMap  = { fade:'opacity:0', 'slide-left':'opacity:0;transform:translateX(32px)', 'slide-right':'opacity:0;transform:translateX(-32px)', 'slide-up':'opacity:0;transform:translateY(-20px)', 'slide-down':'opacity:0;transform:translateY(20px)', 'scale-up':'opacity:0;transform:scale(1.07)', 'scale-down':'opacity:0;transform:scale(0.93)' };
+      function applyStyle(el, str) { str.split(';').forEach(function(s){ var p=s.split(':'); if(p[0])el.style[p[0].trim()]=p[1]?p[1].trim():''; }); }
+      if (current) {
+        current.style.transition = 'all ' + dur + 'ms ' + ease;
+        applyStyle(current, outMap[transition] || 'opacity:0');
+        setTimeout(function(){
+          current.style.display = 'none';
+          current.style.transition = '';
+          current.style.opacity = '';
+          current.style.transform = '';
+          target.style.display = 'block';
+          applyStyle(target, inMap[transition] || 'opacity:0');
+          requestAnimationFrame(function(){ requestAnimationFrame(function(){
+            target.style.transition = 'all ' + dur + 'ms ' + ease;
+            target.style.opacity = '1';
+            target.style.transform = 'none';
+            setTimeout(function(){ target.style.transition=''; }, dur);
+          }); });
+        }, dur);
+      } else {
+        frames.forEach(function(f){ f.style.display = 'none'; });
+        target.style.display = 'block';
+      }
+    }
+    // ── ON_LOAD interactions ──
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('[data-onload]').forEach(function(el) {
+        var js = el.getAttribute('data-onload');
+        if (js) { try { (new Function(js)).call(el); } catch(e) { console.warn('ON_LOAD error', e); } }
+      });
+    });
+  </script>
 </body>
 </html>
 `;
