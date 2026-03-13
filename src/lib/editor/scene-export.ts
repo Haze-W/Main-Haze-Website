@@ -1,14 +1,13 @@
 /**
  * Export SceneNodes to HTML - 1:1 with Render editor display.
  * Preserves Figma styling: colors, images, vectors, text.
- * Excludes TOPBAR nodes (custom top bar removed for now).
+ * Exports TOPBAR nodes as real frameless title bars with drag region.
  */
 
 import type { SceneNode } from "./types";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
-import type { TitleBarStyle } from "./export-settings";
-import { generateCss } from "../code-generator";
+import type { TopBarConfig, InteractionList, Block } from "./blocks";
 
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
@@ -172,6 +171,103 @@ function mapAlign(val: string | null | undefined): string | undefined {
   }
 }
 
+// ── Interaction JS Generator ──────────────────────────────────────────────────
+
+function blockToJs(block: Block): string {
+  const p = block.params ?? {};
+  switch (block.type) {
+    case "NAVIGATE_TO_FRAME": {
+      if (!p.targetFrameId) return "";
+      return `
+  // Navigate to frame: ${p.targetFrameName ?? p.targetFrameId}
+  document.querySelectorAll('[data-frame]').forEach(function(f){f.style.display='none';});
+  var target=document.querySelector('[data-frame-id="${p.targetFrameId}"]');
+  if(target){target.style.display='block';}`;
+    }
+    case "OPEN_URL": {
+      if (!p.url) return "";
+      return `
+  // Open URL
+  var _url="${String(p.url).replace(/"/g, '\\"')}";
+  var _tauri=window.__TAURI_INTERNALS__;
+  if(_tauri&&_tauri.invoke){_tauri.invoke('plugin:shell|open',{path:_url});}else{window.open(_url,'_blank');}`;
+    }
+    case "SHOW_ELEMENT": {
+      if (!p.targetNodeId) return "";
+      return `
+  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
+  if(_el){_el.style.display='';}`;
+    }
+    case "HIDE_ELEMENT": {
+      if (!p.targetNodeId) return "";
+      return `
+  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
+  if(_el){_el.style.display='none';}`;
+    }
+    case "TOGGLE_VISIBILITY": {
+      if (!p.targetNodeId) return "";
+      return `
+  var _el=document.querySelector('[data-node-id="${p.targetNodeId}"]');
+  if(_el){_el.style.display=_el.style.display==='none'?'':'none';}`;
+    }
+    case "TOGGLE_CHECKED": {
+      return `
+  var _el=this.querySelector('input[type=checkbox]')||this;
+  if(_el.type==='checkbox'){_el.checked=!_el.checked;}
+  this.classList.toggle('checked');`;
+    }
+    case "CLOSE_APP": {
+      return `
+  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
+  if(_w){_w.close();}`;
+    }
+    case "MINIMIZE_WINDOW": {
+      return `
+  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
+  if(_w){_w.minimize();}`;
+    }
+    case "TOGGLE_MAXIMIZE": {
+      return `
+  var _w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();
+  if(_w){_w.isMaximized().then(function(m){if(m)_w.unmaximize();else _w.maximize();});}`;
+    }
+    case "SEND_IPC":
+    case "TRIGGER_EVENT": {
+      const evtName = String(p.ipcEvent ?? "render-event");
+      const payload = p.ipcPayload ? String(p.ipcPayload) : "{}";
+      return `
+  var _tauri=window.__TAURI_INTERNALS__;
+  if(_tauri&&_tauri.invoke){
+    try{_tauri.invoke('plugin:event|emit',{event:'${evtName}',payload:${payload}});}catch(e){}
+  }
+  window.dispatchEvent(new CustomEvent('${evtName}',{detail:${payload}}));`;
+    }
+    default:
+      return "";
+  }
+}
+
+function interactionToAttr(trigger: string, blocks: Block[]): string {
+  const js = blocks.map(blockToJs).filter(Boolean).join("\n");
+  if (!js) return "";
+  const handler = `(function(event){${js}}).call(this,event)`;
+  switch (trigger) {
+    case "ON_CLICK": return `onclick="${escapeHtml(handler)}"`;
+    case "ON_HOVER": return `onmouseenter="${escapeHtml(handler)}"`;
+    case "ON_CHANGE": return `onchange="${escapeHtml(handler)}" oninput="${escapeHtml(handler)}"`;
+    default: return "";
+  }
+}
+
+function getInteractionAttrs(node: SceneNode): string {
+  const interactions = node.props?._interactions as InteractionList | undefined;
+  if (!interactions || interactions.length === 0) return "";
+  return interactions
+    .map((ia) => interactionToAttr(ia.trigger, ia.blocks))
+    .filter(Boolean)
+    .join(" ");
+}
+
 interface FigmaProps {
   originalType: string;
   fills: Paint[];
@@ -192,18 +288,17 @@ interface FigmaProps {
 
 function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERTICAL" = "NONE", indent = 0): string {
   if (node.visible === false) return "";
+  if (node.type === "TOPBAR") return "";
 
   const pad = "  ".repeat(indent);
-  const props = node.props ?? {};
-  const figma = props._figma as FigmaProps | undefined;
-  const isEllipse = !!props._ellipse;
-  const isTextType = node.type === "TEXT";
-  const isText = isTextType || figma?.originalType === "TEXT";
-  const hasImageFill = !!props._hasImageFill;
+  const figma = node.props?._figma as FigmaProps | undefined;
+  const isEllipse = !!node.props?._ellipse;
+  const isText = figma?.originalType === "TEXT";
+  const hasImageFill = !!node.props?._hasImageFill;
   const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
   const VECTOR_TYPES = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
   const isVector = figma ? VECTOR_TYPES.includes(figma.originalType) : false;
-  const isVectorOrImageWithData = hasImageFill || (isVector && props._imageData);
+  const isVectorOrImageWithData = hasImageFill || (isVector && node.props?._imageData);
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
   const layout = node.layoutMode ?? "NONE";
@@ -228,7 +323,13 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   }
 
   if (node.opacity != null && node.opacity < 1) style.opacity = String(node.opacity);
-  if (node.rotation) style.transform = `rotate(${node.rotation}deg)`;
+
+  // Apply rotation and flip transforms
+  const transformParts: string[] = [];
+  if (node.rotation) transformParts.push(`rotate(${node.rotation}deg)`);
+  if (node.props?.scaleX !== undefined) transformParts.push(`scaleX(${node.props.scaleX})`);
+  if (node.props?.scaleY !== undefined) transformParts.push(`scaleY(${node.props.scaleY})`);
+  if (transformParts.length) style.transform = transformParts.join(" ");
 
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
@@ -236,9 +337,10 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const bg = getBackground(figma.fills ?? [], fillEnabled, false);
       if (bg) style.background = bg;
     }
+    // Apply stroke/border for all non-vector, non-image nodes
     if (!isVector && !hasImageFill) {
       const strokeEnabled = figma.strokeEnabled !== false;
-      const border = getBorder(figma.strokes, figma.strokeWeight, strokeEnabled);
+      const border = getBorder(figma.strokes ?? [], figma.strokeWeight ?? 0, strokeEnabled);
       if (border) style.border = border;
     }
     if (!isVectorOrImageWithData) {
@@ -253,14 +355,6 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     else if (node.overflow === "SCROLL") style.overflow = "auto";
     else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
     else if (isVectorOrImageWithData) style.overflow = "visible";
-  } else {
-    const bg = (props.backgroundColor as string | undefined) ?? undefined;
-    const borderColor = (props.borderColor as string | undefined) ?? undefined;
-    const borderWidth = (props.borderWidth as number | undefined) ?? undefined;
-    if (bg && !isTextType) style.background = bg;
-    if (borderColor && borderWidth != null && borderWidth > 0) {
-      style.border = `${borderWidth}px solid ${borderColor}`;
-    }
   }
 
   if (layout === "HORIZONTAL" || layout === "VERTICAL") {
@@ -282,25 +376,17 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     .map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`)
     .join(";");
 
+  const interactionAttrs = getInteractionAttrs(node);
+  const nodeIdAttr = `data-node-id="${node.id}"`;
+  const hasInteraction = !!interactionAttrs;
+  const cursorStyle = hasInteraction ? "cursor:pointer;" : "";
+
   // TEXT NODE
   if (isText) {
-    const textStyle: Record<string, string> = {
-      ...style,
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-      margin: "0",
-      padding: "0",
-    };
-
-    if (figma) {
-      textStyle.color = getTextColor(props);
-      delete textStyle.background;
-      delete textStyle.backgroundColor;
-    } else {
-      const color = (props.color as string | undefined) ?? "#000000";
-      textStyle.color = color;
-    }
-
+    const props = node.props ?? {};
+    const textStyle: Record<string, string> = { ...style, color: getTextColor(props), whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "0", padding: "0" };
+    delete textStyle.background;
+    delete textStyle.backgroundColor;
     if (props.fontFamily) textStyle.fontFamily = `"${props.fontFamily as string}",sans-serif`;
     if (props.fontSize) textStyle.fontSize = `${props.fontSize}px`;
     if (props.fontWeight) textStyle.fontWeight = String(props.fontWeight);
@@ -310,18 +396,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (props.fontStyle === "italic") textStyle.fontStyle = "italic";
     const lh = props.lineHeight;
     if (lh != null && lh !== "auto") textStyle.lineHeight = typeof lh === "number" ? `${lh}px` : String(lh);
-
-    const textStyleStr = Object.entries(textStyle)
-      .filter(([, v]) => v != null)
-      .map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`)
-      .join(";");
-
-    const htmlContent =
-      props._textSegments && Array.isArray(props._textSegments)
-        ? textSegmentsToHtml(props)
-        : escapeHtml((props.content as string) ?? "");
-
-    return `${pad}<div style="${escapeHtml(textStyleStr)}">${htmlContent}</div>`;
+    const textStyleStr = Object.entries(textStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
+    return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + textStyleStr)}">${textSegmentsToHtml(props)}</div>`;
   }
 
   // IMAGE / VECTOR NODE
@@ -331,27 +407,97 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const containerStyle = { ...style, overflow: "visible", border: "none", boxShadow: "none" };
       const containerStr = Object.entries(containerStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
       const objectFit = imageData.includes("image/svg+xml") ? "fill" : "fill";
-      return `${pad}<div style="${escapeHtml(containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="width:100%;height:100%;object-fit:${objectFit};display:block;stroke:none;outline:none;border:none" /></div>`;
+      return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="width:100%;height:100%;object-fit:${objectFit};display:block;stroke:none;outline:none;border:none" /></div>`;
     }
   }
 
   // FRAME / SHAPE / GROUP
   const childHtml = (node.children ?? [])
-    .filter((c) => c.type !== "TOPBAR")
     .map((c) => nodeToHtml(c, childLayout, indent + 1))
     .filter(Boolean)
     .join("\n");
 
-  return `${pad}<div style="${escapeHtml(styleStr)}">\n${childHtml || ""}\n${pad}</div>`;
+  return `${pad}<div ${nodeIdAttr} ${interactionAttrs} style="${escapeHtml(cursorStyle + styleStr)}">\n${childHtml || ""}\n${pad}</div>`;
+}
+
+// ── Top Bar Export ────────────────────────────────────────────────────────────
+
+function topBarToHtml(node: SceneNode): string {
+  const config = (node.props?._topBarConfig as TopBarConfig | undefined) ?? {
+    layout: "windows" as const,
+    title: "My Application",
+    backgroundColor: "#1c1c1e",
+    textColor: "#e0e0e0",
+    fontSize: 13,
+    fontWeight: "400",
+    fontFamily: "Inter, system-ui, sans-serif",
+    titleAlign: "left" as const,
+    paddingX: 12,
+    borderBottom: false,
+    borderColor: "#333",
+    showIcon: false,
+    dragRegion: true,
+    buttons: [
+      { id: "min", type: "minimize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
+      { id: "max", type: "maximize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
+      { id: "close", type: "close" as const, hoverColor: "#e81123", blockChain: { id: "close", label: "Close", blocks: [] } },
+    ],
+  };
+
+  const isMac = config.layout === "mac";
+  const h = node.height || 32;
+
+  const tbStyle = [
+    `height:${h}px`,
+    `background:${config.backgroundColor}`,
+    `color:${config.textColor}`,
+    `font-size:${config.fontSize}px`,
+    `font-weight:${config.fontWeight}`,
+    `font-family:${config.fontFamily}`,
+    "display:flex",
+    "align-items:center",
+    "flex-shrink:0",
+    "user-select:none",
+    "-webkit-user-select:none",
+    config.borderBottom ? `border-bottom:1px solid ${config.borderColor}` : "",
+    isMac ? "justify-content:center" : `padding:0 ${config.paddingX ?? 12}px`,
+  ].filter(Boolean).join(";");
+
+  const macControls = `<div style="display:flex;gap:8px;position:absolute;left:12px;top:50%;transform:translateY(-50%);">
+    <button data-window-control="close" style="width:12px;height:12px;border-radius:50%;background:#ff5f57;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"></button>
+    <button data-window-control="minimize" style="width:12px;height:12px;border-radius:50%;background:#febc2e;border:none;cursor:pointer;"></button>
+    <button data-window-control="maximize" style="width:12px;height:12px;border-radius:50%;background:#28c840;border:none;cursor:pointer;"></button>
+  </div>`;
+
+  const winControls = config.buttons.map((btn) => {
+    const hoverBg = btn.hoverColor ?? "rgba(255,255,255,0.1)";
+    const label = btn.type === "minimize" ? "&#x2212;" : btn.type === "maximize" ? "&#x25A1;" : "&#x2715;";
+    const action = btn.type === "minimize" ? "minimize" : btn.type === "maximize" ? "maximize" : "close";
+    return `<button data-window-control="${action}" style="width:46px;height:${h}px;border:none;background:transparent;color:${config.textColor};font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='${hoverBg}'" onmouseout="this.style.background='transparent'">${label}</button>`;
+  }).join("\n    ");
+
+  const titleSpan = `<span style="font-size:${config.fontSize}px;font-weight:${config.fontWeight};color:${config.textColor};flex:1;text-align:${config.titleAlign ?? "left"};">${escapeHtml(config.title ?? "My Application")}</span>`;
+
+  const inner = isMac
+    ? `${macControls}${titleSpan}`
+    : `${titleSpan}<div style="display:flex;align-items:center;margin-left:auto;">${winControls}</div>`;
+
+  return `  <div data-tauri-drag-region style="${escapeHtml(tbStyle)};position:relative;" ondblclick="(function(){const w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(w)w.isMaximized().then(m=>m?w.unmaximize():w.maximize())})()">
+    ${inner}
+  </div>`;
 }
 
 /**
  * Generate full HTML document from scene nodes.
- * Uses the first FRAME as the root; excludes TOPBAR nodes.
- * No custom title bar - just the frame content at exact size.
+ * Exports the TOPBAR node as a real frameless title bar.
+ * Supports multi-frame navigation via NAVIGATE_TO_FRAME interactions.
  */
 export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): string {
-  const frame = nodes.find((n) => n.type === "FRAME") ?? nodes[0];
+  const frames = nodes.filter((n) => n.type === "FRAME");
+  const frame = frames[0] ?? nodes[0];
+  const topBarNode = nodes.find((n) => n.type === "TOPBAR")
+    ?? (frame?.children ?? []).find((n) => n.type === "TOPBAR");
+
   if (!frame) {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:800px;height:600px;background:#1e1e1e"></div></body></html>`;
   }
@@ -364,12 +510,25 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
     if (bg) rootBg = bg;
   }
 
-  const rootStyle = `width:100%;height:100%;overflow:hidden;background:${rootBg};position:relative;box-sizing:border-box`;
-  const childrenHtml = (frame.children ?? [])
-    .filter((c) => c.type !== "TOPBAR")
-    .map((c) => nodeToHtml(c, (frame.layoutMode ?? "NONE") !== "NONE" ? (frame.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 2))
-    .filter(Boolean)
-    .join("\n");
+  const topBarHtml = topBarNode ? topBarToHtml(topBarNode) : "";
+
+  // Render all frames — first is visible, rest are hidden (for navigation)
+  const framesHtml = frames.map((f, idx) => {
+    const fFigma = f.props?._figma as FigmaProps | undefined;
+    let fBg = rootBg;
+    if (fFigma) {
+      const bg = getBackground(fFigma.fills ?? [], fFigma.fillEnabled !== false, false);
+      if (bg) fBg = bg;
+    }
+    const display = idx === 0 ? "block" : "none";
+    const fStyle = `flex:1;overflow:hidden;background:${fBg};position:relative;box-sizing:border-box;display:${display};`;
+    const childHtml = (f.children ?? [])
+      .filter((c) => c.type !== "TOPBAR")
+      .map((c) => nodeToHtml(c, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3))
+      .filter(Boolean)
+      .join("\n");
+    return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}">\n${childHtml}\n    </div>`;
+  }).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -380,9 +539,13 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-root" style="${rootStyle}">
-${childrenHtml}
+  <div class="app-layout">
+${topBarHtml}
+    <div class="app-root">
+${framesHtml}
+    </div>
   </div>
+  <script src="window-controls.js"></script>
 </body>
 </html>
 `;
@@ -390,18 +553,49 @@ ${childrenHtml}
 
 /**
  * Get frame dimensions from scene nodes (for window sizing).
+ * Includes top bar height in total window height.
  */
 export function getFrameDimensions(nodes: SceneNode[]): { width: number; height: number } {
   const frame = nodes.find((n) => n.type === "FRAME") ?? nodes[0];
+  const topBarNode = nodes.find((n) => n.type === "TOPBAR")
+    ?? (frame?.children ?? []).find((n) => n.type === "TOPBAR");
   if (!frame) return { width: 800, height: 600 };
-  return { width: frame.width, height: frame.height };
+  const tbH = topBarNode?.height ?? 0;
+  return { width: frame.width, height: frame.height + tbH };
 }
 
 /**
  * Generate minimal CSS for exported app - no centering, fills viewport.
  */
-export function sceneExportCss(titleBarStyle: TitleBarStyle = "windows"): string {
-  // Reuse the same global styles used for the main Tauri export and allow
-  // the caller to choose the title bar style (windows/macos).
-  return generateCss(titleBarStyle);
+export function sceneExportCss(): string {
+  return `* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0d0f12;
+  color: #e6edf3;
+}
+
+.app-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-root {
+  flex: 1;
+  overflow: hidden;
+}
+`;
+}
+
+ */
+
