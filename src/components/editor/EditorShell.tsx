@@ -33,13 +33,11 @@ import {
   Plus,
   Minus,
   ChevronRight,
-  Search,
   Eye,
   EyeOff,
   Lock,
   Unlock,
   Trash2,
-  MoreHorizontal,
   FolderTree,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
@@ -56,7 +54,6 @@ import { PreviewPanel } from "./PreviewPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
-// ---------- Properly-typed menu item types (fixes build error) ----------
 type LucideIcon = ComponentType<{
   size?: number;
   className?: string;
@@ -86,7 +83,6 @@ interface MenuGroup {
   icon: LucideIcon;
   items: MenuEntry[];
 }
-// -----------------------------------------------------------------------
 
 function getTypeIcon(type: string): string {
   const map: Record<string, string> = {
@@ -194,12 +190,10 @@ function LayerItem({
           <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>{node.name}</span>
         )}
 
-        {/* Lock indicator */}
         {isLocked && !hovered && (
           <span className={styles.layerBadge} title="Locked"><Lock size={9} /></span>
         )}
 
-        {/* Actions on hover */}
         {hovered && !renaming && (
           <div className={styles.layerActions}>
             <button
@@ -289,6 +283,37 @@ export function EditorShell() {
 
   const lastCanvasPoint = useEditorStore((s) => s.lastCanvasPoint);
 
+  // Auto-save nodes to project storage whenever the scene changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get("project");
+    if (!projectId) return;
+    const t = setTimeout(() => {
+      try {
+        import("@/lib/projects").then(({ saveProject }) => {
+          saveProject(projectId, { nodes: nodes as unknown[] });
+        });
+      } catch { /* ignore */ }
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [nodes]);
+
+  // Load saved project nodes on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get("project");
+    if (!projectId) return;
+    import("@/lib/projects").then(({ getProject }) => {
+      const project = getProject(projectId);
+      if (project?.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
+        setNodes(project.nodes as Parameters<typeof setNodes>[0]);
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const getPlacement = () => {
     if (lastCanvasPoint) {
       return { x: lastCanvasPoint.x, y: lastCanvasPoint.y };
@@ -336,17 +361,6 @@ export function EditorShell() {
       handleAddIcon(data.iconName, pos.x, pos.y);
     }
   };
-
-  const legacySetFrames = useLegacyStore((s) => s.setFrames);
-  const legacySetActiveFrame = useLegacyStore((s) => s.setActiveFrame);
-
-  useEffect(() => {
-    const frames = sceneNodesToFrames(nodes);
-    if (frames.length > 0) {
-      legacySetFrames(frames);
-      legacySetActiveFrame(frames[0].id);
-    }
-  }, [nodes, legacySetFrames, legacySetActiveFrame]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -533,22 +547,8 @@ export function EditorShell() {
       icon: FilePlus,
       items: [
         { id: "new", label: "New", shortcut: "Ctrl+N", action: "File.New", icon: FilePlus },
-        {
-          id: "open",
-          label: "Open…",
-          shortcut: "Ctrl+O",
-          action: "File.Open",
-          icon: FolderOpen,
-          disabled: true,
-        },
-        {
-          id: "save",
-          label: "Save",
-          shortcut: "Ctrl+S",
-          action: "File.Save",
-          icon: Save,
-          disabled: true,
-        },
+        { id: "open", label: "Open…", shortcut: "Ctrl+O", action: "File.Open", icon: FolderOpen, disabled: true },
+        { id: "save", label: "Save", shortcut: "Ctrl+S", action: "File.Save", icon: Save, disabled: true },
         { id: "div1", divider: true },
         { id: "export", label: "Export", shortcut: "Ctrl+E", action: "File.Export", icon: Download },
       ],
@@ -559,46 +559,13 @@ export function EditorShell() {
       icon: Clipboard,
       items: [
         { id: "undo", label: "Undo", shortcut: "Ctrl+Z", action: "Edit.Undo", icon: Undo2 },
-        {
-          id: "redo",
-          label: "Redo",
-          shortcut: "Ctrl+Shift+Z",
-          action: "Edit.Redo",
-          icon: Redo2,
-        },
+        { id: "redo", label: "Redo", shortcut: "Ctrl+Shift+Z", action: "Edit.Redo", icon: Redo2 },
         { id: "div2", divider: true },
-        {
-          id: "cut",
-          label: "Cut",
-          shortcut: "Ctrl+X",
-          action: "Edit.Cut",
-          icon: Scissors,
-          disabled: true,
-        },
-        {
-          id: "copy",
-          label: "Copy",
-          shortcut: "Ctrl+C",
-          action: "Edit.Copy",
-          icon: Copy,
-          disabled: true,
-        },
-        {
-          id: "paste",
-          label: "Paste",
-          shortcut: "Ctrl+V",
-          action: "Edit.Paste",
-          icon: ClipboardPaste,
-          disabled: true,
-        },
+        { id: "cut", label: "Cut", shortcut: "Ctrl+X", action: "Edit.Cut", icon: Scissors, disabled: true },
+        { id: "copy", label: "Copy", shortcut: "Ctrl+C", action: "Edit.Copy", icon: Copy, disabled: true },
+        { id: "paste", label: "Paste", shortcut: "Ctrl+V", action: "Edit.Paste", icon: ClipboardPaste, disabled: true },
         { id: "div3", divider: true },
-        {
-          id: "duplicate",
-          label: "Duplicate",
-          shortcut: "Ctrl+D",
-          action: "Edit.Duplicate",
-          icon: Copy,
-        },
+        { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", action: "Edit.Duplicate", icon: Copy },
         { id: "delete", label: "Delete", shortcut: "Del", action: "Edit.Delete", icon: Scissors },
       ],
     },
@@ -607,27 +574,9 @@ export function EditorShell() {
       label: "View",
       icon: ZoomIn,
       items: [
-        {
-          id: "zoomin",
-          label: "Zoom In",
-          shortcut: "Ctrl++",
-          action: "View.Zoom In",
-          icon: ZoomIn,
-        },
-        {
-          id: "zoomout",
-          label: "Zoom Out",
-          shortcut: "Ctrl+-",
-          action: "View.Zoom Out",
-          icon: ZoomOut,
-        },
-        {
-          id: "reset",
-          label: "Reset Zoom",
-          shortcut: "Ctrl+0",
-          action: "View.Reset Zoom",
-          icon: RotateCcw,
-        },
+        { id: "zoomin", label: "Zoom In", shortcut: "Ctrl++", action: "View.Zoom In", icon: ZoomIn },
+        { id: "zoomout", label: "Zoom Out", shortcut: "Ctrl+-", action: "View.Zoom Out", icon: ZoomOut },
+        { id: "reset", label: "Reset Zoom", shortcut: "Ctrl+0", action: "View.Reset Zoom", icon: RotateCcw },
       ],
     },
     {
@@ -644,20 +593,8 @@ export function EditorShell() {
       label: "Help",
       icon: HelpCircle,
       items: [
-        {
-          id: "docs",
-          label: "Documentation",
-          action: "Help.Docs",
-          icon: BookOpen,
-          disabled: true,
-        },
-        {
-          id: "shortcuts",
-          label: "Keyboard Shortcuts",
-          action: "Help.Shortcuts",
-          icon: Keyboard,
-          disabled: true,
-        },
+        { id: "docs", label: "Documentation", action: "Help.Docs", icon: BookOpen, disabled: true },
+        { id: "shortcuts", label: "Keyboard Shortcuts", action: "Help.Shortcuts", icon: Keyboard, disabled: true },
       ],
     },
   ];
@@ -666,7 +603,6 @@ export function EditorShell() {
     <div className={styles.shell}>
       {/* ── Top Bar ─────────────────────────────────────────────────── */}
       <header className={styles.topbar}>
-        {/* Left: logo + menus + project name */}
         <div className={styles.topbarLeft} ref={menuRef}>
           <span className={styles.logoMark}>R</span>
 
@@ -795,18 +731,13 @@ export function EditorShell() {
           <button type="button" className={styles.iconBtn} onClick={undo} title="Undo (Ctrl+Z)">
             <Undo2 size={14} />
           </button>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={redo}
-            title="Redo (Ctrl+Shift+Z)"
-          >
+          <button type="button" className={styles.iconBtn} onClick={redo} title="Redo (Ctrl+Shift+Z)">
             <Redo2 size={14} />
           </button>
 
           <div className={styles.divider} />
 
-          <div className={styles.zoomControl} title="Ctrl/Cmd + scroll or Shift + scroll to zoom">
+          <div className={styles.zoomControl}>
             <button
               type="button"
               className={styles.zoomBtn}
@@ -928,7 +859,8 @@ export function EditorShell() {
           await preloadLucideIcons();
           const { downloadProjectFromSceneNodes } = await import("@/lib/tauri-export");
           const nodes = useEditorStore.getState().nodes;
-          await downloadProjectFromSceneNodes(nodes, "my-tauri-app", settings);
+          const exportName = (settings.appName ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "my-tauri-app";
+          await downloadProjectFromSceneNodes(nodes, exportName, settings);
         }}
       />
     </div>
