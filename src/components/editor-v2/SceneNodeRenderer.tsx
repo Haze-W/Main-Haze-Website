@@ -24,6 +24,7 @@ interface SceneNodeRendererProps {
 }
 
 export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererProps) {
+  if (node.visible === false) return null;
   if (node.props?._figma) {
     return <FigmaNodeRenderer node={node} isSelected={isSelected} zoom={zoom} />;
   }
