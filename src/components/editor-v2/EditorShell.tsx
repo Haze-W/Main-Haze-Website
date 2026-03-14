@@ -118,6 +118,11 @@ function LayerItem({
   const [hovered, setHovered] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameValue, setNameValue] = useState(node.name);
+
+  // Keep nameValue in sync if node.name changes externally
+  useEffect(() => {
+    if (!renaming) setNameValue(node.name);
+  }, [node.name, renaming]);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const toggleSelection = useEditorStore((s) => s.toggleSelection);
