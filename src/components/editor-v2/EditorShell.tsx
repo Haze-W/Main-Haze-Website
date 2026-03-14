@@ -53,6 +53,7 @@ import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { PreviewPanel } from "./PreviewPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
@@ -700,14 +701,14 @@ export function EditorShell() {
 
         {/* Mode tabs */}
         <div className={styles.modeTabs}>
-          {(["design", "code"] as const).map((m) => (
+          {(["design", "code", "preview"] as const).map((m) => (
             <button
               key={m}
               type="button"
               className={`${styles.modeTab} ${mode === m ? styles.modeActive : ""}`}
               onClick={() => setMode(m)}
             >
-              {m === "design" ? "Design" : "Code"}
+              {m === "design" ? "Design" : m === "code" ? "Code" : "▶ Preview"}
             </button>
           ))}
         </div>
@@ -823,6 +824,7 @@ export function EditorShell() {
             {mode === "design" && <Canvas />}
             {mode === "code" && <CodePanel />}
             {mode === "settings" && <SettingsPanel />}
+            {mode === "preview" && <PreviewPanel />}
           </main>
 
           {/* Right panel */}
