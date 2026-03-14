@@ -399,44 +399,71 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   },
   bringToFront: (ids) => {
     const idSet = new Set(ids);
-    set((s) => {
-      const selected = s.nodes.filter((n) => idSet.has(n.id));
-      const rest = s.nodes.filter((n) => !idSet.has(n.id));
-      return { nodes: [...rest, ...selected] };
-    });
+    function reorderBringFront(nodes: SceneNode[]): SceneNode[] {
+      // Reorder at this level if any selected nodes are here
+      const hasAtThisLevel = nodes.some((n) => idSet.has(n.id));
+      let result = nodes.map((n) => ({
+        ...n,
+        children: n.children ? reorderBringFront(n.children) : n.children,
+      }));
+      if (hasAtThisLevel) {
+        const selected = result.filter((n) => idSet.has(n.id));
+        const rest = result.filter((n) => !idSet.has(n.id));
+        result = [...rest, ...selected];
+      }
+      return result;
+    }
+    set((s) => ({ nodes: reorderBringFront(s.nodes) }));
     get().pushHistory();
   },
   sendToBack: (ids) => {
     const idSet = new Set(ids);
-    set((s) => {
-      const selected = s.nodes.filter((n) => idSet.has(n.id));
-      const rest = s.nodes.filter((n) => !idSet.has(n.id));
-      return { nodes: [...selected, ...rest] };
-    });
+    function reorderSendBack(nodes: SceneNode[]): SceneNode[] {
+      const hasAtThisLevel = nodes.some((n) => idSet.has(n.id));
+      let result = nodes.map((n) => ({
+        ...n,
+        children: n.children ? reorderSendBack(n.children) : n.children,
+      }));
+      if (hasAtThisLevel) {
+        const selected = result.filter((n) => idSet.has(n.id));
+        const rest = result.filter((n) => !idSet.has(n.id));
+        result = [...selected, ...rest];
+      }
+      return result;
+    }
+    set((s) => ({ nodes: reorderSendBack(s.nodes) }));
     get().pushHistory();
   },
   bringForward: (ids) => {
-    set((s) => {
-      const nodes = [...s.nodes];
-      for (let i = nodes.length - 2; i >= 0; i--) {
-        if (ids.includes(nodes[i].id) && !ids.includes(nodes[i + 1].id)) {
-          [nodes[i], nodes[i + 1]] = [nodes[i + 1], nodes[i]];
+    function reorderForward(nodes: SceneNode[]): SceneNode[] {
+      const result = nodes.map((n) => ({
+        ...n,
+        children: n.children ? reorderForward(n.children) : n.children,
+      }));
+      for (let i = result.length - 2; i >= 0; i--) {
+        if (ids.includes(result[i].id) && !ids.includes(result[i + 1].id)) {
+          [result[i], result[i + 1]] = [result[i + 1], result[i]];
         }
       }
-      return { nodes };
-    });
+      return result;
+    }
+    set((s) => ({ nodes: reorderForward(s.nodes) }));
     get().pushHistory();
   },
   sendBackward: (ids) => {
-    set((s) => {
-      const nodes = [...s.nodes];
-      for (let i = 1; i < nodes.length; i++) {
-        if (ids.includes(nodes[i].id) && !ids.includes(nodes[i - 1].id)) {
-          [nodes[i], nodes[i - 1]] = [nodes[i - 1], nodes[i]];
+    function reorderBackward(nodes: SceneNode[]): SceneNode[] {
+      const result = nodes.map((n) => ({
+        ...n,
+        children: n.children ? reorderBackward(n.children) : n.children,
+      }));
+      for (let i = 1; i < result.length; i++) {
+        if (ids.includes(result[i].id) && !ids.includes(result[i - 1].id)) {
+          [result[i], result[i - 1]] = [result[i - 1], result[i]];
         }
       }
-      return { nodes };
-    });
+      return result;
+    }
+    set((s) => ({ nodes: reorderBackward(s.nodes) }));
     get().pushHistory();
   },
   groupNodes: (ids) => {
