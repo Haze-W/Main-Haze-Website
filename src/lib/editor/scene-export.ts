@@ -438,6 +438,107 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     .filter(Boolean)
     .join("\n");
 
+  // ── Non-Figma component types — render with visible styles ──
+  if (!figma) {
+    const props = node.props ?? {};
+    const variant = (props.variant as string) ?? "";
+
+    // BUTTON
+    if (node.type === "BUTTON") {
+      const label = (props.label as string) ?? "Button";
+      const bg = (props.backgroundColor as string) ||
+        (variant === "primary" ? "#5e5ce6" :
+         variant === "secondary" ? "#2d2d35" :
+         variant === "danger" ? "#dc2626" :
+         variant === "outline" ? "transparent" : "#5e5ce6");
+      const color = (props.color as string) || "white";
+      const border = variant === "outline" ? "border:1px solid rgba(255,255,255,0.2);" : "";
+      const btnStyle = `${styleStr};background:${bg};color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;border-radius:6px;${border}`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(btnStyle)}">${escapeHtml(label)}</div>`;
+    }
+
+    // TEXT / HEADING / PARAGRAPH
+    if (node.type === "TEXT") {
+      const content = (props.content as string) ?? "Text";
+      const fontSize = (props.fontSize as number) ?? 14;
+      const fontWeight = (props.fontWeight as string) ?? "normal";
+      const color = (props.color as string) || "#e6edf3";
+      const textAlign = (props.textAlign as string) ?? "left";
+      const fontFamily = (props.fontFamily as string) ? `font-family:"${props.fontFamily}",sans-serif;` : "";
+      const txtStyle = `${styleStr};color:${color};font-size:${fontSize}px;font-weight:${fontWeight};text-align:${textAlign};${fontFamily}overflow:visible;white-space:pre-wrap;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(txtStyle)}">${escapeHtml(content)}</div>`;
+    }
+
+    // INPUT
+    if (node.type === "INPUT") {
+      const ph = (props.placeholder as string) ?? "Input";
+      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.4);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}">${escapeHtml(ph)}</div>`;
+    }
+
+    // RECTANGLE
+    if (node.type === "RECTANGLE") {
+      const bg = (props.backgroundColor as string) || "rgba(50,50,58,0.6)";
+      const borderColor = (props.borderColor as string) || "";
+      const border = borderColor ? `border:1px solid ${borderColor};` : "";
+      const rectStyle = `${styleStr};background:${bg};border-radius:4px;${border}`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(rectStyle)}"></div>`;
+    }
+
+    // CHECKBOX
+    if (node.type === "CHECKBOX") {
+      const label = (props.label as string) ?? "";
+      const checked = (props.checked as boolean) ?? false;
+      const isSwitch = (props.switch as boolean) ?? false;
+      if (isSwitch) {
+        const trackBg = checked ? "#5e5ce6" : "rgba(255,255,255,0.15)";
+        const chkStyle = `${styleStr};display:flex;align-items:center;`;
+        return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:44px;height:24px;background:${trackBg};border-radius:12px;position:relative;"><div style="position:absolute;top:2px;left:${checked ? "22px" : "2px"};width:20px;height:20px;background:white;border-radius:50%;"></div></div></div>`;
+      }
+      const boxBg = checked ? "#5e5ce6" : "transparent";
+      const boxBorder = checked ? "#5e5ce6" : "rgba(255,255,255,0.3)";
+      const chkStyle = `${styleStr};display:flex;align-items:center;gap:8px;color:#e6edf3;font-size:14px;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:18px;height:18px;border:2px solid ${boxBorder};border-radius:4px;background:${boxBg};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">${checked ? "✓" : ""}</div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
+    }
+
+    // SELECT
+    if (node.type === "SELECT") {
+      const ph = (props.placeholder as string) ?? "Select...";
+      const selStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.6);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:space-between;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(selStyle)}"><span>${escapeHtml(ph)}</span><span style="font-size:10px;">▼</span></div>`;
+    }
+
+    // IMAGE
+    if (node.type === "IMAGE") {
+      const src = (props.src as string) ?? "";
+      const rounded = (props.rounded as boolean) ?? false;
+      const radius = rounded ? "border-radius:50%;" : "border-radius:6px;";
+      const imgStyle = `${styleStr};overflow:hidden;${radius}background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;`;
+      if (src) {
+        return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><img src="${escapeHtml(src)}" style="width:100%;height:100%;object-fit:cover;" /></div>`;
+      }
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><span style="font-size:32px;opacity:0.3;">${rounded ? "👤" : "🖼"}</span></div>`;
+    }
+
+    // DIVIDER
+    if (node.type === "DIVIDER") {
+      const divStyle = `position:absolute;left:${node.x}px;top:${node.y}px;width:${node.width}px;height:2px;background:rgba(255,255,255,0.1);`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(divStyle)}"></div>`;
+    }
+
+    // ICON (render as text emoji fallback)
+    if (node.type === "ICON") {
+      const color = (props.color as string) || "#e6edf3";
+      const iconStyle = `${styleStr};display:flex;align-items:center;justify-content:center;color:${color};font-size:${Math.min(node.width, node.height) - 4}px;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">◆</div>`;
+    }
+
+    // CONTAINER / PANEL / generic — render background + children
+    const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
+    const containerStyle = `${styleStr};background:${bg};border-radius:6px;border:1px solid rgba(255,255,255,0.06);`;
+    return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
+  }
+
   return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + styleStr)}">\n${childHtml || ""}\n${pad}</div>`;
 }
 
