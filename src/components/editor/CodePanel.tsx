@@ -80,8 +80,8 @@ export function CodePanel() {
 
   const projectFiles = useMemo(
     () =>
-      getTauriProjectFiles(frames, activeFrameId, "my-tauri-app", {
-        appName,
+      getTauriProjectFiles(frames, activeFrameId, appName || "my-tauri-app", {
+        appName: appName || "my-tauri-app",
         titleBarStyle,
       }),
     [frames, activeFrameId, appName, titleBarStyle]
@@ -233,3 +233,4 @@ export function CodePanel() {
     </div>
   );
 }
+
