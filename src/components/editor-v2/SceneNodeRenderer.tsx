@@ -1,337 +1,44 @@
 "use client";
 
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState } from "react";
+import dynamic from "next/dynamic";
 import type { SceneNode } from "@/lib/editor/types";
+import { getValidIconName } from "@/lib/icon-valid";
 import { useEditorStore } from "@/lib/editor/store";
 import { loadGoogleFont } from "@/lib/editor/fonts";
-import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
-import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
+import { FrameNode } from "./FrameNode";
+import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
+import { TopBarNode } from "./TopBarNode";
 import { ResizeHandles } from "./ResizeHandles";
+import styles from "./SceneNodeRenderer.module.css";
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
+const DynamicIcon = dynamic(
+  () => import("lucide-react/dynamic").then((m) => m.DynamicIcon),
+  { ssr: false }
+);
 
-function resolveGradientStops(fill: Paint): Array<{ hex: string; alpha: number; position: number }> | null {
-  if (fill.stops && fill.stops.length >= 2) {
-    return fill.stops.filter((s) => s.hex != null).map((s) => ({ hex: s.hex!, alpha: s.alpha ?? 1, position: s.position ?? 0 }));
-  }
-  if (fill.gradientStops && fill.gradientStops.length >= 2) {
-    return fill.gradientStops.map((gs) => ({
-      hex: rgbToHex(gs.color.r, gs.color.g, gs.color.b),
-      alpha: gs.color.a ?? 1,
-      position: gs.position,
-    }));
-  }
-  return null;
-}
-
-function computeGradientAngle(handles?: Array<{ x: number; y: number }>): number {
-  if (!handles || handles.length < 2) return 180;
-  const [start, end] = handles;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const angleRad = Math.atan2(dy, dx);
-  return Math.round((angleRad * 180) / Math.PI + 90);
-}
-
-interface FigmaNodeRendererProps {
+interface SceneNodeRendererProps {
   node: SceneNode;
   isSelected: boolean;
   zoom: number;
-  parentLayout?: "NONE" | "HORIZONTAL" | "VERTICAL";
-  /** When true, this is a child inside a Figma frame — no independent selection/dragging */
-  isChild?: boolean;
 }
 
-interface FigmaProps {
-  originalType: string;
-  fills: Paint[];
-  strokes: Paint[];
-  strokeWeight: number;
-  strokeAlign: string;
-  effects: Effect[];
-  cornerRadius: number | null;
-  topLeftRadius: number | null;
-  topRightRadius: number | null;
-  bottomLeftRadius: number | null;
-  bottomRightRadius: number | null;
-  blendMode: string;
-  clipsContent: boolean;
-  overflowDirection?: string;
-  fillEnabled?: boolean;
-  strokeEnabled?: boolean;
-  textHasNoBackgroundFill?: boolean;
-}
-
-function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined {
-  if (isEllipse) return "50%";
-  const { topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius, cornerRadius } = f;
-  if (
-    topLeftRadius != null ||
-    topRightRadius != null ||
-    bottomRightRadius != null ||
-    bottomLeftRadius != null
-  ) {
-    const tl = topLeftRadius ?? 0;
-    const tr = topRightRadius ?? 0;
-    const br = bottomRightRadius ?? 0;
-    const bl = bottomLeftRadius ?? 0;
-    if (tl === 0 && tr === 0 && br === 0 && bl === 0) return undefined;
-    return `${tl}px ${tr}px ${br}px ${bl}px`;
+export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererProps) {
+  if (node.props?._figma) {
+    return <FigmaNodeRenderer node={node} isSelected={isSelected} zoom={zoom} />;
   }
-  if (cornerRadius != null && cornerRadius > 0) return `${cornerRadius}px`;
-  return undefined;
-}
-
-function getFillAlpha(fill: Paint): number {
-  if (fill.alpha != null) return fill.alpha;
-  if (fill.opacity != null) return fill.opacity;
-  const c = fill.color as { a?: number } | undefined;
-  if (c && typeof c.a === "number") return c.a;
-  return 1;
-}
-
-function isFillVisible(fill: Paint): boolean {
-  if (fill.transparent === true) return false;
-  if (fill.visible === false) return false;
-  if (getFillAlpha(fill) === 0) return false;
-  return true;
-}
-
-function getBackground(
-  fills: Paint[],
-  fillEnabled: boolean,
-  isTextNode: boolean
-): string | undefined {
-  if (isTextNode) return undefined;
-  if (!fillEnabled || !fills || fills.length === 0) return undefined;
-
-  for (const fill of fills) {
-    if (!isFillVisible(fill)) continue;
-    if (!fill.type || fill.type === "SOLID") {
-      const solid = paintToSolidColor(fill);
-      if (solid) return solid;
-      if (fill.hex) return hexAlpha(fill.hex, getFillAlpha(fill));
-    }
-    if (fill.type === "GRADIENT_LINEAR") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const angle = computeGradientAngle(fill.gradientHandlePositions);
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `linear-gradient(${angle}deg, ${stopsStr})`;
-      }
-    }
+  if (node.type === "TOPBAR") {
+    return <TopBarNode node={node} isSelected={isSelected} zoom={zoom} />;
   }
-  return undefined;
-}
-
-function getBorder(
-  strokes: Paint[],
-  strokeWeight: number,
-  strokeEnabled: boolean
-): string | undefined {
-  if (!strokeEnabled || !strokes || strokes.length === 0 || strokeWeight === 0)
-    return undefined;
-  const stroke = strokes[0];
-  if (!isFillVisible(stroke)) return undefined;
-  const color = paintToSolidColor(stroke) ?? (stroke.hex ? hexAlpha(stroke.hex, getFillAlpha(stroke)) : undefined);
-  if (!color) return undefined;
-  return `${strokeWeight}px solid ${color}`;
-}
-
-function getBoxShadow(effects: Effect[]): string | undefined {
-  if (!effects || effects.length === 0) return undefined;
-  const shadows = effects
-    .filter((e) => e.type === "DROP_SHADOW" || e.type === "INNER_SHADOW")
-    .map((e) => {
-      const x = e.x ?? 0;
-      const y = e.y ?? 0;
-      const blur = e.blur ?? 0;
-      const spread = e.spread ?? 0;
-      const color =
-        e.color && e.alpha != null
-          ? hexAlpha(e.color, e.alpha)
-          : `rgba(0,0,0,0.25)`;
-      const inset = e.type === "INNER_SHADOW" ? "inset " : "";
-      return `${inset}${x}px ${y}px ${blur}px ${spread}px ${color}`;
-    });
-  return shadows.length > 0 ? shadows.join(", ") : undefined;
-}
-
-function getFilter(effects: Effect[]): string | undefined {
-  if (!effects || effects.length === 0) return undefined;
-  const blurs = effects.filter((e) => e.type === "LAYER_BLUR");
-  if (blurs.length === 0) return undefined;
-  return blurs.map((e) => `blur(${e.blur ?? 0}px)`).join(" ");
-}
-
-function mapAlign(val: string | null | undefined): string | undefined {
-  if (!val) return undefined;
-  switch (val) {
-    case "MIN": return "flex-start";
-    case "MAX": return "flex-end";
-    case "CENTER": return "center";
-    case "SPACE_BETWEEN": return "space-between";
-    default: return undefined;
+  if (node.type === "FRAME") {
+    return <FrameNode node={node} isSelected={isSelected} zoom={zoom} />;
   }
+  return <GenericNode node={node} isSelected={isSelected} zoom={zoom} />;
 }
 
-/** Get text color from segment fills, falling back to black */
-function getTextColor(props: Record<string, unknown>): string {
-  const textFills = props._textFills as Paint[] | undefined;
-  if (textFills && textFills.length > 0) {
-    const tf = textFills[0];
-    if (isFillVisible(tf)) {
-      const color = paintToSolidColor(tf) ?? (tf.hex ? hexAlpha(tf.hex, getFillAlpha(tf)) : undefined);
-      if (color) return color;
-    }
-    return "transparent";
-  }
-  return "#000000";
-}
-
-/** Render multi-segment text with per-segment styling */
-function renderTextContent(props: Record<string, unknown>): React.ReactNode {
-  const segments = props._textSegments as TextSegment[] | undefined;
-  const content = (props.content as string) ?? "";
-  const fallbackFont = props.fontFamily as string | undefined;
-
-  if (!segments || segments.length <= 1) {
-    return content;
-  }
-
-  return segments.map((seg, i) => {
-    const segStyle: React.CSSProperties = {};
-
-    const fontFamily = seg.fontFamily ?? fallbackFont;
-    if (fontFamily) segStyle.fontFamily = `"${fontFamily}", sans-serif`;
-    if (seg.fontSize) segStyle.fontSize = seg.fontSize;
-    if (seg.fontWeight) segStyle.fontWeight = seg.fontWeight;
-    if (seg.fontStyle?.toLowerCase() === "italic") segStyle.fontStyle = "italic";
-    if (seg.textDecoration) {
-      const dec = seg.textDecoration.toLowerCase();
-      if (dec !== "none") segStyle.textDecoration = dec;
-    }
-    if (seg.letterSpacing != null && seg.letterSpacing !== 0) {
-      segStyle.letterSpacing = seg.letterSpacing;
-    }
-
-    if (seg.fills && seg.fills.length > 0) {
-      const sf = seg.fills[0];
-      if (isFillVisible(sf)) {
-        const color = paintToSolidColor(sf) ?? (sf.hex ? hexAlpha(sf.hex, getFillAlpha(sf)) : undefined);
-        if (color) segStyle.color = color;
-      } else {
-        segStyle.color = "transparent";
-      }
-    }
-
-    return (
-      <span key={i} style={segStyle}>{seg.characters}</span>
-    );
-  });
-}
-
-export function FigmaNodeRenderer({
-  node,
-  isSelected,
-  zoom,
-  parentLayout = "NONE",
-  isChild = false,
-}: FigmaNodeRendererProps) {
-  const {
-    setSelectedIds,
-    toggleSelection,
-    moveNodes,
-    resizeNode,
-    pushHistory,
-    enteredFrameId,
-    enterFrame,
-    exitFrame,
-    updateNode,
-  } = useEditorStore();
-
-  const [isEditingText, setIsEditingText] = useState(false);
-  const textEditRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isEditingText && textEditRef.current) {
-      textEditRef.current.focus();
-      const range = document.createRange();
-      range.selectNodeContents(textEditRef.current);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-  }, [isEditingText]);
-
-  const VECTOR_TYPES = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
-  const figma = node.props?._figma as FigmaProps | undefined;
-  const isEllipse = !!node.props?._ellipse;
-  const isText = figma?.originalType === "TEXT";
-  const hasImageFill = !!node.props?._hasImageFill;
-  const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
-  const isVector = figma ? VECTOR_TYPES.includes(figma.originalType) : false;
-
-  const isFrameEntered = enteredFrameId === node.id;
-  const isInsideEnteredFrame = isChild && enteredFrameId != null;
-  const isSelectableChild = isInsideEnteredFrame;
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (e.shiftKey) {
-        toggleSelection(node.id);
-      } else {
-        setSelectedIds([node.id]);
-      }
-    },
-    [node.id, toggleSelection, setSelectedIds]
-  );
-
-  const handleDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!isChild && node.children && node.children.length > 0) {
-        enterFrame(node.id);
-      }
-    },
-    [node.id, node.children, isChild, enterFrame]
-  );
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
-      e.stopPropagation();
-      const target = e.currentTarget as HTMLElement;
-      target.setPointerCapture(e.pointerId);
-      const last = { clientX: e.clientX, clientY: e.clientY };
-      let moved = false;
-      const onMove = (move: PointerEvent) => {
-        const currentZoom = useEditorStore.getState().viewport.zoom;
-        const dx = (move.clientX - last.clientX) / currentZoom;
-        const dy = (move.clientY - last.clientY) / currentZoom;
-        if (dx !== 0 || dy !== 0) moved = true;
-        moveNodes([node.id], dx, dy);
-        last.clientX = move.clientX;
-        last.clientY = move.clientY;
-      };
-      const onUp = () => {
-        target.releasePointerCapture(e.pointerId);
-        document.removeEventListener("pointermove", onMove);
-        document.removeEventListener("pointerup", onUp);
-        if (moved) pushHistory();
-      };
-      document.addEventListener("pointermove", onMove);
-      document.addEventListener("pointerup", onUp);
-    },
-    [node.id, moveNodes, pushHistory, canDrag]
-  );
+function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode } = useEditorStore();
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleResizeStart = useCallback(
     (handle: string) => (e: React.PointerEvent) => {
@@ -359,311 +66,1006 @@ export function FigmaNodeRenderer({
     [node.id, resizeNode, pushHistory]
   );
 
-  const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
-  const showSelection = isSelected;
+  const props = node.props ?? {};
+  const variant = (props.variant as string) ?? "";
+  const hoverPreset = (props._hoverPreset as string) ?? "none";
 
-  const strokeWeight = figma?.strokeWeight ?? 0;
-  const hasStroke = figma?.strokeEnabled !== false && (figma?.strokes?.length ?? 0) > 0 && strokeWeight > 0;
-  const isLine = figma?.originalType === "LINE";
-  const minDim = hasStroke && isLine ? Math.max(1, strokeWeight) : 0;
-  const effectiveWidth = minDim ? Math.max(node.width, minDim) : node.width;
-  const effectiveHeight = minDim ? Math.max(node.height, minDim) : node.height;
+  const isLocked = !!node.locked;
 
-  const style: React.CSSProperties = {
-    position: usesFlex ? "relative" : "absolute",
-    left: usesFlex ? undefined : node.x,
-    top: usesFlex ? undefined : node.y,
-    width: effectiveWidth,
-    height: effectiveHeight,
-    boxSizing: "border-box",
-    cursor: canDrag ? "pointer" : "default",
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isLocked) return;
+    if (e.shiftKey) toggleSelection(node.id);
+    else setSelectedIds([node.id]);
   };
 
-  if (showSelection) {
-    style.outline = "2px solid var(--accent)";
-    style.outlineOffset = -1;
-  }
+  // Base style — applies to every node
+  const baseStyle: React.CSSProperties = {
+    position: "absolute",
+    left: node.x,
+    top: node.y,
+    width: node.width,
+    height: node.height,
+    boxSizing: "border-box",
+    cursor: "pointer",
+    outline: isSelected ? "2px solid var(--accent)" : "none",
+    outlineOffset: -1,
+    overflow: "hidden",
+    opacity: node.opacity != null && node.opacity < 1 ? node.opacity : undefined,
+    ...((() => {
+      const parts: string[] = [];
+      if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
+      if (props.scaleX !== undefined) parts.push(`scaleX(${props.scaleX})`);
+      if (props.scaleY !== undefined) parts.push(`scaleY(${props.scaleY})`);
+      return parts.length ? { transform: parts.join(" ") } : {};
+    })()),
+    ...(hoverPreset !== "none" ? {
+      transition:
+        hoverPreset === "lift"   ? "transform 0.2s ease, box-shadow 0.2s ease" :
+        hoverPreset === "scale"  ? "transform 0.15s ease" :
+        hoverPreset === "dim" || hoverPreset === "brighten" ? "opacity 0.2s ease, filter 0.2s ease" :
+        "box-shadow 0.2s ease",
+    } : {}),
+  };
 
-  if (node.visible === false) {
-    style.display = "none";
-  }
+  // Hover effect
+  const hoverStyle: React.CSSProperties = isHovered && hoverPreset !== "none" ? (
+    hoverPreset === "lift"        ? { transform: (baseStyle.transform ?? "") + " translateY(-4px)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" } :
+    hoverPreset === "scale"       ? { transform: (baseStyle.transform ?? "") + " scale(1.04)" } :
+    hoverPreset === "dim"         ? { opacity: 0.6 } :
+    hoverPreset === "brighten"    ? { filter: "brightness(1.25)" } :
+    hoverPreset === "glow"        ? { boxShadow: "0 0 0 3px rgba(94,92,230,0.5), 0 0 16px rgba(94,92,230,0.3)" } :
+    hoverPreset === "border-glow" ? { outline: "2px solid rgba(94,92,230,0.8)", boxShadow: "0 0 10px rgba(94,92,230,0.3)" } :
+    {}
+  ) : {};
 
-  if (node.opacity != null && node.opacity < 1) {
-    style.opacity = node.opacity;
-  }
+  const hoverHandlers = hoverPreset !== "none" ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
 
-  if (node.rotation || node.props?.scaleX !== undefined || node.props?.scaleY !== undefined) {
-    const parts: string[] = [];
-    if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
-    if (node.props?.scaleX !== undefined) parts.push(`scaleX(${node.props.scaleX})`);
-    if (node.props?.scaleY !== undefined) parts.push(`scaleY(${node.props.scaleY})`);
-    if (parts.length) style.transform = parts.join(" ");
-  }
+  const drag = createDragHandler(node.id, zoom, moveNodes, pushHistory, isLocked);
+  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (baseStyle.opacity ?? 1) * 0.7 } : {}) };
 
-  const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData)) && !isText;
-  if (figma) {
-    const fillEnabled = figma.fillEnabled !== false;
-
-    if (!hasImageFill && !isTextNode) {
-      const bg = getBackground(figma.fills ?? [], fillEnabled, false);
-      if (bg) {
-        if (bg.startsWith("linear-gradient") || bg.startsWith("radial-gradient")) {
-          style.background = bg;
-        } else {
-          style.backgroundColor = bg;
-        }
-      }
-    }
-
-    if (!isVector && !hasImageFill) {
-      const strokeEnabled = figma.strokeEnabled !== false;
-      const border = getBorder(figma.strokes, figma.strokeWeight, strokeEnabled);
-      if (border) style.border = border;
-    }
-
-    if (!isVectorOrImageWithData) {
-      const shadow = getBoxShadow(figma.effects);
-      if (shadow) style.boxShadow = shadow;
-    }
-
-    const br = getBorderRadius(figma, isEllipse);
-    if (br) style.borderRadius = br;
-
-    const filter = getFilter(figma.effects);
-    if (filter) style.filter = filter;
-
-    if (node.overflow === "HIDDEN") style.overflow = "hidden";
-    else if (node.overflow === "SCROLL") style.overflow = "auto";
-    else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
-    else if (isVectorOrImageWithData) style.overflow = "visible";
-  }
-
-  const layout = node.layoutMode ?? "NONE";
-  if (layout === "HORIZONTAL" || layout === "VERTICAL") {
-    style.display = "flex";
-    style.flexDirection = layout === "HORIZONTAL" ? "row" : "column";
-    if (node.itemSpacing) style.gap = node.itemSpacing;
-    if (node.paddingTop) style.paddingTop = node.paddingTop;
-    if (node.paddingRight) style.paddingRight = node.paddingRight;
-    if (node.paddingBottom) style.paddingBottom = node.paddingBottom;
-    if (node.paddingLeft) style.paddingLeft = node.paddingLeft;
-    const justify = mapAlign(node.primaryAxisAlignItems);
-    if (justify) style.justifyContent = justify;
-    const alignItems = mapAlign(node.counterAxisAlignItems);
-    if (alignItems) style.alignItems = alignItems;
-  }
-
-  // ── TEXT NODE ──────────────────────────────────────────────────
-  if (isText) {
-    const props = node.props ?? {};
-
-    style.color = getTextColor(props);
-    style.whiteSpace = "pre-wrap";
-    style.wordBreak = "break-word";
-    style.margin = 0;
-    style.padding = 0;
-
-    // No background for text nodes
-    style.backgroundColor = undefined;
-    style.background = undefined;
-
-    // Vertical alignment: only use flex when CENTER or BOTTOM
-    const vAlign = (props._textAlignVertical as string) ?? "TOP";
-    if (vAlign === "CENTER" || vAlign === "BOTTOM") {
-      style.display = "flex";
-      style.flexDirection = "column";
-      style.justifyContent = vAlign === "CENTER" ? "center" : "flex-end";
-    }
-
-    const noOverflow = props._textNoOverflow === true;
-    const truncation = props._textTruncation as string | undefined;
-    if (noOverflow || truncation === "DISABLED") {
-      style.overflow = "visible";
-    } else {
-      style.overflow = "hidden";
-      if (truncation === "ENDING") {
-        style.textOverflow = "ellipsis";
-      }
-    }
-
-    const maxLines = props._textMaxLines as number | null | undefined;
-    if (maxLines != null && maxLines > 0 && !noOverflow && truncation !== "DISABLED") {
-      style.WebkitLineClamp = maxLines;
-      style.display = "-webkit-box";
-      style.WebkitBoxOrient = "vertical";
-    }
-
-    const autoResize = props._textAutoResize as string | undefined;
-    if (autoResize === "WIDTH_AND_HEIGHT") {
-      style.width = undefined;
-      style.height = undefined;
-      style.minWidth = node.width;
-    }
-
-    if (props.fontFamily) {
-      const font = props.fontFamily as string;
-      loadGoogleFont(font);
-      style.fontFamily = `"${font}", sans-serif`;
-    }
-    if (props.fontSize) style.fontSize = props.fontSize as number;
-    if (props.fontWeight) {
-      const fw = props.fontWeight as string;
-      style.fontWeight = /^\d+$/.test(fw) ? Number(fw) : fw;
-    }
-    if (props.textAlign) style.textAlign = props.textAlign as React.CSSProperties["textAlign"];
-    if (props.letterSpacing != null && (props.letterSpacing as number) !== 0) {
-      style.letterSpacing = props.letterSpacing as number;
-    }
-    if (props.textDecoration) {
-      const dec = (props.textDecoration as string).toLowerCase();
-      if (dec !== "none") style.textDecoration = dec;
-    }
-    if (props.fontStyle) {
-      const fs = (props.fontStyle as string).toLowerCase();
-      if (fs === "italic") style.fontStyle = "italic";
-    }
-
-    const lh = props.lineHeight;
-    if (lh != null && lh !== "auto") {
-      style.lineHeight = typeof lh === "number" ? `${lh}px` : (lh as string);
-    }
-
+  // ── ICON ──────────────────────────────────────────────────────────────────
+  if (node.type === "ICON") {
+    const iconName = getValidIconName(props.iconName as string | undefined);
+    const size = Math.min((props.size as number) ?? 24, node.width, node.height) - 4;
+    const color = (props.color as string) || "currentColor";
     return (
       <div
-        style={style}
+        className={styles.iconNode}
+        style={{ ...merged, display: "flex", alignItems: "center", justifyContent: "center" }}
         onClick={handleClick}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          setIsEditingText(true);
+        onPointerDown={drag}
+        {...hoverHandlers}
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        <DynamicIcon name={iconName as never} size={size} strokeWidth={1.5} style={{ color }} />
+      </div>
+    );
+  }
+
+  // ── BUTTON ────────────────────────────────────────────────────────────────
+  if (node.type === "BUTTON") {
+    const label = (props.label as string) ?? (variant === "icon" ? "" : "Button");
+    const btnColor = (props.color as string) || undefined;
+    const btnBg = (props.backgroundColor as string) || undefined;
+    const btnClass = [
+      styles.button,
+      variant === "primary"   && styles.btnPrimary,
+      variant === "secondary" && styles.btnSecondary,
+      variant === "outline"   && styles.btnOutline,
+      variant === "ghost"     && styles.btnGhost,
+      variant === "danger"    && styles.btnDanger,
+      variant === "icon"      && styles.btnIcon,
+    ].filter(Boolean).join(" ");
+    return (
+      <div
+        className={btnClass}
+        style={{ ...merged, ...(btnColor && { color: btnColor }), ...(btnBg && { backgroundColor: btnBg }) }}
+        onClick={handleClick}
+        onPointerDown={drag}
+        {...hoverHandlers}
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {variant === "icon" && (props.iconName as string) ? (
+          <DynamicIcon name={getValidIconName(props.iconName as string) as never} size={20} strokeWidth={2} />
+        ) : label}
+      </div>
+    );
+  }
+
+  // ── TEXT / HEADING / PARAGRAPH / LABEL ───────────────────────────────────
+  if (node.type === "TEXT") {
+    const content  = (props.content as string) ?? "Text";
+    const fontSize = (props.fontSize as number) ?? 14;
+    const fontWeight = (props.fontWeight as string) ?? "normal";
+    const textAlign = (props.textAlign as string) ?? "left";
+    const color = (props.color as string) || undefined;
+    const fontFamily = (props.fontFamily as string) || undefined;
+    if (fontFamily) loadGoogleFont(fontFamily);
+    return (
+      <div
+        className={styles.textNode}
+        style={{
+          ...merged,
+          overflow: "visible",
+          fontSize,
+          fontWeight,
+          textAlign: textAlign as React.CSSProperties["textAlign"],
+          ...(color && { color }),
+          ...(fontFamily && { fontFamily: `"${fontFamily}", sans-serif` }),
         }}
-        onPointerDown={isEditingText ? undefined : handlePointerDown}
+        onClick={handleClick}
+        onPointerDown={drag}
+        {...hoverHandlers}
       >
-        {isEditingText ? (
-          <div
-            ref={textEditRef}
-            contentEditable
-            suppressContentEditableWarning
-            style={{ outline: "none", cursor: "text", width: "100%", height: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-            onBlur={(e) => {
-              setIsEditingText(false);
-              const text = e.currentTarget.textContent ?? "";
-              updateNode(node.id, { props: { ...(node.props ?? {}), content: text } });
-              pushHistory();
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Escape") {
-                setIsEditingText(false);
-                (e.currentTarget as HTMLElement).blur();
-              }
-            }}
-            dangerouslySetInnerHTML={{ __html: (props.content as string) ?? "" }}
-          />
-        ) : renderTextContent(props)}
-        {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {content}
       </div>
     );
   }
 
-  // ── IMAGE / VECTOR NODE ───────────────────────────────────────
-  if (hasImageFill || (isVector && node.props?._imageData)) {
-    const imageData = node.props?._imageData as string | undefined;
-    const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
-    const isSvgDataUrl = imageData?.includes("image/svg+xml");
-    const objectFit: React.CSSProperties["objectFit"] =
-      isSvgDataUrl ? "fill" :
-      scaleMode === "FIT" ? "contain" :
-      scaleMode === "TILE" ? "none" : "fill";
-
-    const containerStyle: React.CSSProperties = {
-      ...style,
-      overflow: "visible",
-      border: "none",
-      boxShadow: "none",
-    };
-
+  // ── RECTANGLE ─────────────────────────────────────────────────────────────
+  if (node.type === "RECTANGLE") {
+    const bg = (props.backgroundColor as string) || undefined;
+    const borderColor = (props.borderColor as string) || undefined;
     return (
       <div
-        style={containerStyle}
+        className={styles.rectNode}
+        style={{ ...merged, ...(bg && { background: bg }), ...(borderColor && { borderColor, borderStyle: "solid" }) }}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        onPointerDown={handlePointerDown}
+        onPointerDown={drag}
+        {...hoverHandlers}
       >
-        {imageData ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageData}
-            alt={node.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit,
-              display: "block",
-              pointerEvents: "none",
-              stroke: "none",
-              outline: "none",
-              border: "none",
-            }}
-            draggable={false}
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(128,128,128,0.2)",
-              color: "rgba(128,128,128,0.6)",
-              fontSize: 12,
-            }}
-          >
-            Image
-          </div>
-        )}
-        {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
   }
 
-  // ── FRAME / SHAPE / GROUP ─────────────────────────────────────
-  const childLayout = layout !== "NONE" ? layout : "NONE";
-
-  // When a frame is "entered" via double-click, show a subtle dashed outline
-  if (isFrameEntered) {
-    style.outline = "2px dashed var(--accent)";
-    style.outlineOffset = 2;
+  // ── INPUT / TEXTAREA ──────────────────────────────────────────────────────
+  if (node.type === "INPUT") {
+    const multiline = (props.multiline as boolean) ?? false;
+    const ph = (props.placeholder as string) ?? "Input";
+    const isSearch = (props.search as boolean) ?? false;
+    return (
+      <div
+        className={styles.inputNode}
+        style={{ ...merged }}
+        onClick={handleClick}
+        onPointerDown={drag}
+        {...hoverHandlers}
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {isSearch && <span style={{ padding: "0 8px", color: "var(--fg-muted)", fontSize: 14 }}>🔍</span>}
+        {multiline
+          ? <div className={styles.textareaPlaceholder}>{ph}</div>
+          : <div className={styles.inputPlaceholder}>{ph}</div>}
+      </div>
+    );
   }
 
+  // ── CHECKBOX ──────────────────────────────────────────────────────────────
+  if (node.type === "CHECKBOX") {
+    const isSwitch = (props.switch as boolean) ?? false;
+    const checked = (props.checked as boolean) ?? false;
+    const label = (props.label as string) ?? "";
+    const toggle = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSelectedIds([node.id]);
+      updateNode(node.id, { props: { ...props, checked: !checked } });
+    };
+    if (isSwitch) {
+      return (
+        <div className={styles.switchNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={`${styles.switchTrack} ${checked ? styles.switchOn : ""}`}>
+            <div className={styles.switchThumb} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={styles.checkboxNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        <div className={`${styles.checkboxBox} ${checked ? styles.checked : ""}`}>{checked && "✓"}</div>
+        {label && <span style={{ fontSize: 14, color: "var(--fg-primary)" }}>{label}</span>}
+      </div>
+    );
+  }
+
+  // ── SELECT ────────────────────────────────────────────────────────────────
+  if (node.type === "SELECT") {
+    const ph = (props.placeholder as string) ?? "Select...";
+    return (
+      <div className={styles.selectNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        <span>{ph}</span>
+        <span className={styles.selectArrow}>▼</span>
+      </div>
+    );
+  }
+
+  // ── IMAGE ─────────────────────────────────────────────────────────────────
+  if (node.type === "IMAGE") {
+    const src = (props.src as string) ?? "";
+    const rounded = (props.rounded as boolean) ?? false;
+    return (
+      <div
+        className={`${styles.imageNode} ${rounded ? styles.rounded : ""}`}
+        style={merged}
+        onClick={handleClick}
+        onPointerDown={drag}
+        {...hoverHandlers}
+      >
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {src
+          ? <img src={src} alt={(props.alt as string) ?? ""} />
+          : <div className={styles.imagePlaceholder}>{rounded ? "👤" : "🖼"}</div>}
+      </div>
+    );
+  }
+
+  // ── DIVIDER ───────────────────────────────────────────────────────────────
+  if (node.type === "DIVIDER") {
+    return (
+      <div className={styles.dividerNode} style={merged} onClick={handleClick} onPointerDown={drag}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
+    );
+  }
+
+  // ── SPACER ────────────────────────────────────────────────────────────────
+  if (node.type === "SPACER") {
+    return (
+      <div className={styles.spacerNode} style={merged} onClick={handleClick} onPointerDown={drag}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
+    );
+  }
+
+  // ── PANEL ─────────────────────────────────────────────────────────────────
+  if (node.type === "PANEL") {
+    const title = (props.title as string) ?? "Panel";
+    return (
+      <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        <div className={styles.panelHeader}>{title}</div>
+        <div className={styles.panelBody} />
+      </div>
+    );
+  }
+
+  // ── LIST ──────────────────────────────────────────────────────────────────
+  if (node.type === "LIST") {
+    return (
+      <div className={styles.listNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        {["Item one", "Item two", "Item three"].map((item, i) => (
+          <div key={i} className={styles.listItem}>{item}</div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── CONTAINER with named variants ────────────────────────────────────────
+  if (node.type === "CONTAINER") {
+
+    // PROGRESS BAR
+    if (variant === "progress" || node.name === "Progress Bar") {
+      const value = (props.value as number) ?? 60;
+      return (
+        <div className={styles.progressNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${value}%` }} />
+          </div>
+        </div>
+      );
+    }
+
+    // SLIDER
+    if (node.name === "Slider") {
+      const sliderValue = (props.sliderValue as number) ?? 40;
+      const trackRef = { current: null as HTMLDivElement | null };
+      const handleSliderPointer = (e: React.PointerEvent) => {
+        e.stopPropagation();
+        const track = (e.currentTarget as HTMLElement).closest(`.${styles.sliderTrack}`) as HTMLElement;
+        if (!track) return;
+        track.setPointerCapture(e.pointerId);
+        const update = (ev: PointerEvent) => {
+          const rect = track.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+          updateNode(node.id, { props: { ...props, sliderValue: Math.round(pct) } });
+        };
+        const up = () => {
+          track.removeEventListener("pointermove", update);
+          track.removeEventListener("pointerup", up);
+        };
+        track.addEventListener("pointermove", update);
+        track.addEventListener("pointerup", up);
+        update(e.nativeEvent);
+      };
+      return (
+        <div className={styles.sliderNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div
+            className={styles.sliderTrack}
+            onPointerDown={handleSliderPointer}
+            style={{ cursor: "ew-resize" }}
+          >
+            <div className={styles.sliderFill} style={{ width: `${sliderValue}%` }} />
+            <div
+              className={styles.sliderThumb}
+              style={{ left: `${sliderValue}%` }}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // SPINNER
+    if (node.name === "Spinner") {
+      return (
+        <div className={styles.spinnerNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.spinner} />
+        </div>
+      );
+    }
+
+    // SKELETON
+    if (node.name === "Skeleton") {
+      return (
+        <div className={styles.skeletonNode} style={merged} onClick={handleClick} onPointerDown={drag}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+        </div>
+      );
+    }
+
+    // BADGE / TAG
+    if (node.name === "Badge" || node.name === "Tag") {
+      const content = (props.content as string) ?? node.name;
+      const bg = (props.backgroundColor as string) || undefined;
+      const fg = (props.color as string) || undefined;
+      return (
+        <div
+          className={styles.badgeNode}
+          style={{ ...merged, ...(bg && { backgroundColor: bg }), ...(fg && { color: fg }) }}
+          onClick={handleClick} onPointerDown={drag} {...hoverHandlers}
+        >
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {content}
+        </div>
+      );
+    }
+
+    // ALERT
+    if (node.name === "Alert") {
+      const content = (props.content as string) ?? "Alert message";
+      const v = (props.variant as string) ?? "info";
+      const variantClass = v === "success" ? styles.alertSuccess : v === "warning" ? styles.alertWarning : v === "error" ? styles.alertError : styles.alertInfo;
+      return (
+        <div className={`${styles.alertNode} ${variantClass}`} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {content}
+        </div>
+      );
+    }
+
+    // TOOLTIP
+    if (node.name === "Tooltip") {
+      const content = (props.content as string) ?? "Tooltip text";
+      return (
+        <div className={styles.tooltipNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {content}
+        </div>
+      );
+    }
+
+    // TABS
+    if (node.name === "Tabs") {
+      const tabs = (props.tabs as string[]) ?? ["Tab 1", "Tab 2"];
+      const activeTab = (props.activeTab as number) ?? 0;
+      return (
+        <div className={styles.tabsNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.tabsHeader}>
+            {tabs.map((t, i) => (
+              <div
+                key={i}
+                className={`${styles.tabItem} ${i === activeTab ? styles.tabActive : ""}`}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  updateNode(node.id, { props: { ...props, activeTab: i } });
+                  setSelectedIds([node.id]);
+                }}
+              >
+                {t}
+              </div>
+            ))}
+          </div>
+          <div className={styles.tabsBody}>
+            <span style={{ fontSize: 11, color: "var(--fg-muted)" }}>{tabs[activeTab]}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // NAVBAR
+    if (variant === "navbar" || node.name === "Navbar") {
+      return (
+        <div className={styles.navbarNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.navbarLogo}>Logo</div>
+          <div className={styles.navbarLinks}>
+            <span>Home</span><span>About</span><span>Docs</span>
+          </div>
+        </div>
+      );
+    }
+
+    // SIDEBAR
+    if (variant === "sidebar" || node.name === "Sidebar") {
+      return (
+        <div className={styles.sidebarNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {["Dashboard", "Projects", "Settings", "Account"].map((item, i) => (
+            <div key={i} className={`${styles.sidebarItem} ${i === 0 ? styles.sidebarActive : ""}`}>{item}</div>
+          ))}
+        </div>
+      );
+    }
+
+    // CARD
+    if (variant === "card" || node.name === "Card") {
+      return (
+        <div className={styles.cardNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.cardHeader}>Card Title</div>
+          <div className={styles.cardBody}>Card content goes here</div>
+        </div>
+      );
+    }
+
+    // MODAL
+    if (variant === "modal" || node.name === "Modal") {
+      return (
+        <div className={styles.modalNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.modalHeader}><span>Modal Title</span><span className={styles.modalClose}>✕</span></div>
+          <div className={styles.modalBody}>Modal content</div>
+          <div className={styles.modalFooter}><div className={styles.modalBtn}>Cancel</div><div className={`${styles.modalBtn} ${styles.modalBtnPrimary}`}>Confirm</div></div>
+        </div>
+      );
+    }
+
+    // DRAWER
+    if (variant === "drawer" || node.name === "Drawer") {
+      return (
+        <div className={styles.drawerNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.drawerHeader}><span>Drawer</span><span className={styles.modalClose}>✕</span></div>
+          <div className={styles.drawerBody}>Drawer content</div>
+        </div>
+      );
+    }
+
+    // TOAST
+    if (variant === "toast" || node.name === "Toast") {
+      return (
+        <div className={styles.toastNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <span className={styles.toastIcon}>✓</span>
+          <span className={styles.toastText}>Action completed successfully</span>
+          <span className={styles.toastClose}>✕</span>
+        </div>
+      );
+    }
+
+    // TABLE
+    if (node.name === "Table") {
+      const cols = ["Name", "Status", "Value"];
+      const rows = [["Item A", "Active", "$120"], ["Item B", "Pending", "$80"]];
+      return (
+        <div className={styles.tableNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.tableHeader}>
+            {cols.map((c) => <div key={c} className={styles.tableCell}>{c}</div>)}
+          </div>
+          {rows.map((row, i) => (
+            <div key={i} className={styles.tableRow}>
+              {row.map((cell, j) => <div key={j} className={styles.tableCell}>{cell}</div>)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // PAGINATION
+    if (node.name === "Pagination") {
+      return (
+        <div className={styles.paginationNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {["‹", "1", "2", "3", "›"].map((p, i) => (
+            <div key={i} className={`${styles.pageBtn} ${p === "1" ? styles.pageActive : ""}`}>{p}</div>
+          ))}
+        </div>
+      );
+    }
+
+    // BREADCRUMBS
+    if (node.name === "Breadcrumbs") {
+      return (
+        <div className={styles.breadcrumbsNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {["Home", "Projects", "Current"].map((b, i, arr) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span className={i === arr.length - 1 ? styles.breadcrumbActive : styles.breadcrumbLink}>{b}</span>
+              {i < arr.length - 1 && <span style={{ color: "var(--fg-muted)", fontSize: 11 }}>/</span>}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    // ACCORDION
+    if (node.name === "Accordion") {
+      const sections = (props.sections as string[]) ?? ["Section 1", "Section 2", "Section 3"];
+      const openIndex = (props.openIndex as number) ?? 0;
+      return (
+        <div className={styles.accordionNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {sections.map((s, i) => {
+            const isOpen = i === openIndex;
+            return (
+              <div key={i} className={styles.accordionItem}>
+                <div
+                  className={styles.accordionHeader}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    updateNode(node.id, { props: { ...props, openIndex: isOpen ? -1 : i } });
+                    setSelectedIds([node.id]);
+                  }}
+                >
+                  <span>{s}</span>
+                  <span style={{ transition: "transform 0.2s", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}>▼</span>
+                </div>
+                {isOpen && (
+                  <div className={styles.accordionBody}>
+                    Content for {s}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // STATS WIDGET
+    if (node.name === "Stats") {
+      return (
+        <div className={styles.statsNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.statsValue}>2,847</div>
+          <div className={styles.statsLabel}>Total Users</div>
+          <div className={styles.statsChange}>↑ 12% this week</div>
+        </div>
+      );
+    }
+
+    // CHARTS
+    if (node.name === "Bar Chart") {
+      const rawData = (props.data as string) ?? "60,85,45,90,70,55,80";
+      const bars = rawData.split(",").map((v) => Math.max(2, Math.min(100, Number(v.trim()) || 50)));
+      return (
+        <div className={styles.chartNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.chartBars}>
+            {bars.map((h, i) => (
+              <div key={i} className={styles.chartBar} style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (node.name === "Line Chart") {
+      const rawData = (props.data as string) ?? "50,35,45,20,30,15,25";
+      const values = rawData.split(",").map((v) => Math.max(0, Math.min(100, Number(v.trim()) || 50)));
+      const pts = values.map((v, i) => `${(i / (values.length - 1)) * 100},${v}`).join(" ");
+      const area = pts + ` 100,100 0,100`;
+      return (
+        <div className={styles.chartNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <svg width="100%" height="80%" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="2" />
+            <polygon points={area} fill="rgba(94,92,230,0.15)" />
+          </svg>
+        </div>
+      );
+    }
+
+    if (node.name === "Pie Chart") {
+      const rawData = (props.data as string) ?? "50,30,20";
+      const values = rawData.split(",").map((v) => Math.max(1, Number(v.trim()) || 10));
+      const total = values.reduce((a, b) => a + b, 0);
+      const colors = ["var(--accent)", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"];
+      let cumulative = 0;
+      const slices = values.map((v, i) => {
+        const pct = v / total;
+        const startAngle = cumulative * 2 * Math.PI - Math.PI / 2;
+        cumulative += pct;
+        const endAngle = cumulative * 2 * Math.PI - Math.PI / 2;
+        const x1 = 16 + 16 * Math.cos(startAngle);
+        const y1 = 16 + 16 * Math.sin(startAngle);
+        const x2 = 16 + 16 * Math.cos(endAngle);
+        const y2 = 16 + 16 * Math.sin(endAngle);
+        const large = pct > 0.5 ? 1 : 0;
+        return <path key={i} d={`M16,16 L${x1},${y1} A16,16 0 ${large},1 ${x2},${y2} Z`} fill={colors[i % colors.length]} />;
+      });
+      return (
+        <div className={styles.chartNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <svg viewBox="0 0 32 32" style={{ width: "70%", height: "70%" }}>{slices}</svg>
+        </div>
+      );
+    }
+
+    // FORM / LOGIN_FORM
+    if (node.name === "Form" || node.name === "Login Form") {
+      return (
+        <div className={styles.formNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {node.name === "Login Form" && <div className={styles.formTitle}>Sign In</div>}
+          <div className={styles.formField}><div className={styles.formLabel}>Email</div><div className={styles.formInput}>email@example.com</div></div>
+          <div className={styles.formField}><div className={styles.formLabel}>Password</div><div className={styles.formInput}>••••••••</div></div>
+          <div className={styles.formSubmit}>{node.name === "Login Form" ? "Sign In" : "Submit"}</div>
+        </div>
+      );
+    }
+
+    // PRICING CARD
+    if (node.name === "Pricing Card") {
+      return (
+        <div className={styles.pricingNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.pricingTier}>Pro</div>
+          <div className={styles.pricingPrice}>$49<span>/mo</span></div>
+          {["Unlimited projects", "Priority support", "Analytics"].map((f, i) => (
+            <div key={i} className={styles.pricingFeature}><span>✓</span>{f}</div>
+          ))}
+          <div className={styles.pricingCta}>Get Started</div>
+        </div>
+      );
+    }
+
+    // HERO SECTION
+    if (node.name === "Hero") {
+      return (
+        <div className={styles.heroNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.heroHeading}>Build something great</div>
+          <div className={styles.heroSub}>The fastest way to ship real desktop apps.</div>
+          <div className={styles.heroCta}>Get Started</div>
+        </div>
+      );
+    }
+
+    // CTA
+    if (node.name === "CTA") {
+      return (
+        <div className={styles.ctaNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.ctaText}>Ready to get started?</div>
+          <div className={styles.ctaBtn}>Try for free</div>
+        </div>
+      );
+    }
+
+    // VIDEO
+    if (node.name === "Video") {
+      return (
+        <div className={styles.videoNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.videoPlay}>▶</div>
+          <div className={styles.videoBar} />
+        </div>
+      );
+    }
+
+    // AUDIO
+    if (node.name === "Audio") {
+      return (
+        <div className={styles.audioNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <span style={{ fontSize: 18 }}>▶</span>
+          <div className={styles.audioTrack}><div className={styles.audioFill} /></div>
+          <span style={{ fontSize: 11, color: "var(--fg-muted)" }}>0:00</span>
+        </div>
+      );
+    }
+
+    // FILE UPLOAD
+    if (node.name === "File Upload") {
+      return (
+        <div className={styles.uploadNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 24 }}>📁</div>
+          <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>Drop files here or click to upload</div>
+        </div>
+      );
+    }
+
+    // COLOR PICKER
+    if (node.name === "Color Picker") {
+      return (
+        <div className={styles.colorPickerNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.colorSwatches}>
+            {["#5e5ce6","#22c55e","#f59e0b","#ef4444","#3b82f6","#ec4899"].map((c) => (
+              <div key={c} className={styles.colorSwatch} style={{ background: c }} />
+            ))}
+          </div>
+          <div className={styles.colorHexRow}><div className={styles.colorHexInput}>#5e5ce6</div></div>
+        </div>
+      );
+    }
+
+    // KANBAN
+    if (node.name === "Kanban") {
+      return (
+        <div className={styles.kanbanNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.kanbanHeader}>To Do <span className={styles.kanbanCount}>3</span></div>
+          {["Task one", "Task two", "Task three"].map((t, i) => (
+            <div key={i} className={styles.kanbanCard}>{t}</div>
+          ))}
+        </div>
+      );
+    }
+
+    // CHAT BUBBLE
+    if (node.name === "Chat Bubble") {
+      return (
+        <div className={styles.chatBubbleNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.chatAvatar}>U</div>
+          <div className={styles.chatText}>Hey, how's it going?</div>
+        </div>
+      );
+    }
+
+    // TIMELINE
+    if (node.name === "Timeline") {
+      return (
+        <div className={styles.timelineNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {["Project started", "First release", "Version 2.0"].map((e, i) => (
+            <div key={i} className={styles.timelineItem}>
+              <div className={styles.timelineDot} />
+              <div className={styles.timelineContent}>{e}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // USER PROFILE
+    if (node.name === "User Profile") {
+      return (
+        <div className={styles.userProfileNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.userAvatar}>U</div>
+          <div className={styles.userInfo}><div className={styles.userName}>John Doe</div><div className={styles.userEmail}>john@example.com</div></div>
+        </div>
+      );
+    }
+
+    // EMPTY / ERROR / SUCCESS STATES
+    if (node.name === "Empty State") {
+      return (
+        <div className={styles.stateNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 32 }}>📭</div>
+          <div className={styles.stateTitle}>Nothing here yet</div>
+          <div className={styles.stateSub}>Add some content to get started</div>
+        </div>
+      );
+    }
+    if (node.name === "Error State") {
+      return (
+        <div className={styles.stateNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 32 }}>❌</div>
+          <div className={styles.stateTitle}>Something went wrong</div>
+          <div className={styles.stateSub}>Please try again</div>
+        </div>
+      );
+    }
+    if (node.name === "Success State") {
+      return (
+        <div className={styles.stateNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 32 }}>✅</div>
+          <div className={styles.stateTitle}>All done!</div>
+          <div className={styles.stateSub}>Action completed successfully</div>
+        </div>
+      );
+    }
+
+    // MAP PLACEHOLDER
+    if (node.name === "Map") {
+      return (
+        <div className={styles.mapNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 32 }}>🗺</div>
+          <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>Map placeholder</div>
+        </div>
+      );
+    }
+
+    // GAUGE
+    if (node.name === "Gauge") {
+      return (
+        <div className={styles.gaugeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <svg viewBox="0 0 100 60" style={{ width: "80%" }}>
+            <path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="var(--bg-muted)" strokeWidth="8" strokeLinecap="round" />
+            <path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="var(--accent)" strokeWidth="8" strokeLinecap="round" strokeDasharray="75 126" />
+          </svg>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-primary)", marginTop: -8 }}>75%</div>
+        </div>
+      );
+    }
+
+    // NOTIFICATION
+    if (node.name === "Notification") {
+      return (
+        <div className={styles.notificationNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.notifIcon}>🔔</div>
+          <div className={styles.notifContent}><div className={styles.notifTitle}>New message</div><div className={styles.notifSub}>2 minutes ago</div></div>
+          <div className={styles.notifDot} />
+        </div>
+      );
+    }
+
+    // COMMENT
+    if (node.name === "Comment") {
+      return (
+        <div className={styles.commentNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.commentAvatar}>U</div>
+          <div><div className={styles.commentAuthor}>User Name</div><div className={styles.commentText}>This is a comment.</div></div>
+        </div>
+      );
+    }
+
+    // CAROUSEL
+    if (node.name === "Carousel") {
+      const slides = (props.slides as string[]) ?? ["Slide 1", "Slide 2", "Slide 3"];
+      const activeSlide = (props.activeSlide as number) ?? 0;
+      const prev = (e: React.PointerEvent) => {
+        e.stopPropagation();
+        const next = (activeSlide - 1 + slides.length) % slides.length;
+        updateNode(node.id, { props: { ...props, activeSlide: next } });
+        setSelectedIds([node.id]);
+      };
+      const next = (e: React.PointerEvent) => {
+        e.stopPropagation();
+        const n = (activeSlide + 1) % slides.length;
+        updateNode(node.id, { props: { ...props, activeSlide: n } });
+        setSelectedIds([node.id]);
+      };
+      return (
+        <div className={styles.carouselNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.carouselSlide}>{slides[activeSlide]}</div>
+          <div className={styles.carouselNav}>
+            <span className={styles.carouselArrow} onPointerDown={prev}>‹</span>
+            {slides.map((_, i) => (
+              <span
+                key={i}
+                className={styles.carouselDot}
+                style={{ opacity: i === activeSlide ? 1 : 0.35 }}
+                onPointerDown={(e) => { e.stopPropagation(); updateNode(node.id, { props: { ...props, activeSlide: i } }); setSelectedIds([node.id]); }}
+              />
+            ))}
+            <span className={styles.carouselArrow} onPointerDown={next}>›</span>
+          </div>
+        </div>
+      );
+    }
+
+    // FOOTER
+    if (node.name === "Footer") {
+      return (
+        <div className={styles.footerNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <span className={styles.footerBrand}>© 2026 App</span>
+          <div className={styles.footerLinks}><span>Privacy</span><span>Terms</span><span>Contact</span></div>
+        </div>
+      );
+    }
+
+    // MARKDOWN / CODE BLOCK
+    if (node.name === "Markdown" || node.name === "Code Block") {
+      return (
+        <div className={styles.codeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Render"</span></div>
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>export</span> <span style={{ color: "#f97316" }}>default</span> app</div>
+        </div>
+      );
+    }
+
+    // SETTINGS PANEL (as PANEL type)
+    if (node.name === "Settings") {
+      return (
+        <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.panelHeader}>Settings</div>
+          <div className={styles.panelBody}>
+            {["Theme", "Language", "Notifications"].map((s, i) => (
+              <div key={i} style={{ padding: "6px 0", fontSize: 12, color: "var(--fg-secondary)", borderBottom: "1px solid var(--border-muted)" }}>{s}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // ── Generic fallback — shows the node name so it's never just a black box ──
   return (
     <div
-      style={style}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.shiftKey) {
-          toggleSelection(node.id);
-        } else {
-          if (isFrameEntered) {
-            exitFrame();
-          }
-          setSelectedIds([node.id]);
-        }
-      }}
-      onDoubleClick={handleDoubleClick}
-      onPointerDown={handlePointerDown}
+      className={styles.genericNode}
+      style={merged}
+      onClick={handleClick}
+      onPointerDown={drag}
+      {...hoverHandlers}
     >
-      {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
-      {node.children?.map((child) => (
-        <FigmaNodeRenderer
-          key={child.id}
-          node={child}
-          isSelected={useEditorStore.getState().selectedIds.has(child.id)}
-          zoom={zoom}
-          parentLayout={childLayout}
-          isChild={true}
-        />
-      ))}
+      {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+      <span style={{ fontSize: 11, color: "var(--fg-muted)", opacity: 0.7 }}>{node.name}</span>
     </div>
   );
+}
+
+function createDragHandler(
+  nodeId: string,
+  zoom: number,
+  moveNodes: (ids: string[], dx: number, dy: number) => void,
+  pushHistory: () => void,
+  locked = false
+) {
+  return (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if (locked) return;
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const last = { clientX: e.clientX, clientY: e.clientY };
+    let moved = false;
+    const onMove = (move: PointerEvent) => {
+      const currentZoom = useEditorStore.getState().viewport.zoom;
+      const dx = (move.clientX - last.clientX) / currentZoom;
+      const dy = (move.clientY - last.clientY) / currentZoom;
+      if (dx !== 0 || dy !== 0) moved = true;
+      moveNodes([nodeId], dx, dy);
+      last.clientX = move.clientX;
+      last.clientY = move.clientY;
+    };
+    const onUp = () => {
+      target.releasePointerCapture(e.pointerId);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      if (moved) pushHistory();
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
 }
