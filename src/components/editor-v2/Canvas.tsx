@@ -16,51 +16,78 @@ function buildContextMenuItems(
   const ids = [...selectedIds];
   const hasSelection = ids.length > 0;
   const multiSelect = ids.length > 1;
+
+  // Get state of first selected node for toggle labels
+  const firstNode = hasSelection ? store.getNode(ids[0]) : null;
+  const isHidden = firstNode?.visible === false;
+  const isLocked = !!firstNode?.locked;
+
   return [
     {
-      id: "copy", label: "Copy", shortcut: "Ctrl+C", disabled: !hasSelection,
+      id: "copy", label: "Copy", shortcut: "⌃C", disabled: !hasSelection,
       onClick: () => {
         const nodes = ids.map((id) => store.getNode(id)).filter(Boolean);
         if (nodes.length > 0) {
-          const payload = { _renderCopy: true, nodes };
-          navigator.clipboard.writeText(JSON.stringify(payload)).catch(() => {});
+          navigator.clipboard.writeText(JSON.stringify({ _renderCopy: true, nodes })).catch(() => {});
         }
       },
     },
     {
-      id: "paste", label: "Paste here", shortcut: "Ctrl+V",
+      id: "paste", label: "Paste", shortcut: "⌃V",
       onClick: async () => {
         try {
           const text = await navigator.clipboard.readText();
           if (text) await tryPasteFromClipboard(text);
-        } catch {
-          /* Clipboard read may fail without user gesture */
-        }
+        } catch { /* ignore */ }
       },
     },
-    { id: "div1", divider: true },
-    { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", disabled: !hasSelection, onClick: () => store.duplicateNodes(ids) },
-    { id: "div2", divider: true },
-    { id: "bring-front", label: "Bring to front", shortcut: "]", disabled: !hasSelection, onClick: () => store.bringToFront(ids) },
-    { id: "bring-forward", label: "Bring forward", disabled: !hasSelection, onClick: () => store.bringForward(ids) },
-    { id: "send-backward", label: "Send backward", disabled: !hasSelection, onClick: () => store.sendBackward(ids) },
-    { id: "send-back", label: "Send to back", shortcut: "[", disabled: !hasSelection, onClick: () => store.sendToBack(ids) },
-    { id: "div3", divider: true },
-    { id: "group", label: "Group selection", shortcut: "Ctrl+G", disabled: !multiSelect, onClick: () => store.groupNodes(ids) },
-    { id: "ungroup", label: "Ungroup", shortcut: "Ctrl+Shift+G", disabled: !hasSelection, onClick: () => store.ungroupNodes(ids) },
-    { id: "div4", divider: true },
     {
-      id: "show-hide", label: hasSelection ? "Show/Hide" : "Show/Hide", shortcut: "Ctrl+Shift+H", disabled: !hasSelection,
+      id: "duplicate", label: "Duplicate", shortcut: "⌃D", disabled: !hasSelection,
+      onClick: () => store.duplicateNodes(ids),
+    },
+    { id: "div1", divider: true },
+    {
+      id: "bring-front", label: "Bring to Front", shortcut: "]", disabled: !hasSelection,
+      onClick: () => store.bringToFront(ids),
+    },
+    {
+      id: "bring-forward", label: "Bring Forward", disabled: !hasSelection,
+      onClick: () => store.bringForward(ids),
+    },
+    {
+      id: "send-backward", label: "Send Backward", disabled: !hasSelection,
+      onClick: () => store.sendBackward(ids),
+    },
+    {
+      id: "send-back", label: "Send to Back", shortcut: "[", disabled: !hasSelection,
+      onClick: () => store.sendToBack(ids),
+    },
+    { id: "div2", divider: true },
+    {
+      id: "group", label: "Group", shortcut: "⌃G", disabled: !multiSelect,
+      onClick: () => store.groupNodes(ids),
+    },
+    {
+      id: "ungroup", label: "Ungroup", shortcut: "⌃⇧G", disabled: !hasSelection,
+      onClick: () => store.ungroupNodes(ids),
+    },
+    { id: "div3", divider: true },
+    {
+      id: "show-hide",
+      label: isHidden ? "Show" : "Hide",
+      disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
-          if (n) store.updateNode(id, { visible: n.visible === false });
+          if (n) store.updateNode(id, { visible: n.visible === false ? true : false });
         }
         store.pushHistory();
       },
     },
     {
-      id: "lock-unlock", label: "Lock/Unlock", shortcut: "Ctrl+Shift+L", disabled: !hasSelection,
+      id: "lock-unlock",
+      label: isLocked ? "Unlock" : "Lock",
+      disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
@@ -69,9 +96,9 @@ function buildContextMenuItems(
         store.pushHistory();
       },
     },
-    { id: "div5", divider: true },
+    { id: "div4", divider: true },
     {
-      id: "flip-h", label: "Flip horizontal", shortcut: "Shift+H", disabled: !hasSelection,
+      id: "flip-h", label: "Flip Horizontal", shortcut: "⇧H", disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
@@ -84,7 +111,7 @@ function buildContextMenuItems(
       },
     },
     {
-      id: "flip-v", label: "Flip vertical", shortcut: "Shift+V", disabled: !hasSelection,
+      id: "flip-v", label: "Flip Vertical", shortcut: "⇧V", disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
@@ -96,8 +123,11 @@ function buildContextMenuItems(
         store.pushHistory();
       },
     },
-    { id: "div6", divider: true },
-    { id: "delete", label: "Delete", shortcut: "Del", disabled: !hasSelection, onClick: () => store.deleteNodes(ids) },
+    { id: "div5", divider: true },
+    {
+      id: "delete", label: "Delete", shortcut: "⌫", disabled: !hasSelection,
+      onClick: () => store.deleteNodes(ids),
+    },
   ];
 }
 
