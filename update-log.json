@@ -1,7 +1,7 @@
 [
   {
-    "id": "v1.2.0",
-    "title": "Render Update v1.2.0 — Editor Overhaul & Bug Fixes",
+    "id": "v0.1.2",
+    "title": "Render v0.1.2 — Editor Overhaul & Bug Fixes",
     "description": [
       "Ctrl+V paste now works — copy elements with Ctrl+C and paste them back with Ctrl+V.",
       "Locked nodes are now truly locked — they cannot be selected, moved, or deleted until unlocked. Locked nodes show a not-allowed cursor and are visually dimmed.",
@@ -12,38 +12,35 @@
       "Flip Horizontal and Flip Vertical now work correctly on Figma-imported elements.",
       "Code view app name now stays in sync with the export modal — changing the app name in Export updates the Code panel instantly.",
       "Preview mode now shows all canvas elements even without a Frame — drop anything onto the canvas and it appears in Preview immediately.",
-      "Preview mode error display — if something goes wrong in the preview, you now see the error message instead of a blank screen.",
-      "Fixed canvas left sidebar sceneNodesToFrames import removed — eliminates a legacy dependency that could cause state conflicts.",
-      "Tabs, Accordion, and Carousel section labels are now editable from the Properties Panel.",
-      "Charts now render correct SVG pie slices with support for any number of data points.",
-      "Slider value is now stored in node props and persists when you deselect and reselect.",
-      "On Hover End trigger added to the Interactions system — lets you reverse animations when the mouse leaves an element."
+      "Preview mode error display — if something goes wrong in the preview, you now see the error message instead of a blank screen."
     ],
     "publishedAt": "2026-03-14T12:00:00.000Z"
   },
   {
-    "id": "v1.1.0",
-    "title": "Render Update v1.1.0 — Interactions, Animations & Preview Mode",
+    "id": "v0.1.1",
+    "title": "Render v0.1.1 — Interactions, Animations & Preview Mode",
     "description": [
       "Added Preview Mode — test your app live inside the editor without exporting. Click, hover, navigate between frames, all interactions work in real time.",
       "Added Interactions system — wire up any element with On Click, On Hover, On Load triggers. Navigate to Frame, Show/Hide elements, Open URL, Toggle visibility, Send IPC events.",
       "Added frame transitions — Fade, Slide Left/Right/Up/Down, Scale Up/Down when navigating between screens.",
       "Added Hover Effects — one-click presets: Lift, Glow, Scale, Dim, Brighten, Border Glow. Applied instantly to any element.",
       "Added animation blocks — Fade In, Slide Up, Scale Up, Pulse, Shake, Bounce with configurable duration and delay.",
-      "Fixed 40+ component assets — Navbar, Sidebar, Card, Modal, Table, Charts, Form, Pricing Card, Kanban, Timeline and more now render with real visual structure instead of blank boxes.",
-      "Tabs, Accordion, and Carousel are now interactive in the editor — click to switch tabs, expand sections, and slide through carousel items.",
-      "Slider thumb is now draggable in the editor.",
-      "Charts now read from editable data fields — update comma-separated values in the Properties Panel to change chart data live.",
-      "Fixed opacity, rotation, and flip rendering on the canvas.",
-      "Fixed checkbox and switch toggle on click in the editor."
+      "Fixed 40+ component assets — Navbar, Sidebar, Card, Modal, Table, Charts, Form, Pricing Card, Kanban, Timeline and more now render with real visual structure.",
+      "Tabs, Accordion, and Carousel are now interactive in the editor.",
+      "Slider thumb is now draggable. Charts read from editable data fields.",
+      "Fixed opacity, rotation, flip rendering, checkbox and switch toggle on click."
     ],
     "publishedAt": "2026-03-14T09:00:00.000Z"
   },
   {
-    "id": "v1.0.1",
-    "title": "Render Update v1.0.1",
+    "id": "v0.1.0",
+    "title": "Render v0.1.0 — Initial Release",
     "description": [
-      "Fixed major bugs"
+      "Design Terminal editor with canvas, component library, and properties panel.",
+      "Figma import — paste directly from Figma to bring in real designs with colors, images, vectors, and text.",
+      "Export — one-click download of a complete Tauri 2 project ready to run.",
+      "Top bar export with real drag regions and window controls.",
+      "Component library with frames, layout, text, buttons, inputs, forms, charts, and more."
     ],
     "publishedAt": "2026-02-11T00:00:00.000Z"
   }
