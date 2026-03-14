@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ExportSettings, TitleBarStyle } from "@/lib/editor/export-settings";
+import { useExportSettings } from "@/lib/editor/export-settings";
 import styles from "./ExportModal.module.css";
 
 interface ExportModalProps {
@@ -20,8 +21,7 @@ export function ExportModal({
   const [tab, setTab] = useState<Tab>("testing");
   const [copied, setCopied] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [appName, setAppName] = useState("my-tauri-app");
-  const [titleBarStyle, setTitleBarStyle] = useState<TitleBarStyle>("windows");
+  const { appName, titleBarStyle, setAppName, setTitleBarStyle } = useExportSettings();
 
   const projectName = appName;
 
