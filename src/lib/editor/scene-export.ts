@@ -693,6 +693,7 @@ html, body {
 .app-root {
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 `;
 }
