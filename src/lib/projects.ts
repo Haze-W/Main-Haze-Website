@@ -86,4 +86,3 @@ export function formatRelativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-You've used 75% of your weekly limit
