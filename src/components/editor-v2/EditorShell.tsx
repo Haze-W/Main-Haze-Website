@@ -43,8 +43,7 @@ import {
   FolderTree,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
-import { useEditorStore as useLegacyStore } from "@/lib/editor-store";
-import { sceneNodesToFrames } from "@/lib/editor/adapter";
+import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
 import { CodePanel } from "@/components/editor/CodePanel";
@@ -121,20 +120,44 @@ function LayerItem({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [hovered, setHovered] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameValue, setNameValue] = useState(node.name);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const toggleSelection = useEditorStore((s) => s.toggleSelection);
   const deleteNodes = useEditorStore((s) => s.deleteNodes);
+  const updateNode = useEditorStore((s) => s.updateNode);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
   const hasChildren = (node.children?.length ?? 0) > 0;
+  const isHidden = node.visible === false;
+  const isLocked = !!node.locked;
+
+  const commitRename = () => {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== node.name) {
+      updateNode(node.id, { name: trimmed });
+      pushHistory();
+    } else {
+      setNameValue(node.name);
+    }
+    setRenaming(false);
+  };
 
   return (
     <div className={styles.layerGroup}>
       <div
-        className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""}`}
+        className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""} ${isHidden ? styles.layerHidden : ""}`}
         style={{ paddingLeft: depth * 14 + 6 }}
         onClick={(e) => {
+          if (renaming) return;
+          if (isLocked) return;
           if (e.shiftKey) toggleSelection(node.id);
           else setSelectedIds([node.id]);
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          setRenaming(true);
+          setNameValue(node.name);
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -143,45 +166,85 @@ function LayerItem({
           type="button"
           className={styles.expandBtn}
           style={{ visibility: hasChildren ? "visible" : "hidden" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
         >
           <ChevronRight
             size={10}
-            style={{
-              transition: "transform 120ms ease",
-              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-            }}
+            style={{ transition: "transform 120ms ease", transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
           />
         </button>
+
         <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
-        <span className={styles.layerName}>{node.name}</span>
-        {hovered && (
-          <button
-            type="button"
-            className={styles.layerAction}
-            onClick={(e) => {
+
+        {renaming ? (
+          <input
+            autoFocus
+            className={styles.layerRenameInput}
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") { setNameValue(node.name); setRenaming(false); }
               e.stopPropagation();
-              deleteNodes([node.id]);
             }}
-            title="Delete"
-          >
-            <Trash2 size={11} />
-          </button>
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>{node.name}</span>
+        )}
+
+        {/* Lock indicator */}
+        {isLocked && !hovered && (
+          <span className={styles.layerBadge} title="Locked"><Lock size={9} /></span>
+        )}
+
+        {/* Actions on hover */}
+        {hovered && !renaming && (
+          <div className={styles.layerActions}>
+            <button
+              type="button"
+              className={styles.layerAction}
+              title={isHidden ? "Show" : "Hide"}
+              onClick={(e) => {
+                e.stopPropagation();
+                updateNode(node.id, { visible: isHidden ? true : false });
+                pushHistory();
+              }}
+            >
+              {isHidden ? <EyeOff size={11} /> : <Eye size={11} />}
+            </button>
+            <button
+              type="button"
+              className={styles.layerAction}
+              title={isLocked ? "Unlock" : "Lock"}
+              onClick={(e) => {
+                e.stopPropagation();
+                updateNode(node.id, { locked: !isLocked });
+                pushHistory();
+              }}
+            >
+              {isLocked ? <Unlock size={11} /> : <Lock size={11} />}
+            </button>
+            <button
+              type="button"
+              className={styles.layerAction}
+              title="Delete"
+              onClick={(e) => { e.stopPropagation(); deleteNodes([node.id]); }}
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
         )}
       </div>
-      {expanded &&
-        hasChildren &&
-        node.children!.map((child) => (
-          <LayerItem
-            key={child.id}
-            node={child}
-            isSelected={selectedIds.has(child.id)}
-            depth={depth + 1}
-          />
-        ))}
+      {expanded && hasChildren && node.children!.map((child) => (
+        <LayerItem
+          key={child.id}
+          node={child}
+          isSelected={selectedIds.has(child.id)}
+          depth={depth + 1}
+        />
+      ))}
     </div>
   );
 }
@@ -203,6 +266,7 @@ export function EditorShell() {
     deleteNodes,
     undo,
     redo,
+    pushHistory,
     moveNodes,
     tool,
     setTool,
@@ -303,7 +367,7 @@ export function EditorShell() {
         setTool("FRAME");
         return;
       }
-      if (e.key === "h" || e.key === "H") {
+      if ((e.key === "h" || e.key === "H") && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         setTool("HAND");
         return;
       }
@@ -342,6 +406,13 @@ export function EditorShell() {
         }
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => {
+          if (text) tryPasteFromClipboard(text).catch(() => {});
+        }).catch(() => {});
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
         e.preventDefault();
         duplicateNodes([...selectedIds]);
@@ -367,23 +438,27 @@ export function EditorShell() {
       if (e.key === "ArrowUp") {
         e.preventDefault();
         moveNodes([...selectedIds], 0, -step);
+        pushHistory();
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         moveNodes([...selectedIds], 0, step);
+        pushHistory();
       }
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         moveNodes([...selectedIds], -step, 0);
+        pushHistory();
       }
       if (e.key === "ArrowRight") {
         e.preventDefault();
         moveNodes([...selectedIds], step, 0);
+        pushHistory();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes]);
+  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes, pushHistory]);
 
   // Close menu on outside click
   useEffect(() => {
