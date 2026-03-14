@@ -1336,6 +1336,65 @@ export function PropertiesPanel() {
           <FigmaProperties node={node} updateNode={updateNode} />
         )}
 
+        {/* Chart data */}
+        {(node.name === "Bar Chart" || node.name === "Line Chart" || node.name === "Pie Chart") && (
+          <div className={styles.section}>
+            <div className={styles.label}>Data (comma-separated)</div>
+            <input
+              type="text"
+              className={styles.standaloneInput}
+              value={(props.data as string) ?? ""}
+              placeholder={node.name === "Pie Chart" ? "50,30,20" : "60,85,45,90,70,55,80"}
+              onChange={(e) => updateProps(node, updateNode, "data", e.target.value)}
+            />
+            <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>
+              {node.name === "Pie Chart" ? "Slice sizes e.g. 50,30,20" : "Bar heights 0–100 e.g. 60,85,45"}
+            </div>
+          </div>
+        )}
+
+        {/* Tabs labels */}
+        {node.name === "Tabs" && (
+          <div className={styles.section}>
+            <div className={styles.label}>Tab labels (comma-separated)</div>
+            <input
+              type="text"
+              className={styles.standaloneInput}
+              value={((props.tabs as string[]) ?? ["Tab 1", "Tab 2"]).join(", ")}
+              placeholder="Tab 1, Tab 2, Tab 3"
+              onChange={(e) => updateProps(node, updateNode, "tabs", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+            />
+          </div>
+        )}
+
+        {/* Accordion sections */}
+        {node.name === "Accordion" && (
+          <div className={styles.section}>
+            <div className={styles.label}>Sections (comma-separated)</div>
+            <input
+              type="text"
+              className={styles.standaloneInput}
+              value={((props.sections as string[]) ?? ["Section 1", "Section 2", "Section 3"]).join(", ")}
+              placeholder="Section 1, Section 2"
+              onChange={(e) => updateProps(node, updateNode, "sections", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+            />
+          </div>
+        )}
+
+        {/* Carousel slides */}
+        {node.name === "Carousel" && (
+          <div className={styles.section}>
+            <div className={styles.label}>Slides (comma-separated)</div>
+            <input
+              type="text"
+              className={styles.standaloneInput}
+              value={((props.slides as string[]) ?? ["Slide 1", "Slide 2", "Slide 3"]).join(", ")}
+              placeholder="Slide 1, Slide 2, Slide 3"
+              onChange={(e) => updateProps(node, updateNode, "slides", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+            />
+          </div>
+        )}
+
         <div className={styles.section}>
           <div className={styles.label}>Opacity</div>
           <div className={styles.inputGroup}>
