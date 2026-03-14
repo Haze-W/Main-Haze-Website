@@ -1,5 +1,23 @@
 [
   {
+    "id": "v1.1.0",
+    "title": "Render Update v1.1.0 — Interactions, Animations & Preview Mode",
+    "description": [
+      "Added Preview Mode — test your app live inside the editor without exporting. Click, hover, navigate between frames, all interactions work in real time.",
+      "Added Interactions system — wire up any element with On Click, On Hover, On Load triggers. Navigate to Frame, Show/Hide elements, Open URL, Toggle visibility, Send IPC events.",
+      "Added frame transitions — Fade, Slide Left/Right/Up/Down, Scale Up/Down when navigating between screens.",
+      "Added Hover Effects — one-click presets: Lift, Glow, Scale, Dim, Brighten, Border Glow. Applied instantly to any element.",
+      "Added animation blocks — Fade In, Slide Up, Scale Up, Pulse, Shake, Bounce with configurable duration and delay.",
+      "Fixed 40+ component assets — Navbar, Sidebar, Card, Modal, Table, Charts, Form, Pricing Card, Kanban, Timeline and more now render with real visual structure instead of blank boxes.",
+      "Tabs, Accordion, and Carousel are now interactive in the editor — click to switch tabs, expand sections, and slide through carousel items.",
+      "Slider thumb is now draggable in the editor.",
+      "Charts now read from editable data fields — update comma-separated values in the Properties Panel to change chart data live.",
+      "Fixed opacity, rotation, and flip rendering on the canvas.",
+      "Fixed checkbox and switch toggle on click in the editor."
+    ],
+    "publishedAt": "2026-03-14T09:00:00.000Z"
+  },
+  {
     "id": "v1.0.1",
     "title": "Render Update v1.0.1",
     "description": [
