@@ -392,8 +392,12 @@ export function FigmaNodeRenderer({
     style.opacity = node.opacity;
   }
 
-  if (node.rotation) {
-    style.transform = `rotate(${node.rotation}deg)`;
+  if (node.rotation || node.props?.scaleX !== undefined || node.props?.scaleY !== undefined) {
+    const parts: string[] = [];
+    if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
+    if (node.props?.scaleX !== undefined) parts.push(`scaleX(${node.props.scaleX})`);
+    if (node.props?.scaleY !== undefined) parts.push(`scaleY(${node.props.scaleY})`);
+    if (parts.length) style.transform = parts.join(" ");
   }
 
   const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData)) && !isText;
