@@ -512,28 +512,36 @@ function topBarToHtml(node: SceneNode): string {
  * Generate full HTML document from scene nodes.
  * Exports the TOPBAR node as a real frameless title bar.
  * Supports multi-frame navigation via NAVIGATE_TO_FRAME interactions.
+ * If no FRAME exists, renders all canvas nodes directly.
  */
 export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): string {
   const frames = nodes.filter((n) => n.type === "FRAME");
-  const frame = frames[0] ?? nodes[0];
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
-    ?? (frame?.children ?? []).find((n) => n.type === "TOPBAR");
-
-  if (!frame) {
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:800px;height:600px;background:#1e1e1e"></div></body></html>`;
-  }
-
-  const figma = frame.props?._figma as FigmaProps | undefined;
-  let rootBg = "#1e1e1e";
-  if (figma) {
-    const fillEnabled = figma.fillEnabled !== false;
-    const bg = getBackground(figma.fills ?? [], fillEnabled, false);
-    if (bg) rootBg = bg;
-  }
+    ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
 
   const topBarHtml = topBarNode ? topBarToHtml(topBarNode) : "";
 
-  // Render all frames — first is visible, rest are hidden (for navigation)
+  // No frames — render all canvas nodes directly in a single view
+  if (frames.length === 0) {
+    const allNodes = nodes.filter((n) => n.type !== "TOPBAR");
+    if (allNodes.length === 0) {
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:100%;height:100%;background:#1e1e1e;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-family:sans-serif;font-size:14px;">Add elements to the canvas</div></body></html>`;
+    }
+    const childHtml = allNodes.map((n) => nodeToHtml(n, "NONE", 3)).filter(Boolean).join("\n");
+    const freeStyle = `flex:1;overflow:hidden;background:#1e1e1e;position:relative;box-sizing:border-box;`;
+    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}">\n${childHtml}\n    </div>`);
+  }
+
+  const rootBg = (() => {
+    const figma = frames[0].props?._figma as FigmaProps | undefined;
+    if (figma) {
+      const bg = getBackground(figma.fills ?? [], figma.fillEnabled !== false, false);
+      if (bg) return bg;
+    }
+    return "#1e1e1e";
+  })();
+
+  // Render all frames — first is visible, rest hidden (for navigation)
   const framesHtml = frames.map((f, idx) => {
     const fFigma = f.props?._figma as FigmaProps | undefined;
     let fBg = rootBg;
@@ -551,6 +559,10 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
     return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}">\n${childHtml}\n    </div>`;
   }).join("\n");
 
+  return buildHtml(appName, topBarHtml, framesHtml);
+}
+
+function buildHtml(appName: string, topBarHtml: string, framesHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
