@@ -615,7 +615,7 @@ function topBarToHtml(node: SceneNode): string {
  * Supports multi-frame navigation via NAVIGATE_TO_FRAME interactions.
  * If no FRAME exists, renders all canvas nodes directly.
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): string {
+export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", canvasBg = "#1e1e1e"): string {
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
@@ -626,19 +626,22 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
   if (frames.length === 0) {
     const allNodes = nodes.filter((n) => n.type !== "TOPBAR");
     if (allNodes.length === 0) {
-      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:100%;height:100%;background:#1e1e1e;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-family:sans-serif;font-size:14px;">Add elements to the canvas</div></body></html>`;
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:100%;height:100%;background:${canvasBg};display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-family:sans-serif;font-size:14px;">Add elements to the canvas</div></body></html>`;
     }
-    // Calculate bounding box so content is always visible from top-left
+    // Offset all nodes so content always starts near top-left (20px padding)
     const minX = Math.min(...allNodes.map((n) => n.x));
     const minY = Math.min(...allNodes.map((n) => n.y));
-    const offsetX = minX < 20 ? -minX + 20 : 0;
-    const offsetY = minY < 20 ? -minY + 20 : 0;
-    const offsetNodes = offsetX !== 0 || offsetY !== 0
-      ? allNodes.map((n) => ({ ...n, x: n.x + offsetX, y: n.y + offsetY }))
-      : allNodes;
+    const maxX = Math.max(...allNodes.map((n) => n.x + n.width));
+    const maxY = Math.max(...allNodes.map((n) => n.y + n.height));
+    const pad = 20;
+    const offsetNodes = allNodes.map((n) => ({ ...n, x: n.x - minX + pad, y: n.y - minY + pad }));
+    const contentW = maxX - minX + pad * 2;
+    const contentH = maxY - minY + pad * 2;
     const childHtml = offsetNodes.map((n) => nodeToHtml(n, "NONE", 3)).filter(Boolean).join("\n");
-    const freeStyle = `width:100%;height:100%;overflow:auto;background:#1e1e1e;position:relative;box-sizing:border-box;`;
-    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}">\n${childHtml}\n    </div>`);
+    // Wrap in a sized div so absolutely-positioned children affect scroll area
+    const wrapStyle = `position:relative;width:${contentW}px;height:${contentH}px;min-width:100%;min-height:100%;`;
+    const freeStyle = `width:100%;height:100%;overflow:auto;background:${canvasBg};box-sizing:border-box;`;
+    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`);
   }
 
   const rootBg = (() => {
@@ -647,7 +650,10 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
       const bg = getBackground(figma.fills ?? [], figma.fillEnabled !== false, false);
       if (bg) return bg;
     }
-    return "#1e1e1e";
+    // Use frame's own backgroundColor prop if set
+    const frameBg = frames[0].props?.backgroundColor as string | undefined;
+    if (frameBg) return frameBg;
+    return canvasBg;
   })();
 
   // Render all frames — first is visible, rest hidden (for navigation)
@@ -657,20 +663,22 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
     if (fFigma) {
       const bg = getBackground(fFigma.fills ?? [], fFigma.fillEnabled !== false, false);
       if (bg) fBg = bg;
+    } else if (f.props?.backgroundColor) {
+      fBg = f.props.backgroundColor as string;
     }
     const display = idx === 0 ? "block" : "none";
-    // Frame always fills the viewport — its children use coords relative to the frame
-    const fStyle = `width:100%;height:100%;overflow:auto;background:${fBg};position:relative;box-sizing:border-box;display:${display};`;
+    const fStyle = `width:100%;height:100%;overflow:auto;background:${fBg};box-sizing:border-box;display:${display};`;
+    // Children coords are relative to the frame — use frame dimensions as container size
+    const wrapStyle = `position:relative;width:${f.width}px;height:${f.height}px;min-width:100%;min-height:100%;`;
     const childHtml = (f.children ?? [])
       .filter((c) => c.type !== "TOPBAR")
       .map((c) => {
-        // Offset children relative to frame origin
         const relChild = { ...c, x: c.x - f.x, y: c.y - f.y };
         return nodeToHtml(relChild, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3);
       })
       .filter(Boolean)
       .join("\n");
-    return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}">\n${childHtml}\n    </div>`;
+    return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`;
   }).join("\n");
 
   return buildHtml(appName, topBarHtml, framesHtml);
@@ -781,7 +789,7 @@ export function getFrameDimensions(nodes: SceneNode[]): { width: number; height:
 /**
  * Generate minimal CSS for exported app - no centering, fills viewport.
  */
-export function sceneExportCss(): string {
+export function sceneExportCss(canvasBg = "#0d0f12"): string {
   return `* {
   box-sizing: border-box;
   margin: 0;
@@ -793,7 +801,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0d0f12;
+  background: ${canvasBg};
   color: #e6edf3;
 }
 
