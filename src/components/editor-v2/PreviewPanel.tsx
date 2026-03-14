@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import { Monitor, Smartphone, RefreshCw } from "lucide-react";
 import styles from "./PreviewPanel.module.css";
@@ -19,28 +19,42 @@ export function PreviewPanel() {
   const [device, setDevice]     = useState<DeviceSize>("desktop");
   const [frameKey, setFrameKey] = useState(0);
   const [error, setError]       = useState<string | null>(null);
+  const [status, setStatus]     = useState<string>("");
 
-  const rebuild = useCallback(() => {
+  const rebuild = (currentNodes = nodes) => {
     setError(null);
+    setStatus("Building preview...");
+
     import("@/lib/editor/scene-export")
       .then(({ sceneNodesToHtml, sceneExportCss }) => {
-        const body = sceneNodesToHtml(nodes, "Preview");
-        const css  = sceneExportCss();
-        const inlined = body
-          .replace('<link rel="stylesheet" href="styles.css">', `<style>${css}</style>`)
-          .replace('<script src="window-controls.js"></script>', "");
-        setHtml(inlined);
-        setFrameKey((k) => k + 1);
+        try {
+          const body = sceneNodesToHtml(currentNodes, "Preview");
+          const css  = sceneExportCss();
+          const inlined = body
+            .replace('<link rel="stylesheet" href="styles.css">', `<style>${css}</style>`)
+            .replace('<script src="window-controls.js"></script>', "");
+          setHtml(inlined);
+          setFrameKey((k) => k + 1);
+          setStatus("");
+        } catch (e) {
+          setError(String(e));
+          setStatus("");
+        }
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => {
+        setError(String(e));
+        setStatus("");
+      });
+  };
+
+  // Rebuild whenever nodes change
+  useEffect(() => {
+    rebuild(nodes);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
 
-  useEffect(() => {
-    rebuild();
-  }, [rebuild]);
-
   const { width, height } = DEVICE_SIZES[device];
-  const isEmpty = nodes.filter((n) => n.type !== "TOPBAR").length === 0;
+  const hasContent = nodes.filter((n) => n.type !== "TOPBAR").length > 0;
 
   return (
     <div className={styles.panel}>
@@ -48,7 +62,9 @@ export function PreviewPanel() {
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <span className={styles.label}>Preview</span>
-          <span className={styles.hint}>Interactions, animations and hover effects are live</span>
+          <span className={styles.hint}>
+            {status || "Interactions, animations and hover effects are live"}
+          </span>
         </div>
         <div className={styles.toolbarRight}>
           <div className={styles.deviceGroup}>
@@ -65,7 +81,7 @@ export function PreviewPanel() {
             ))}
           </div>
           <span className={styles.sizeLabel}>{width} × {height}</span>
-          <button type="button" className={styles.refreshBtn} onClick={rebuild} title="Refresh">
+          <button type="button" className={styles.refreshBtn} onClick={() => rebuild(nodes)} title="Refresh">
             <RefreshCw size={13} />
           </button>
         </div>
@@ -73,32 +89,34 @@ export function PreviewPanel() {
 
       {/* Preview area */}
       <div className={styles.previewArea}>
-        {isEmpty ? (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}>▶</div>
-            <div className={styles.emptyText}>Add elements to the canvas then switch here to preview</div>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>⚠</div>
-            <div className={styles.emptyText}>Preview error: {error}</div>
+            <div className={styles.emptyText} style={{ color: "#f04444" }}>
+              {error}
+            </div>
+          </div>
+        ) : !hasContent ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}>▶</div>
+            <div className={styles.emptyText}>
+              Add elements to the canvas then come back here to preview
+            </div>
+          </div>
+        ) : !html ? (
+          <div className={styles.empty}>
+            <div className={styles.spinner} />
           </div>
         ) : (
           <div className={styles.previewFrame} style={{ width, height }}>
-            {html ? (
-              <iframe
-                key={frameKey}
-                className={styles.iframe}
-                srcDoc={html}
-                title="Preview"
-                sandbox="allow-scripts allow-same-origin"
-                style={{ width, height, border: "none", display: "block" }}
-              />
-            ) : (
-              <div className={styles.empty}>
-                <div className={styles.spinner} />
-              </div>
-            )}
+            <iframe
+              key={frameKey}
+              className={styles.iframe}
+              srcDoc={html}
+              title="Preview"
+              sandbox="allow-scripts allow-same-origin"
+              style={{ width, height, border: "none", display: "block" }}
+            />
           </div>
         )}
       </div>
