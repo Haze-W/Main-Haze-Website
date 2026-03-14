@@ -601,3 +601,41 @@
   flex-direction: column;
   z-index: 10;
 }
+
+/* ── Layer panel additions ────────────────────── */
+.layerHidden {
+  opacity: 0.5;
+}
+
+.layerHidden .layerTypeIcon {
+  opacity: 0.5;
+}
+
+.layerActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.layerBadge {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--fg-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.layerRenameInput {
+  flex: 1;
+  background: rgba(94, 92, 230, 0.15);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--fg-primary);
+  font-size: 12px;
+  padding: 1px 4px;
+  outline: none;
+  min-width: 0;
+}
