@@ -629,7 +629,7 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
       return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(appName)}</title><link rel="stylesheet" href="styles.css"></head><body><div style="width:100%;height:100%;background:#1e1e1e;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-family:sans-serif;font-size:14px;">Add elements to the canvas</div></body></html>`;
     }
     const childHtml = allNodes.map((n) => nodeToHtml(n, "NONE", 3)).filter(Boolean).join("\n");
-    const freeStyle = `flex:1;overflow:hidden;background:#1e1e1e;position:relative;box-sizing:border-box;`;
+   const freeStyle = `width:100%;height:100%;overflow:hidden;background:#1e1e1e;position:relative;box-sizing:border-box;`;
     return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}">\n${childHtml}\n    </div>`);
   }
 
@@ -651,7 +651,7 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App"): st
       if (bg) fBg = bg;
     }
     const display = idx === 0 ? "block" : "none";
-    const fStyle = `flex:1;overflow:hidden;background:${fBg};position:relative;box-sizing:border-box;display:${display};`;
+    const fStyle = `width:100%;height:100%;overflow:hidden;background:${fBg};position:relative;box-sizing:border-box;display:${display};`;
     const childHtml = (f.children ?? [])
       .filter((c) => c.type !== "TOPBAR")
       .map((c) => nodeToHtml(c, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3))
