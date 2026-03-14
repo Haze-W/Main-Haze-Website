@@ -14,6 +14,7 @@ interface FrameNodeProps {
 }
 
 export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
+  if (node.visible === false) return null;
   const {
     setSelectedIds,
     toggleSelection,
