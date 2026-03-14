@@ -214,11 +214,11 @@ export const TRANSITION_OPTIONS: { value: TransitionStyle; label: string }[] = [
 
 export const HOVER_PRESETS: { value: HoverPreset; label: string; description: string }[] = [
   { value: "none",        label: "None",         description: "" },
-  { value: "lift",        label: "🚀 Lift",       description: "Rises and adds shadow on hover" },
-  { value: "glow",        label: "✨ Glow",       description: "Soft accent glow on hover" },
-  { value: "scale",       label: "⬆ Scale",      description: "Slightly grows on hover" },
-  { value: "dim",         label: "🌘 Dim",        description: "Fades out on hover" },
-  { value: "brighten",    label: "💡 Brighten",   description: "Gets brighter on hover" },
-  { value: "border-glow", label: "🔷 Border",     description: "Accent border appears on hover" },
+  { value: "lift",        label: " Lift",       description: "Rises and adds shadow on hover" },
+  { value: "glow",        label: " Glow",       description: "Soft accent glow on hover" },
+  { value: "scale",       label: " Scale",      description: "Slightly grows on hover" },
+  { value: "dim",         label: " Dim",        description: "Fades out on hover" },
+  { value: "brighten",    label: " Brighten",   description: "Gets brighter on hover" },
+  { value: "border-glow", label: " Border",     description: "Accent border appears on hover" },
 ];
 
