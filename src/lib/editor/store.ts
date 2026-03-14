@@ -66,7 +66,7 @@ interface EditorState {
   history: { nodes: SceneNode[] }[];
   historyIndex: number;
   // UI
-  mode: "design" | "code" | "settings";
+  mode: "design" | "code" | "settings" | "preview";
   // Canvas appearance
   canvasBg: string;
   showGrid: boolean;
@@ -102,7 +102,7 @@ type EditorActions = {
   finishCreateFrame: (x: number, y: number) => void;
   cancelCreateFrame: () => void;
   setSnapLines: (lines: Array<{ id: string; type: "h" | "v"; pos: number }>) => void;
-  setMode: (mode: "design" | "code" | "settings") => void;
+  setMode: (mode: "design" | "code" | "settings" | "preview") => void;
   setCanvasBg: (v: string) => void;
   setShowGrid: (v: boolean) => void;
   setGridType: (v: "dots" | "lines" | "cross" | "none") => void;
