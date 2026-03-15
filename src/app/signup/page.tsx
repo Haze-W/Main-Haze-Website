@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import AuthLeftPanel from "@/components/auth/AuthLeftPanel";
 import styles from "../auth/auth.module.css";
 
 export default function SignupPage() {
-  const router = useRouter();
   const { signup } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -19,6 +17,7 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +37,7 @@ export default function SignupPage() {
       setError(err.message ?? "Sign up failed");
       return;
     }
-    router.push("/dashboard");
+    setEmailSent(true);
   };
 
   return (
@@ -51,6 +50,18 @@ export default function SignupPage() {
             Already have an account?{" "}
             <Link href="/login">Log in</Link>
           </p>
+          {emailSent ? (
+            <div className={styles.successBlock}>
+              <p className={styles.successTitle}>Check your email</p>
+              <p className={styles.successText}>
+                We sent a verification link to <strong>{email}</strong>. Click
+                the link to verify your account, then you can log in.
+              </p>
+              <Link href="/login" className={styles.successLink}>
+                Go to log in
+              </Link>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className={styles.form}>
             {error && (
               <p className={styles.error} role="alert">
@@ -166,6 +177,7 @@ export default function SignupPage() {
               <Link href="/privacy">Privacy Policy</Link>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>
