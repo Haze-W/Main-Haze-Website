@@ -281,6 +281,7 @@ export function FigmaNodeRenderer({
   const isFrameEntered = enteredFrameId === node.id;
   const isInsideEnteredFrame = isChild && enteredFrameId != null;
   const isSelectableChild = isInsideEnteredFrame;
+  const canDrag = !node.locked;
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -330,7 +331,7 @@ export function FigmaNodeRenderer({
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, moveNodes, pushHistory, canDrag]
+    [node.id, moveNodes, pushHistory]
   );
 
   const handleResizeStart = useCallback(

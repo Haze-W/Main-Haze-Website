@@ -398,9 +398,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   const onLoadJs = getOnLoadJs(node);
   const nodeIdAttr = `data-node-id="${node.id}"`;
   const onLoadAttr = onLoadJs ? `data-onload="${escapeHtml(onLoadJs)}"` : "";
+  const previewBehavior = node.props?._previewBehavior as string | undefined;
+  const previewAttr = previewBehavior ? `data-chat-role="${escapeHtml(previewBehavior)}"` : "";
   const hasInteraction = !!(interactionAttrs || hoverAttr);
   const cursorStyle = hasInteraction ? "cursor:pointer;" : "";
-  const extraAttrs = [nodeIdAttr, interactionAttrs, hoverAttr, onLoadAttr].filter(Boolean).join(" ");
+  const extraAttrs = [nodeIdAttr, interactionAttrs, hoverAttr, onLoadAttr, previewAttr].filter(Boolean).join(" ");
 
   // TEXT NODE
   if (isText) {
@@ -469,11 +471,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(txtStyle)}">${escapeHtml(content)}</div>`;
     }
 
-    // INPUT
+    // INPUT — render as real <input> so user can type in preview
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
-      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.4);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}">${escapeHtml(ph)}</div>`;
+      const inputType = (props.type as string) === "password" ? "password" : "text";
+      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.9);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
     // RECTANGLE
@@ -481,7 +484,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const bg = (props.backgroundColor as string) || "rgba(50,50,58,0.6)";
       const borderColor = (props.borderColor as string) || "";
       const border = borderColor ? `border:1px solid ${borderColor};` : "";
-      const rectStyle = `${styleStr};background:${bg};border-radius:4px;${border}`;
+      const boxShadow = (props.boxShadow as string) || "";
+      const rectStyle = `${styleStr};background:${bg};border-radius:${(props.borderRadius as number) ?? 4}px;${border}${boxShadow ? `box-shadow:${boxShadow};` : ""}`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(rectStyle)}"></div>`;
     }
 
@@ -535,7 +539,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
     // CONTAINER / PANEL / generic — render background + children
     const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
-    const containerStyle = `${styleStr};background:${bg};border-radius:6px;border:1px solid rgba(255,255,255,0.06);`;
+    const radius = (props.borderRadius as number) ?? 6;
+    const boxShadow = (props.boxShadow as string) || "";
+    const isChatMessages = (props._previewBehavior as string) === "chat-messages";
+    const overflow = isChatMessages ? "overflow-y:auto;overflow-x:hidden;" : "";
+    const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;border:1px solid rgba(255,255,255,0.06);${boxShadow ? `box-shadow:${boxShadow};` : ""}${overflow}`;
     return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
   }
 
@@ -673,8 +681,8 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", can
     const childHtml = (f.children ?? [])
       .filter((c) => c.type !== "TOPBAR")
       .map((c) => {
-        const relChild = { ...c, x: c.x - f.x, y: c.y - f.y };
-        return nodeToHtml(relChild, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3);
+        // Children are already in frame-local coordinates; do not subtract frame position
+        return nodeToHtml(c, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3);
       })
       .filter(Boolean)
       .join("\n");
@@ -760,12 +768,38 @@ ${framesHtml}
         target.style.display = 'block';
       }
     }
+    // ── Chat input + Send wire-up (preview interactivity) ──
+    function _wireChat() {
+      var inputWrap = document.querySelector('[data-chat-role="chat-input"]');
+      var sendBtn = document.querySelector('[data-chat-role="chat-send"]');
+      var messagesEl = document.querySelector('[data-chat-role="chat-messages"]');
+      if (!inputWrap || !sendBtn || !messagesEl) return;
+      var input = inputWrap.querySelector('input');
+      if (!input) return;
+      function send() {
+        var text = (input.value || '').trim();
+        if (!text) return;
+        var userDiv = document.createElement('div');
+        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#e6edf3;margin-bottom:8px;';
+        userDiv.textContent = text;
+        var aiDiv = document.createElement('div');
+        aiDiv.style.cssText = 'position:relative;left:24px;top:12px;width:700px;font-size:14px;color:#8b949e;line-height:1.5;margin-bottom:24px;';
+        aiDiv.textContent = 'AI: Thinking... (Preview mode — connect to Coral for real responses)';
+        messagesEl.appendChild(userDiv);
+        messagesEl.appendChild(aiDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        input.value = '';
+      }
+      sendBtn.addEventListener('click', send);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+    }
     // ── ON_LOAD interactions ──
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('[data-onload]').forEach(function(el) {
         var js = el.getAttribute('data-onload');
         if (js) { try { (new Function(js)).call(el); } catch(e) { console.warn('ON_LOAD error', e); } }
       });
+      _wireChat();
     });
   </script>
 </body>

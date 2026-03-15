@@ -39,6 +39,7 @@ import {
   Unlock,
   Trash2,
   FolderTree,
+  Wand2,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
@@ -51,6 +52,7 @@ import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { PreviewPanel } from "./PreviewPanel";
+import { AIPanel } from "./AIPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
@@ -251,7 +253,7 @@ function LayerItem({
 export function EditorShell() {
   const [exportOpen, setExportOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [leftTab, setLeftTab] = useState<"explorer" | "assets">("explorer");
+  const [leftTab, setLeftTab] = useState<"explorer" | "assets" | "ai">("explorer");
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("Untitled");
@@ -794,9 +796,18 @@ export function EditorShell() {
               >
                 Assets
               </button>
+              <button
+                type="button"
+                className={`${styles.panelTab} ${leftTab === "ai" ? styles.tabActive : ""}`}
+                onClick={() => setLeftTab("ai")}
+                title="Render AI"
+              >
+                <Wand2 size={13} style={{ marginRight: 4, verticalAlign: -1 }} />
+                AI
+              </button>
             </div>
 
-            {leftTab === "explorer" ? (
+            {leftTab === "explorer" && (
               <div className={styles.explorerPanel}>
                 <div className={styles.explorerHeader}>
                   <FolderTree size={13} className={styles.explorerIcon} />
@@ -818,7 +829,8 @@ export function EditorShell() {
                   )}
                 </div>
               </div>
-            ) : (
+            )}
+            {leftTab === "assets" && (
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
@@ -828,6 +840,7 @@ export function EditorShell() {
                 }}
               />
             )}
+            {leftTab === "ai" && <AIPanel />}
           </aside>
 
           {/* Canvas / code view */}
