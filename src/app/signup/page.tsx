@@ -17,10 +17,27 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    signup(email, `${firstName} ${lastName}`.trim() || undefined, password);
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+    setError(null);
+    setIsSubmitting(true);
+    const { error: err } = await signup(
+      email,
+      `${firstName} ${lastName}`.trim() || undefined,
+      password
+    );
+    setIsSubmitting(false);
+    if (err) {
+      setError(err.message ?? "Sign up failed");
+      return;
+    }
     router.push("/dashboard");
   };
 
@@ -35,6 +52,11 @@ export default function SignupPage() {
             <Link href="/login">Log in</Link>
           </p>
           <form onSubmit={handleSubmit} className={styles.form}>
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
             <div className={styles.row}>
               <input
                 type="text"
@@ -95,8 +117,12 @@ export default function SignupPage() {
                 </Link>
               </label>
             </div>
-            <button type="submit" className={styles.submitBtn}>
-              Create account
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating account…" : "Create account"}
             </button>
             <div className={styles.separator}>
               <span>Or register with</span>

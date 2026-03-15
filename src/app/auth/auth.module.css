@@ -164,6 +164,21 @@
   gap: var(--space-4);
 }
 
+.error {
+  font-size: var(--text-sm);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  margin: 0;
+}
+
+.submitBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
