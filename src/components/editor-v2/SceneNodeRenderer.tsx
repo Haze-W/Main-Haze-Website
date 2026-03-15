@@ -38,7 +38,7 @@ export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererP
 }
 
 function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode } = useEditorStore();
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds } = useEditorStore();
   const [isHovered, setIsHovered] = useState(false);
 
   const handleResizeStart = useCallback(
@@ -126,7 +126,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
   } : {};
 
   const drag = createDragHandler(node.id, zoom, moveNodes, pushHistory, isLocked);
-  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (baseStyle.opacity ?? 1) * 0.7 } : {}) };
+  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (Number(baseStyle.opacity) || 1) * 0.7 } : {}) };
 
   // ── ICON ──────────────────────────────────────────────────────────────────
   if (node.type === "ICON") {
@@ -352,6 +352,34 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
 
   // ── CONTAINER with named variants ────────────────────────────────────────
   if (node.type === "CONTAINER") {
+
+    // CONTAINER with children — render them so design matches preview (sidebar, navbar, card, content)
+    if (node.children && node.children.length > 0) {
+      const bg = (props.backgroundColor as string) || undefined;
+      const radius = (props.borderRadius as number) ?? 6;
+      const shadow = (props.boxShadow as string) || undefined;
+      const containerStyle: React.CSSProperties = {
+        ...merged,
+        ...(bg && { backgroundColor: bg }),
+        borderRadius: radius,
+        ...(shadow && { boxShadow: shadow }),
+      };
+      return (
+        <div className={styles.genericNode} style={containerStyle} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 1 }}>
+            {node.children.map((child) => (
+              <SceneNodeRenderer
+                key={child.id}
+                node={child}
+                isSelected={selectedIds.has(child.id)}
+                zoom={zoom}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     // PROGRESS BAR
     if (variant === "progress" || node.name === "Progress Bar") {

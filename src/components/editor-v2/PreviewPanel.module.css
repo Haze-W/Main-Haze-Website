@@ -82,6 +82,43 @@
   text-align: center;
 }
 
+.zoomGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-muted, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.zoomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--fg-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.zoomBtn:hover {
+  color: var(--fg-primary, #e6edf3);
+  background: rgba(255,255,255,0.08);
+}
+
+.zoomLabel {
+  font-size: 11px;
+  color: var(--fg-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: center;
+}
+
 .refreshBtn {
   display: flex;
   align-items: center;
@@ -104,12 +141,23 @@
 /* ── Preview area ─────────────────────────────── */
 .previewArea {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 24px;
   background: #0d0f12;
+  position: relative;
+  user-select: none;
+}
+
+.previewArea.panning {
+  cursor: grabbing;
+}
+
+.previewTransform {
+  flex-shrink: 0;
+  transform-origin: center center;
 }
 
 .previewFrame {
