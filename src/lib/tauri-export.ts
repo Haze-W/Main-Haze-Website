@@ -278,7 +278,9 @@ export async function createTauriProjectZip(
   const src = zip.folder("src")!;
   src.file("index.html", html);
   src.file("styles.css", css);
-  src.file("window-controls.js", WINDOW_CONTROLS_JS);
+  if (frameless) {
+    src.file("window-controls.js", WINDOW_CONTROLS_JS);
+  }
 
   const srcTauri = zip.folder("src-tauri")!;
   srcTauri.file("tauri.conf.json", TAURI_CONF(name, frameless, w, h));
@@ -334,7 +336,6 @@ export async function downloadProjectFromSceneNodes(
   const src = zip.folder("src")!;
   src.file("index.html", html);
   src.file("styles.css", css);
-  src.file("window-controls.js", WINDOW_CONTROLS_JS);
 
   const srcTauri = zip.folder("src-tauri")!;
   srcTauri.file("tauri.conf.json", TAURI_CONF(appName, false, width, height));

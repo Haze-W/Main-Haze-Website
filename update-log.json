@@ -1,46 +1,9 @@
 [
   {
-    "id": "v0.1.2",
-    "title": "Render v0.1.2 — Editor Overhaul & Bug Fixes",
+    "id": "v1.0.1",
+    "title": "Render Update v1.0.1",
     "description": [
-      "Ctrl+V paste now works — copy elements with Ctrl+C and paste them back with Ctrl+V.",
-      "Locked nodes are now truly locked — they cannot be selected, moved, or deleted until unlocked. Locked nodes show a not-allowed cursor and are visually dimmed.",
-      "Layers panel completely overhauled — hover any layer to reveal visibility toggle, lock/unlock, and delete buttons. Double-click a layer name to rename it inline.",
-      "Hidden layers are now visually dimmed in the layers panel so you can see at a glance what is visible and what is not.",
-      "Arrow key nudging is now undoable — moving elements with arrow keys is tracked in history and can be reversed with Ctrl+Z.",
-      "H shortcut conflict fixed — pressing H switches to the Hand tool, Shift+H is now free for Flip Horizontal without accidentally switching tools.",
-      "Flip Horizontal and Flip Vertical now work correctly on Figma-imported elements.",
-      "Code view app name now stays in sync with the export modal — changing the app name in Export updates the Code panel instantly.",
-      "Preview mode now shows all canvas elements even without a Frame — drop anything onto the canvas and it appears in Preview immediately.",
-      "Preview mode error display — if something goes wrong in the preview, you now see the error message instead of a blank screen."
-    ],
-    "publishedAt": "2026-03-14T12:00:00.000Z"
-  },
-  {
-    "id": "v0.1.1",
-    "title": "Render v0.1.1 — Interactions, Animations & Preview Mode",
-    "description": [
-      "Added Preview Mode — test your app live inside the editor without exporting. Click, hover, navigate between frames, all interactions work in real time.",
-      "Added Interactions system — wire up any element with On Click, On Hover, On Load triggers. Navigate to Frame, Show/Hide elements, Open URL, Toggle visibility, Send IPC events.",
-      "Added frame transitions — Fade, Slide Left/Right/Up/Down, Scale Up/Down when navigating between screens.",
-      "Added Hover Effects — one-click presets: Lift, Glow, Scale, Dim, Brighten, Border Glow. Applied instantly to any element.",
-      "Added animation blocks — Fade In, Slide Up, Scale Up, Pulse, Shake, Bounce with configurable duration and delay.",
-      "Fixed 40+ component assets — Navbar, Sidebar, Card, Modal, Table, Charts, Form, Pricing Card, Kanban, Timeline and more now render with real visual structure.",
-      "Tabs, Accordion, and Carousel are now interactive in the editor.",
-      "Slider thumb is now draggable. Charts read from editable data fields.",
-      "Fixed opacity, rotation, flip rendering, checkbox and switch toggle on click."
-    ],
-    "publishedAt": "2026-03-14T09:00:00.000Z"
-  },
-  {
-    "id": "v0.1.0",
-    "title": "Render v0.1.0 — Initial Release",
-    "description": [
-      "Design Terminal editor with canvas, component library, and properties panel.",
-      "Figma import — paste directly from Figma to bring in real designs with colors, images, vectors, and text.",
-      "Export — one-click download of a complete Tauri 2 project ready to run.",
-      "Top bar export with real drag regions and window controls.",
-      "Component library with frames, layout, text, buttons, inputs, forms, charts, and more."
+      "Fixed major bugs"
     ],
     "publishedAt": "2026-02-11T00:00:00.000Z"
   }

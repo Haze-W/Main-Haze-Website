@@ -33,15 +33,18 @@ import {
   Plus,
   Minus,
   ChevronRight,
+  Search,
   Eye,
   EyeOff,
   Lock,
   Unlock,
   Trash2,
+  MoreHorizontal,
   FolderTree,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
-import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
+import { useEditorStore as useLegacyStore } from "@/lib/editor-store";
+import { sceneNodesToFrames } from "@/lib/editor/adapter";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
 import { CodePanel } from "@/components/editor/CodePanel";
@@ -50,10 +53,10 @@ import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { PreviewPanel } from "./PreviewPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
+// ---------- Properly-typed menu item types (fixes build error) ----------
 type LucideIcon = ComponentType<{
   size?: number;
   className?: string;
@@ -83,6 +86,7 @@ interface MenuGroup {
   icon: LucideIcon;
   items: MenuEntry[];
 }
+// -----------------------------------------------------------------------
 
 function getTypeIcon(type: string): string {
   const map: Record<string, string> = {
@@ -116,49 +120,20 @@ function LayerItem({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [hovered, setHovered] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [nameValue, setNameValue] = useState(node.name);
-
-  // Keep nameValue in sync if node.name changes externally
-  useEffect(() => {
-    if (!renaming) setNameValue(node.name);
-  }, [node.name, renaming]);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const toggleSelection = useEditorStore((s) => s.toggleSelection);
   const deleteNodes = useEditorStore((s) => s.deleteNodes);
-  const updateNode = useEditorStore((s) => s.updateNode);
-  const pushHistory = useEditorStore((s) => s.pushHistory);
   const hasChildren = (node.children?.length ?? 0) > 0;
-  const isHidden = node.visible === false;
-  const isLocked = !!node.locked;
-
-  const commitRename = () => {
-    const trimmed = nameValue.trim();
-    if (trimmed && trimmed !== node.name) {
-      updateNode(node.id, { name: trimmed });
-      pushHistory();
-    } else {
-      setNameValue(node.name);
-    }
-    setRenaming(false);
-  };
 
   return (
     <div className={styles.layerGroup}>
       <div
-        className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""} ${isHidden ? styles.layerHidden : ""}`}
+        className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""}`}
         style={{ paddingLeft: depth * 14 + 6 }}
         onClick={(e) => {
-          if (renaming) return;
-          if (isLocked) return;
           if (e.shiftKey) toggleSelection(node.id);
           else setSelectedIds([node.id]);
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          setRenaming(true);
-          setNameValue(node.name);
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -167,83 +142,45 @@ function LayerItem({
           type="button"
           className={styles.expandBtn}
           style={{ visibility: hasChildren ? "visible" : "hidden" }}
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
         >
           <ChevronRight
             size={10}
-            style={{ transition: "transform 120ms ease", transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
+            style={{
+              transition: "transform 120ms ease",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+            }}
           />
         </button>
-
         <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
-
-        {renaming ? (
-          <input
-            autoFocus
-            className={styles.layerRenameInput}
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") { setNameValue(node.name); setRenaming(false); }
+        <span className={styles.layerName}>{node.name}</span>
+        {hovered && (
+          <button
+            type="button"
+            className={styles.layerAction}
+            onClick={(e) => {
               e.stopPropagation();
+              deleteNodes([node.id]);
             }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>{node.name}</span>
-        )}
-
-        {isLocked && !hovered && (
-          <span className={styles.layerBadge} title="Locked"><Lock size={9} /></span>
-        )}
-
-        {hovered && !renaming && (
-          <div className={styles.layerActions}>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title={isHidden ? "Show" : "Hide"}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateNode(node.id, { visible: isHidden ? true : false });
-                pushHistory();
-              }}
-            >
-              {isHidden ? <EyeOff size={11} /> : <Eye size={11} />}
-            </button>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title={isLocked ? "Unlock" : "Lock"}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateNode(node.id, { locked: !isLocked });
-                pushHistory();
-              }}
-            >
-              {isLocked ? <Unlock size={11} /> : <Lock size={11} />}
-            </button>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title="Delete"
-              onClick={(e) => { e.stopPropagation(); deleteNodes([node.id]); }}
-            >
-              <Trash2 size={11} />
-            </button>
-          </div>
+            title="Delete"
+          >
+            <Trash2 size={11} />
+          </button>
         )}
       </div>
-      {expanded && hasChildren && node.children!.map((child) => (
-        <LayerItem
-          key={child.id}
-          node={child}
-          isSelected={selectedIds.has(child.id)}
-          depth={depth + 1}
-        />
-      ))}
+      {expanded &&
+        hasChildren &&
+        node.children!.map((child) => (
+          <LayerItem
+            key={child.id}
+            node={child}
+            isSelected={selectedIds.has(child.id)}
+            depth={depth + 1}
+          />
+        ))}
     </div>
   );
 }
@@ -265,7 +202,6 @@ export function EditorShell() {
     deleteNodes,
     undo,
     redo,
-    pushHistory,
     moveNodes,
     tool,
     setTool,
@@ -287,37 +223,6 @@ export function EditorShell() {
   );
 
   const lastCanvasPoint = useEditorStore((s) => s.lastCanvasPoint);
-
-  // Auto-save nodes to project storage whenever the scene changes
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const projectId = params.get("project");
-    if (!projectId) return;
-    const t = setTimeout(() => {
-      try {
-        import("@/lib/projects").then(({ saveProject }) => {
-          saveProject(projectId, { nodes: nodes as unknown[] });
-        });
-      } catch { /* ignore */ }
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [nodes]);
-
-  // Load saved project nodes on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const projectId = params.get("project");
-    if (!projectId) return;
-    import("@/lib/projects").then(({ getProject }) => {
-      const project = getProject(projectId);
-      if (project?.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
-        setNodes(project.nodes as Parameters<typeof setNodes>[0]);
-      }
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const getPlacement = () => {
     if (lastCanvasPoint) {
@@ -367,6 +272,17 @@ export function EditorShell() {
     }
   };
 
+  const legacySetFrames = useLegacyStore((s) => s.setFrames);
+  const legacySetActiveFrame = useLegacyStore((s) => s.setActiveFrame);
+
+  useEffect(() => {
+    const frames = sceneNodesToFrames(nodes);
+    if (frames.length > 0) {
+      legacySetFrames(frames);
+      legacySetActiveFrame(frames[0].id);
+    }
+  }, [nodes, legacySetFrames, legacySetActiveFrame]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -386,7 +302,7 @@ export function EditorShell() {
         setTool("FRAME");
         return;
       }
-      if ((e.key === "h" || e.key === "H") && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      if (e.key === "h" || e.key === "H") {
         setTool("HAND");
         return;
       }
@@ -425,13 +341,6 @@ export function EditorShell() {
         }
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-        e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
-          if (text) tryPasteFromClipboard(text).catch(() => {});
-        }).catch(() => {});
-        return;
-      }
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
         e.preventDefault();
         duplicateNodes([...selectedIds]);
@@ -457,27 +366,23 @@ export function EditorShell() {
       if (e.key === "ArrowUp") {
         e.preventDefault();
         moveNodes([...selectedIds], 0, -step);
-        pushHistory();
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         moveNodes([...selectedIds], 0, step);
-        pushHistory();
       }
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         moveNodes([...selectedIds], -step, 0);
-        pushHistory();
       }
       if (e.key === "ArrowRight") {
         e.preventDefault();
         moveNodes([...selectedIds], step, 0);
-        pushHistory();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes, pushHistory]);
+  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -552,8 +457,22 @@ export function EditorShell() {
       icon: FilePlus,
       items: [
         { id: "new", label: "New", shortcut: "Ctrl+N", action: "File.New", icon: FilePlus },
-        { id: "open", label: "Open…", shortcut: "Ctrl+O", action: "File.Open", icon: FolderOpen, disabled: true },
-        { id: "save", label: "Save", shortcut: "Ctrl+S", action: "File.Save", icon: Save, disabled: true },
+        {
+          id: "open",
+          label: "Open…",
+          shortcut: "Ctrl+O",
+          action: "File.Open",
+          icon: FolderOpen,
+          disabled: true,
+        },
+        {
+          id: "save",
+          label: "Save",
+          shortcut: "Ctrl+S",
+          action: "File.Save",
+          icon: Save,
+          disabled: true,
+        },
         { id: "div1", divider: true },
         { id: "export", label: "Export", shortcut: "Ctrl+E", action: "File.Export", icon: Download },
       ],
@@ -564,13 +483,46 @@ export function EditorShell() {
       icon: Clipboard,
       items: [
         { id: "undo", label: "Undo", shortcut: "Ctrl+Z", action: "Edit.Undo", icon: Undo2 },
-        { id: "redo", label: "Redo", shortcut: "Ctrl+Shift+Z", action: "Edit.Redo", icon: Redo2 },
+        {
+          id: "redo",
+          label: "Redo",
+          shortcut: "Ctrl+Shift+Z",
+          action: "Edit.Redo",
+          icon: Redo2,
+        },
         { id: "div2", divider: true },
-        { id: "cut", label: "Cut", shortcut: "Ctrl+X", action: "Edit.Cut", icon: Scissors, disabled: true },
-        { id: "copy", label: "Copy", shortcut: "Ctrl+C", action: "Edit.Copy", icon: Copy, disabled: true },
-        { id: "paste", label: "Paste", shortcut: "Ctrl+V", action: "Edit.Paste", icon: ClipboardPaste, disabled: true },
+        {
+          id: "cut",
+          label: "Cut",
+          shortcut: "Ctrl+X",
+          action: "Edit.Cut",
+          icon: Scissors,
+          disabled: true,
+        },
+        {
+          id: "copy",
+          label: "Copy",
+          shortcut: "Ctrl+C",
+          action: "Edit.Copy",
+          icon: Copy,
+          disabled: true,
+        },
+        {
+          id: "paste",
+          label: "Paste",
+          shortcut: "Ctrl+V",
+          action: "Edit.Paste",
+          icon: ClipboardPaste,
+          disabled: true,
+        },
         { id: "div3", divider: true },
-        { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", action: "Edit.Duplicate", icon: Copy },
+        {
+          id: "duplicate",
+          label: "Duplicate",
+          shortcut: "Ctrl+D",
+          action: "Edit.Duplicate",
+          icon: Copy,
+        },
         { id: "delete", label: "Delete", shortcut: "Del", action: "Edit.Delete", icon: Scissors },
       ],
     },
@@ -579,9 +531,27 @@ export function EditorShell() {
       label: "View",
       icon: ZoomIn,
       items: [
-        { id: "zoomin", label: "Zoom In", shortcut: "Ctrl++", action: "View.Zoom In", icon: ZoomIn },
-        { id: "zoomout", label: "Zoom Out", shortcut: "Ctrl+-", action: "View.Zoom Out", icon: ZoomOut },
-        { id: "reset", label: "Reset Zoom", shortcut: "Ctrl+0", action: "View.Reset Zoom", icon: RotateCcw },
+        {
+          id: "zoomin",
+          label: "Zoom In",
+          shortcut: "Ctrl++",
+          action: "View.Zoom In",
+          icon: ZoomIn,
+        },
+        {
+          id: "zoomout",
+          label: "Zoom Out",
+          shortcut: "Ctrl+-",
+          action: "View.Zoom Out",
+          icon: ZoomOut,
+        },
+        {
+          id: "reset",
+          label: "Reset Zoom",
+          shortcut: "Ctrl+0",
+          action: "View.Reset Zoom",
+          icon: RotateCcw,
+        },
       ],
     },
     {
@@ -598,8 +568,20 @@ export function EditorShell() {
       label: "Help",
       icon: HelpCircle,
       items: [
-        { id: "docs", label: "Documentation", action: "Help.Docs", icon: BookOpen, disabled: true },
-        { id: "shortcuts", label: "Keyboard Shortcuts", action: "Help.Shortcuts", icon: Keyboard, disabled: true },
+        {
+          id: "docs",
+          label: "Documentation",
+          action: "Help.Docs",
+          icon: BookOpen,
+          disabled: true,
+        },
+        {
+          id: "shortcuts",
+          label: "Keyboard Shortcuts",
+          action: "Help.Shortcuts",
+          icon: Keyboard,
+          disabled: true,
+        },
       ],
     },
   ];
@@ -608,6 +590,7 @@ export function EditorShell() {
     <div className={styles.shell}>
       {/* ── Top Bar ─────────────────────────────────────────────────── */}
       <header className={styles.topbar}>
+        {/* Left: logo + menus + project name */}
         <div className={styles.topbarLeft} ref={menuRef}>
           <span className={styles.logoMark}>R</span>
 
@@ -717,14 +700,14 @@ export function EditorShell() {
 
         {/* Mode tabs */}
         <div className={styles.modeTabs}>
-          {(["design", "code", "preview"] as const).map((m) => (
+          {(["design", "code"] as const).map((m) => (
             <button
               key={m}
               type="button"
               className={`${styles.modeTab} ${mode === m ? styles.modeActive : ""}`}
               onClick={() => setMode(m)}
             >
-              {m === "design" ? "Design" : m === "code" ? "Code" : "▶ Preview"}
+              {m === "design" ? "Design" : "Code"}
             </button>
           ))}
         </div>
@@ -736,13 +719,18 @@ export function EditorShell() {
           <button type="button" className={styles.iconBtn} onClick={undo} title="Undo (Ctrl+Z)">
             <Undo2 size={14} />
           </button>
-          <button type="button" className={styles.iconBtn} onClick={redo} title="Redo (Ctrl+Shift+Z)">
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={redo}
+            title="Redo (Ctrl+Shift+Z)"
+          >
             <Redo2 size={14} />
           </button>
 
           <div className={styles.divider} />
 
-          <div className={styles.zoomControl}>
+          <div className={styles.zoomControl} title="Ctrl/Cmd + scroll or Shift + scroll to zoom">
             <button
               type="button"
               className={styles.zoomBtn}
@@ -835,7 +823,6 @@ export function EditorShell() {
             {mode === "design" && <Canvas />}
             {mode === "code" && <CodePanel />}
             {mode === "settings" && <SettingsPanel />}
-            {mode === "preview" && <PreviewPanel />}
           </main>
 
           {/* Right panel */}
@@ -864,8 +851,7 @@ export function EditorShell() {
           await preloadLucideIcons();
           const { downloadProjectFromSceneNodes } = await import("@/lib/tauri-export");
           const nodes = useEditorStore.getState().nodes;
-          const exportName = (settings.appName ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "my-tauri-app";
-          await downloadProjectFromSceneNodes(nodes, exportName, settings);
+          await downloadProjectFromSceneNodes(nodes, "my-tauri-app", settings);
         }}
       />
     </div>

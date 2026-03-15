@@ -313,9 +313,8 @@ export function FigmaNodeRenderer({
       const last = { clientX: e.clientX, clientY: e.clientY };
       let moved = false;
       const onMove = (move: PointerEvent) => {
-        const currentZoom = useEditorStore.getState().viewport.zoom;
-        const dx = (move.clientX - last.clientX) / currentZoom;
-        const dy = (move.clientY - last.clientY) / currentZoom;
+        const dx = (move.clientX - last.clientX) / zoom;
+        const dy = (move.clientY - last.clientY) / zoom;
         if (dx !== 0 || dy !== 0) moved = true;
         moveNodes([node.id], dx, dy);
         last.clientX = move.clientX;
@@ -330,7 +329,7 @@ export function FigmaNodeRenderer({
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, moveNodes, pushHistory, canDrag]
+    [node.id, zoom, moveNodes, pushHistory, canDrag]
   );
 
   const handleResizeStart = useCallback(
@@ -340,9 +339,8 @@ export function FigmaNodeRenderer({
       target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
       const onMove = (move: PointerEvent) => {
-        const currentZoom = useEditorStore.getState().viewport.zoom;
-        const dx = (move.clientX - last.clientX) / currentZoom;
-        const dy = (move.clientY - last.clientY) / currentZoom;
+        const dx = (move.clientX - last.clientX) / zoom;
+        const dy = (move.clientY - last.clientY) / zoom;
         resizeNode(node.id, handle, dx, dy);
         last.clientX = move.clientX;
         last.clientY = move.clientY;
@@ -356,7 +354,7 @@ export function FigmaNodeRenderer({
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, resizeNode, pushHistory]
+    [node.id, zoom, resizeNode, pushHistory]
   );
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
@@ -392,12 +390,8 @@ export function FigmaNodeRenderer({
     style.opacity = node.opacity;
   }
 
-  if (node.rotation || node.props?.scaleX !== undefined || node.props?.scaleY !== undefined) {
-    const parts: string[] = [];
-    if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
-    if (node.props?.scaleX !== undefined) parts.push(`scaleX(${node.props.scaleX})`);
-    if (node.props?.scaleY !== undefined) parts.push(`scaleY(${node.props.scaleY})`);
-    if (parts.length) style.transform = parts.join(" ");
+  if (node.rotation) {
+    style.transform = `rotate(${node.rotation}deg)`;
   }
 
   const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData)) && !isText;

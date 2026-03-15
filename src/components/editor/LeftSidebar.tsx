@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { ComponentType, CanvasNode, FrameType } from "@/lib/types";
 import { useEditorStore } from "@/lib/editor-store";
 import { IconPickerModal } from "./IconPickerModal";
+import { AIGeneratePanel } from "@/components/ai/AIGeneratePanel"; // ✅ Fixed import
 import styles from "./LeftSidebar.module.css";
 
 const COMPONENT_CATEGORIES: { label: string; components: { type: ComponentType; label: string; icon: string }[] }[] = [
@@ -70,7 +71,8 @@ function TreeItem({ node, depth = 0 }: { node: CanvasNode; depth?: number }) {
 
 export function LeftSidebar() {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"frames" | "components" | "tree">("frames");
+  // ✅ Fixed: Proper TypeScript syntax for state
+  const [activeTab, setActiveTab] = useState<"frames" | "components" | "tree" | "ai">("frames");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const {
     frames,
@@ -97,11 +99,11 @@ export function LeftSidebar() {
   return (
     <div className={styles.sidebar}>
       <div className={styles.tabs}>
-        {(["frames", "components", "tree"] as const).map((tab) => (
+        {(["frames", "components", "tree", "ai"] as const).map((tab) => (
           <button key={tab} type="button"
             className={`${styles.tab} ${activeTab === tab ? styles.tabActive : ""}`}
             onClick={() => setActiveTab(tab)}>
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "ai" ? "🤖 AI Generate" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -166,14 +168,6 @@ export function LeftSidebar() {
         </>
       )}
 
-      <IconPickerModal
-        isOpen={iconPickerOpen}
-        onClose={() => setIconPickerOpen(false)}
-        onSelect={(iconName) => {
-          useEditorStore.getState().addNode({ type: "icon", props: { iconName } });
-        }}
-      />
-
       {activeTab === "tree" && (
         <div className={styles.treeView}>
           {!activeFrame ? (
@@ -185,6 +179,21 @@ export function LeftSidebar() {
           )}
         </div>
       )}
+
+      {/* ✅ Added AI tab content */}
+      {activeTab === "ai" && (
+        <div className={styles.aiPanel}>
+          <AIGeneratePanel />
+        </div>
+      )}
+
+      <IconPickerModal
+        isOpen={iconPickerOpen}
+        onClose={() => setIconPickerOpen(false)}
+        onSelect={(iconName) => {
+          useEditorStore.getState().addNode({ type: "icon", props: { iconName } });
+        }}
+      />
     </div>
   );
 }

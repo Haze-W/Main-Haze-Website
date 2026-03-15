@@ -3,7 +3,7 @@
  * Uses LLM API to generate structured JSON (OpenAI compatible)
  * Design principles inspired by Dribbble: clean, modern, professional UI
  */
-
+export { generateLayoutFromPrompt as generateLayout };
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
 import { parsePrompt } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";

@@ -193,9 +193,7 @@ export function generateCss(titleBarStyle: TitleBarStyle = "windows"): string {
   padding: 0;
 }
 
-html, body {
-  width: 100%;
-  height: 100%;
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #0d0f12;
   color: #e6edf3;
