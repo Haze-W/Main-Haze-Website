@@ -1,5 +1,7 @@
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware, APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email";
@@ -14,18 +16,24 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email" || !ctx.body?.email) return;
+      const [existing] = await db
+        .select()
+        .from(schema.user)
+        .where(eq(schema.user.email, String(ctx.body.email)))
+        .limit(1);
+      if (existing) {
+        throw new APIError("CONFLICT", {
+          message: "An account with this email already exists. Please log in.",
+        });
+      }
+    }),
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
-    onExistingUserSignUp: async ({ user }) => {
-      const loginUrl = `${process.env.BETTER_AUTH_URL ?? "http://localhost:3000"}/login`;
-      void sendEmail({
-        to: user.email,
-        subject: "Sign-up attempt with your email – Render",
-        text: `Someone tried to create an account using your email. If that was you, you can log in here: ${loginUrl}\n\nIf it wasn't you, you can safely ignore this email.`,
-        html: `<p>Someone tried to create an account using your email.</p><p>If that was you, <a href="${loginUrl}">log in here</a>.</p><p>If it wasn't you, you can safely ignore this email.</p>`,
-      });
-    },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {

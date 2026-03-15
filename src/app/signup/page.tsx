@@ -54,9 +54,8 @@ export default function SignupPage() {
             <div className={styles.successBlock}>
               <p className={styles.successTitle}>Check your email</p>
               <p className={styles.successText}>
-                We sent a message to <strong>{email}</strong>. If you’re
-                new, click the verification link to activate your account. If you
-                already have an account, use the link we sent to log in.
+                We sent a verification link to <strong>{email}</strong>. Click
+                the link to verify your account, then you can log in.
               </p>
               <Link href="/login" className={styles.successLink}>
                 Go to log in
