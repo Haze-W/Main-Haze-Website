@@ -21,17 +21,18 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First name and last name are required.");
+      return;
+    }
     if (!agreed) {
       setError("Please agree to the Terms of Service and Privacy Policy.");
       return;
     }
     setError(null);
     setIsSubmitting(true);
-    const { error: err } = await signup(
-      email,
-      `${firstName} ${lastName}`.trim() || undefined,
-      password
-    );
+    const { error: err } = await signup(email, fullName, password);
     setIsSubmitting(false);
     if (err) {
       setError(err.message ?? "Sign up failed");
@@ -75,6 +76,8 @@ export default function SignupPage() {
                 placeholder="First name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                required
+                autoComplete="given-name"
               />
               <input
                 type="text"
@@ -82,6 +85,8 @@ export default function SignupPage() {
                 placeholder="Last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                required
+                autoComplete="family-name"
               />
             </div>
             <input
