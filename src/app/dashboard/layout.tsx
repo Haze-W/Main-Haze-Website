@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Zap } from "lucide-react";
@@ -22,14 +22,43 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading, logout } = useAuth();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       window.location.href = "/login";
+      return;
     }
+
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/onboarding/preferences", { cache: "no-store" });
+        if (!res.ok) {
+          window.location.href = res.status === 401 ? "/login" : "/onboarding";
+          return;
+        }
+        const data = (await res.json()) as { onboardingCompleted?: boolean };
+        if (ignore) return;
+        if (!data.onboardingCompleted) {
+          window.location.href = "/onboarding";
+          return;
+        }
+      } catch {
+        window.location.href = "/onboarding";
+        return;
+      } finally {
+        if (!ignore) setCheckingOnboarding(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
   }, [isAuthenticated, isLoading]);
 
-  if (isLoading) {
+  if (isLoading || checkingOnboarding) {
     return (
       <div className={styles.dashboard}>
         <div className={styles.loading}>Loading...</div>

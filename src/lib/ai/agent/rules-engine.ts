@@ -12,7 +12,7 @@ import {
 } from "../schema/ui-schema";
 
 export function clampToSpacing(value: number): number {
-  let closest = SPACING_SCALE[0];
+  let closest: number = SPACING_SCALE[0];
   let minDiff = Math.abs(value - closest);
   for (const s of SPACING_SCALE) {
     const diff = Math.abs(value - s);

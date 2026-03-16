@@ -281,7 +281,7 @@ function HoverPreview({ iconName }: { iconName: string }) {
         name={getValidIconName(iconName) as never}
         size={22}
         strokeWidth={1.5}
-        fallback={<span style={{ fontSize: 22 }}>◆</span>}
+        fallback={() => <span style={{ fontSize: 22 }}>◆</span>}
       />
   );
 }

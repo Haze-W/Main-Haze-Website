@@ -11,6 +11,8 @@ export interface Project {
   updatedAt: string;
   nodes?: unknown[];   // serialized SceneNode[]
   template?: string;
+  runtimeTarget?: string;
+  languageTarget?: string;
 }
 
 const PROJECTS_KEY = "render-projects";
@@ -39,11 +41,24 @@ export function getProject(id: string): Project | null {
   return getAll()[id] ?? null;
 }
 
-export function createProject(name: string, template?: string): Project {
+export function createProject(
+  name: string,
+  template?: string,
+  options?: { runtimeTarget?: string; languageTarget?: string }
+): Project {
   const map = getAll();
   const id = `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = new Date().toISOString();
-  const project: Project = { id, name, template, createdAt: now, updatedAt: now, nodes: [] };
+  const project: Project = {
+    id,
+    name,
+    template,
+    createdAt: now,
+    updatedAt: now,
+    nodes: [],
+    runtimeTarget: options?.runtimeTarget,
+    languageTarget: options?.languageTarget,
+  };
   map[id] = project;
   saveAll(map);
   return project;

@@ -13,6 +13,8 @@ export interface LayoutGeneratorOptions {
   apiKey?: string;
   model?: string;
   style?: "light" | "dark";
+  runtimeTarget?: string;
+  languageTarget?: string;
 }
 
 const DRIBBBLE_EXAMPLE_1 = `{
@@ -187,14 +189,23 @@ RULES:
 - Sidebar at x=0, topbar at x=sidebar_width. Content starts at y=topbar_height.
 - When generating cards: use 3-4 cards in a row, each 320x180, gap 24px.`;
 
-function buildUserPrompt(parsed: ReturnType<typeof parsePromptWithOptions>): string {
+function buildUserPrompt(
+  parsed: ReturnType<typeof parsePromptWithOptions>,
+  options?: Pick<LayoutGeneratorOptions, "runtimeTarget" | "languageTarget">
+): string {
   const comps = parsed.components.join(", ");
   const domain = parsed.domain ? ` Context: ${parsed.domain}.` : "";
+  const targetHint = options?.runtimeTarget
+    ? `Runtime target: ${options.runtimeTarget}.`
+    : "";
+  const languageHint = options?.languageTarget
+    ? `Preferred language: ${options.languageTarget}.`
+    : "";
   const themeHint = parsed.theme === "dark"
     ? "Dark theme: background #0d0f12, cards #1a1b23, sidebar #151620, text #e6edf3, muted #8b949e."
     : "Light background (#f8fafc or #f1f5f9).";
   return `Generate a ${parsed.style} desktop UI with: ${comps}.${domain}
-Frame: 1440x900. ${themeHint}
+Frame: 1440x900. ${themeHint} ${targetHint} ${languageHint}
 Match the quality and structure of the examples. Return ONLY the JSON object.`;
 }
 
@@ -225,7 +236,10 @@ export async function generateLayoutFromPrompt(
   options?: LayoutGeneratorOptions
 ): Promise<AIUILayout> {
   const parsed = parsePromptWithOptions(prompt, { theme: options?.style });
-  const userPrompt = buildUserPrompt(parsed);
+  const userPrompt = buildUserPrompt(parsed, {
+    runtimeTarget: options?.runtimeTarget,
+    languageTarget: options?.languageTarget,
+  });
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
   const model = options?.model ?? "gpt-4o";

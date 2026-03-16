@@ -258,6 +258,8 @@ export function EditorShell() {
   const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
+  const [userRuntimeTarget, setUserRuntimeTarget] = useState<string | null>(null);
+  const [userLanguageTarget, setUserLanguageTarget] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -306,6 +308,28 @@ export function EditorShell() {
     return () => clearTimeout(t);
   }, [nodes]);
 
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/onboarding/preferences", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          preferredRuntime?: string | null;
+          preferredLanguage?: string | null;
+        };
+        if (ignore) return;
+        setUserRuntimeTarget(data.preferredRuntime ?? null);
+        setUserLanguageTarget(data.preferredLanguage ?? null);
+      } catch {
+        // Ignore preference load failures and keep editor functional.
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   // Load saved project nodes on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -314,7 +338,9 @@ export function EditorShell() {
     if (!projectId) return;
     import("@/lib/projects").then(({ getProject }) => {
       const project = getProject(projectId);
-      if (project?.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
+      if (!project) return;
+      setProjectName(project.name || "Untitled");
+      if (project.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
         setNodes(project.nodes as Parameters<typeof setNodes>[0]);
       }
     }).catch(() => {});
@@ -834,6 +860,8 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
+                defaultRuntimeTarget={userRuntimeTarget}
+                defaultLanguageTarget={userLanguageTarget}
                 onAIGenerate={(nodes, options) => {
                   const s = useEditorStore.getState();
                   const mode = options?.mode ?? "append";
