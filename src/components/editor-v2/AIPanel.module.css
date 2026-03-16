@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Render AI Panel — 260px left panel
+   Coral AI Panel — 260px left panel
 ═══════════════════════════════════════════════════════════════ */
 
 .panel {
@@ -160,6 +160,22 @@
   background: #5e5ce6;
   border-radius: 10px 10px 3px 10px;
   word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.msgImages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.msgImage {
+  max-width: 120px;
+  max-height: 80px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 /* Assistant card */
@@ -494,6 +510,75 @@
 
 .pillClear:hover {
   background: rgba(94, 92, 230, 0.25);
+}
+
+.attachedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.attachedThumb {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.attachedThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachedRemove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background 80ms ease;
+}
+
+.attachedRemove:hover {
+  background: #ef4444;
+}
+
+.fileInput {
+  display: none;
+}
+
+.attachBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: rgba(255, 255, 255, 0.5);
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 80ms ease;
+  padding: 0;
+}
+
+.attachBtn:hover {
+  color: #5e5ce6;
+  background: rgba(94, 92, 230, 0.12);
 }
 
 .inputRow {
