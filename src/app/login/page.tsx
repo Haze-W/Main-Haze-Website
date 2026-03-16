@@ -14,10 +14,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email, password);
+    setError(null);
+    setIsSubmitting(true);
+    const { error: err } = await login(email, password);
+    setIsSubmitting(false);
+    if (err) {
+      setError(err.message ?? "Sign in failed");
+      return;
+    }
     router.push("/dashboard");
   };
 
@@ -32,6 +41,11 @@ export default function LoginPage() {
             <Link href="/signup">Create an account</Link>
           </p>
           <form onSubmit={handleSubmit} className={styles.form}>
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
             <input
               type="email"
               className={styles.input}
@@ -57,8 +71,12 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            <button type="submit" className={styles.submitBtn}>
-              Log in
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Signing in…" : "Log in"}
             </button>
             <div className={styles.separator}>
               <span>Or continue with</span>

@@ -3,17 +3,17 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
+import { authClient } from "@/lib/auth-client";
 
-const AUTH_KEY = "render-auth";
-
-interface AuthUser {
+export interface AuthUser {
+  id: string;
   email: string;
-  name?: string;
+  name?: string | null;
+  image?: string | null;
 }
 
 interface AuthState {
@@ -23,64 +23,86 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (email: string, password?: string) => void;
-  signup: (email: string, name?: string, password?: string) => void;
-  logout: () => void;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ error?: { message: string } }>;
+  signup: (
+    email: string,
+    name?: string,
+    password?: string
+  ) => Promise<{ error?: { message: string } }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
+  const { data: session, isPending } = authClient.useSession();
 
-  useEffect(() => {
-    const load = () => {
-      try {
-        const stored = localStorage.getItem(AUTH_KEY);
-        if (stored) {
-          const data = JSON.parse(stored) as AuthUser;
-          setState({ user: data, isAuthenticated: true, isLoading: false });
-          return;
-        }
-      } catch {
-        // ignore
-      }
-      setState((s) => ({ ...s, isLoading: false }));
+  const user: AuthUser | null = useMemo(() => {
+    if (!session?.user) return null;
+    const u = session.user;
+    return {
+      id: u.id,
+      email: u.email ?? "",
+      name: u.name ?? null,
+      image: u.image ?? null,
     };
-    const t = setTimeout(load, 0);
-    return () => clearTimeout(t);
-  }, []);
+  }, [session?.user]);
 
-  const login = useCallback((email: string, _password?: string) => {
-    const user = { email, name: email.split("@")[0] };
-    localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-    setState({ user, isAuthenticated: true, isLoading: false });
-  }, []);
+  const isAuthenticated = !!session?.user;
 
-  const signup = useCallback(
-    (email: string, name?: string, _password?: string) => {
-      const user = { email, name: name || email.split("@")[0] };
-      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-      setState({ user, isAuthenticated: true, isLoading: false });
+  const login = useCallback(
+    async (email: string, password: string): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.email({
+        email,
+        password,
+        callbackURL: "/dashboard",
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Sign in failed" } };
+      }
+      return {};
     },
     []
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(AUTH_KEY);
-    setState({ user: null, isAuthenticated: false, isLoading: false });
+  const signup = useCallback(
+    async (
+      email: string,
+      name?: string,
+      password?: string
+    ): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signUp.email({
+        email,
+        password: password ?? "",
+        name: name ?? "",
+        callbackURL: "/dashboard",
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Sign up failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const logout = useCallback(async () => {
+    await authClient.signOut();
   }, []);
 
-  const value: AuthContextValue = {
-    ...state,
-    login,
-    signup,
-    logout,
-  };
+  const value: AuthContextValue = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      isLoading: isPending,
+      login,
+      signup,
+      logout,
+    }),
+    [user, isAuthenticated, isPending, login, signup, logout]
+  );
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
