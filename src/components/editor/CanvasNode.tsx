@@ -91,7 +91,7 @@ function renderComponentContent(node: CanvasNodeType) {
             name={iconName as React.ComponentProps<typeof DynamicLucideIcon>["name"]}
             size={iconSize}
             strokeWidth={strokeWidth}
-            fallback={<span style={{ fontSize: iconSize, color: iconColor }}>◆</span>}
+            fallback={() => <span style={{ fontSize: iconSize, color: iconColor }}>◆</span>}
           />
         </div>
       );
