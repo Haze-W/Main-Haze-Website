@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useDraggable } from "@dnd-kit/core";
 import type { CanvasNode as CanvasNodeType } from "@/lib/types";
 import { useEditorStore } from "@/lib/editor-store";
+import { getValidIconName } from "@/lib/icon-valid";
 import styles from "./CanvasNode.module.css";
 
 const DynamicLucideIcon = dynamic(
@@ -79,8 +80,8 @@ function renderComponentContent(node: CanvasNodeType) {
       );
     case "image":
       return <div className={styles.image}>🖼</div>;
-    case "icon":
-      const iconName = (props.iconName as string) ?? "star";
+    case "icon": {
+      const iconName = getValidIconName((props.iconName as string) ?? "star");
       const iconSize = (props.size as number) ?? 24;
       const iconColor = (props.color as string) ?? "currentColor";
       const strokeWidth = (props.strokeWidth as number) ?? 2;
@@ -90,9 +91,11 @@ function renderComponentContent(node: CanvasNodeType) {
             name={iconName as React.ComponentProps<typeof DynamicLucideIcon>["name"]}
             size={iconSize}
             strokeWidth={strokeWidth}
+            fallback={<span style={{ fontSize: iconSize, color: iconColor }}>◆</span>}
           />
         </div>
       );
+    }
     case "list":
       return <div className={styles.list}>List</div>;
     case "checkbox":

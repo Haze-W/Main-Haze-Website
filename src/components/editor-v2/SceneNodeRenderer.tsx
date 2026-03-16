@@ -142,7 +142,13 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         {...hoverHandlers}
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-        <DynamicIcon name={iconName as never} size={size} strokeWidth={1.5} style={{ color }} />
+        <DynamicIcon
+          name={iconName as never}
+          size={size}
+          strokeWidth={1.5}
+          style={{ color }}
+          fallback={<span style={{ fontSize: size, color }}>◆</span>}
+        />
       </div>
     );
   }
@@ -171,7 +177,12 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {variant === "icon" && (props.iconName as string) ? (
-          <DynamicIcon name={getValidIconName(props.iconName as string) as never} size={20} strokeWidth={2} />
+          <DynamicIcon
+            name={getValidIconName(props.iconName as string) as never}
+            size={20}
+            strokeWidth={2}
+            fallback={<span style={{ fontSize: 20 }}>◆</span>}
+          />
         ) : label}
       </div>
     );

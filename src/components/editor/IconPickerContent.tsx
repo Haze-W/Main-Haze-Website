@@ -169,6 +169,7 @@ function IconCell({
         name={getValidIconName(name) as React.ComponentProps<typeof DynamicIcon>["name"]}
         size={24}
         strokeWidth={1.5}
+        fallback={<span style={{ fontSize: 24 }}>◆</span>}
       />
       <span className={styles.iconLabel}>{name}</span>
     </button>
