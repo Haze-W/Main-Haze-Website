@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password: password ?? "",
         name: name ?? "",
-        callbackURL: "/dashboard",
+        callbackURL: "/onboarding",
       });
       if (result.error) {
         return { error: { message: result.error.message ?? "Sign up failed" } };
