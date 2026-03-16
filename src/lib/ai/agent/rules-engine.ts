@@ -28,16 +28,66 @@ export function snapToGrid(value: number, colWidth: number): number {
   return Math.round(value / colWidth) * colWidth;
 }
 
+function rectsOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function fixOverlappingSiblings(children: AIUIElement[]): AIUIElement[] {
+  const result = [...children];
+  const gap = 16;
+  const maxIterations = result.length * result.length + 1;
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    let hasOverlap = false;
+    for (let i = 0; i < result.length; i++) {
+      for (let j = i + 1; j < result.length; j++) {
+        const a = result[i];
+        const b = result[j];
+        if (rectsOverlap(a, b)) {
+          const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+          if (overlapY > 0) {
+            result[j] = { ...b, y: a.y + a.height + gap };
+            hasOverlap = true;
+          }
+        }
+      }
+    }
+    if (!hasOverlap) break;
+  }
+
+  return result;
+}
+
+function clampToParentBounds(
+  el: AIUIElement,
+  parentWidth: number,
+  parentHeight: number
+): AIUIElement {
+  let { x, y, width, height } = el;
+  if (x + width > parentWidth) width = Math.max(20, parentWidth - x);
+  if (y + height > parentHeight) height = Math.max(20, parentHeight - y);
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  return { ...el, x, y, width, height };
+}
+
 export function validateAndFixFrame(frame: AIUIFrame): AIUIFrame {
   const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, frame.width));
   const height = Math.max(600, Math.min(2000, frame.height));
   const background = frame.background || "#ffffff";
 
+  let children = frame.children.map((c) => validateAndFixElement(c, width, height));
+  children = fixOverlappingSiblings(children);
+  children = children.map((c) => clampToParentBounds(c, width, height));
+
   return {
     width,
     height,
     background,
-    children: frame.children.map(validateAndFixElement),
+    children,
   };
 }
 

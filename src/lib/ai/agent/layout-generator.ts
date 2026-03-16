@@ -5,9 +5,15 @@
  */
 
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
-import { parsePrompt } from "./prompt-parser";
+import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import { DEFAULT_WIDTH } from "../schema/ui-schema";
+
+export interface LayoutGeneratorOptions {
+  apiKey?: string;
+  model?: string;
+  style?: "light" | "dark";
+}
 
 const DRIBBBLE_EXAMPLE_1 = `{
   "frame": {
@@ -181,11 +187,14 @@ RULES:
 - Sidebar at x=0, topbar at x=sidebar_width. Content starts at y=topbar_height.
 - When generating cards: use 3-4 cards in a row, each 320x180, gap 24px.`;
 
-function buildUserPrompt(parsed: ReturnType<typeof parsePrompt>): string {
+function buildUserPrompt(parsed: ReturnType<typeof parsePromptWithOptions>): string {
   const comps = parsed.components.join(", ");
   const domain = parsed.domain ? ` Context: ${parsed.domain}.` : "";
+  const themeHint = parsed.theme === "dark"
+    ? "Dark theme: background #0d0f12, cards #1a1b23, sidebar #151620, text #e6edf3, muted #8b949e."
+    : "Light background (#f8fafc or #f1f5f9).";
   return `Generate a ${parsed.style} desktop UI with: ${comps}.${domain}
-Frame: 1440x900. Light background (#f8fafc or #f1f5f9).
+Frame: 1440x900. ${themeHint}
 Match the quality and structure of the examples. Return ONLY the JSON object.`;
 }
 
@@ -213,9 +222,9 @@ function parseLayoutResponse(content: string): AIUILayout | null {
 
 export async function generateLayoutFromPrompt(
   prompt: string,
-  options?: { apiKey?: string; model?: string }
+  options?: LayoutGeneratorOptions
 ): Promise<AIUILayout> {
-  const parsed = parsePrompt(prompt);
+  const parsed = parsePromptWithOptions(prompt, { theme: options?.style });
   const userPrompt = buildUserPrompt(parsed);
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
@@ -225,8 +234,12 @@ export async function generateLayoutFromPrompt(
     return getFallbackLayout(parsed);
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      signal: controller.signal,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -249,6 +262,7 @@ export async function generateLayoutFromPrompt(
     });
 
     if (!response.ok) {
+      clearTimeout(timeoutId);
       const err = await response.text();
       console.error("OpenAI API error:", err);
       return getFallbackLayout(parsed);
@@ -256,21 +270,60 @@ export async function generateLayoutFromPrompt(
 
     const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) return getFallbackLayout(parsed);
+    if (!content) {
+      clearTimeout(timeoutId);
+      return getFallbackLayout(parsed);
+    }
 
     const layout = parseLayoutResponse(content);
-    if (!layout) return getFallbackLayout(parsed);
+    if (!layout) {
+      clearTimeout(timeoutId);
+      return getFallbackLayout(parsed);
+    }
 
     layout.frame = validateAndFixFrame(layout.frame);
     layout.metadata = { ...layout.metadata, prompt };
+    clearTimeout(timeoutId);
     return layout;
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error("Layout generation error:", err);
     return getFallbackLayout(parsed);
   }
 }
 
-function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
+type ThemeColors = {
+  bg: string;
+  card: string;
+  sidebar: string;
+  topbar: string;
+  text: string;
+  muted: string;
+};
+
+function getThemeColors(theme: "light" | "dark"): ThemeColors {
+  return theme === "dark"
+    ? {
+        bg: "#0d0f12",
+        card: "#1a1b23",
+        sidebar: "#151620",
+        topbar: "#0d0f12",
+        text: "#e6edf3",
+        muted: "#8b949e",
+      }
+    : {
+        bg: "#f8fafc",
+        card: "#ffffff",
+        sidebar: "#0f172a",
+        topbar: "#ffffff",
+        text: "#0f172a",
+        muted: "#64748b",
+      };
+}
+
+function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): AIUILayout {
+  const theme = parsed.theme ?? "dark";
+  const colors = getThemeColors(theme);
   const hasSidebar = parsed.components.includes("sidebar");
   const hasTopbar =
     parsed.components.includes("topbar") || parsed.components.includes("navbar");
@@ -282,11 +335,13 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
   const contentH = 900 - topbarHeight;
 
   const children: AIUIElement[] = [];
+  const navColor = theme === "dark" ? "#e6edf3" : "#ffffff";
+  const navMuted = theme === "dark" ? "#8b949e" : "#94a3b8";
 
   const navItems = [
-    { icon: "layout-dashboard", text: "Dashboard", color: "#ffffff" },
-    { icon: "bar-chart-2", text: "Analytics", color: "#94a3b8" },
-    { icon: "settings", text: "Settings", color: "#94a3b8" },
+    { icon: "layout-dashboard", text: "Dashboard", color: navColor },
+    { icon: "bar-chart-2", text: "Analytics", color: navMuted },
+    { icon: "settings", text: "Settings", color: navMuted },
   ];
 
   if (hasSidebar) {
@@ -323,7 +378,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
       y: 0,
       width: sidebarWidth,
       height: 900,
-      backgroundColor: "#0f172a",
+      backgroundColor: colors.sidebar,
       children: sidebarChildren,
     });
   }
@@ -336,7 +391,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
       y: 0,
       width: contentW,
       height: topbarHeight,
-      backgroundColor: "#ffffff",
+      backgroundColor: colors.topbar,
       children: [
         {
           id: "logo_icon",
@@ -346,7 +401,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
           width: 28,
           height: 28,
           props: { iconName: "layout-dashboard" },
-          color: "#0f172a",
+          color: theme === "dark" ? "#5e5ce6" : "#0f172a",
         },
         {
           id: "logo",
@@ -356,7 +411,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
           width: 140,
           height: 32,
           text: parsed.domain ? parsed.domain : "App",
-          color: "#0f172a",
+          color: colors.text,
         },
       ],
     });
@@ -364,6 +419,14 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
 
   const hasCards = parsed.components.includes("card");
   const hasHero = parsed.components.includes("hero");
+  const hasForm = parsed.components.includes("form");
+  const hasTable = parsed.components.includes("table");
+  const hasPricing = parsed.components.includes("pricing");
+  const hasLogin = parsed.components.includes("login");
+  const hasModal = parsed.components.includes("modal");
+  const hasGallery = parsed.components.includes("gallery");
+  const hasSettings = parsed.components.includes("settings");
+
   const cardW = 320;
   const cardH = 180;
   const gap = 24;
@@ -389,7 +452,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
         y: startY + row * (cardH + gap),
         width: cardW,
         height: cardH,
-        backgroundColor: "#ffffff",
+        backgroundColor: colors.card,
         styles: { padding: 24, borderRadius: 12 },
         children: [
           {
@@ -400,7 +463,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
             width: 24,
             height: 24,
             props: { iconName: data.icon },
-            color: "#64748b",
+            color: colors.muted,
           },
           {
             id: `card_title_${i + 1}`,
@@ -410,7 +473,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
             width: cardW - 80,
             height: 20,
             text: data.label,
-            color: "#64748b",
+            color: colors.muted,
           },
           {
             id: `card_value_${i + 1}`,
@@ -420,14 +483,172 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
             width: cardW - 48,
             height: 36,
             text: data.value,
-            color: "#0f172a",
+            color: colors.text,
           },
         ],
       });
     }
   }
 
-  if (hasHero && !hasCards) {
+  if (hasLogin && !hasCards && !hasForm) {
+    children.push({
+      id: "login_1",
+      type: "frame",
+      x: contentX + (contentW - 420) / 2,
+      y: contentY + 80,
+      width: 420,
+      height: 480,
+      backgroundColor: colors.card,
+      styles: { padding: 32, borderRadius: 12 },
+      children: [
+        { id: "login_title", type: "text", x: 32, y: 32, width: 356, height: 28, text: "Welcome back", color: colors.text },
+        { id: "login_sub", type: "text", x: 32, y: 68, width: 356, height: 20, text: "Sign in to your account", color: colors.muted },
+        { id: "login_email_l", type: "text", x: 32, y: 112, width: 356, height: 16, text: "Email", color: colors.text },
+        { id: "login_email", type: "input", x: 32, y: 134, width: 356, height: 44, text: "", color: colors.text },
+        { id: "login_pass_l", type: "text", x: 32, y: 194, width: 356, height: 16, text: "Password", color: colors.text },
+        { id: "login_pass", type: "input", x: 32, y: 216, width: 356, height: 44, text: "", color: colors.text },
+        { id: "login_btn", type: "button", x: 32, y: 288, width: 356, height: 48, text: "Sign In", color: "#ffffff" },
+      ],
+    });
+  }
+
+  if (hasForm && !hasLogin) {
+    children.push({
+      id: "form_1",
+      type: "frame",
+      x: contentX + 48,
+      y: contentY + 48,
+      width: 480,
+      height: 420,
+      backgroundColor: colors.card,
+      styles: { padding: 32, borderRadius: 12 },
+      children: [
+        { id: "form_title", type: "text", x: 32, y: 24, width: 416, height: 24, text: "Contact Form", color: colors.text },
+        { id: "form_name_l", type: "text", x: 32, y: 72, width: 416, height: 16, text: "Name", color: colors.text },
+        { id: "form_name", type: "input", x: 32, y: 94, width: 416, height: 44, text: "", color: colors.text },
+        { id: "form_email_l", type: "text", x: 32, y: 154, width: 416, height: 16, text: "Email", color: colors.text },
+        { id: "form_email", type: "input", x: 32, y: 176, width: 416, height: 44, text: "", color: colors.text },
+        { id: "form_msg_l", type: "text", x: 32, y: 236, width: 416, height: 16, text: "Message", color: colors.text },
+        { id: "form_msg", type: "input", x: 32, y: 258, width: 416, height: 80, text: "", color: colors.text },
+        { id: "form_btn", type: "button", x: 32, y: 358, width: 120, height: 44, text: "Submit", color: "#ffffff" },
+      ],
+    });
+  }
+
+  if (hasTable) {
+    const tableY = hasCards ? startY + 2 * (cardH + gap) : contentY + 48;
+    children.push({
+      id: "table_1",
+      type: "frame",
+      x: contentX + 48,
+      y: tableY,
+      width: contentW - 96,
+      height: 320,
+      backgroundColor: colors.card,
+      styles: { padding: 24, borderRadius: 12 },
+      children: [
+        { id: "table_title", type: "text", x: 24, y: 16, width: 400, height: 24, text: "Data Table", color: colors.text },
+        { id: "table_h1", type: "text", x: 24, y: 56, width: 200, height: 20, text: "Name", color: colors.muted },
+        { id: "table_h2", type: "text", x: 224, y: 56, width: 200, height: 20, text: "Status", color: colors.muted },
+        { id: "table_h3", type: "text", x: 424, y: 56, width: 200, height: 20, text: "Date", color: colors.muted },
+        { id: "table_r1", type: "text", x: 24, y: 92, width: 200, height: 20, text: "Project Alpha", color: colors.text },
+        { id: "table_r2", type: "text", x: 24, y: 128, width: 200, height: 20, text: "Project Beta", color: colors.text },
+        { id: "table_r3", type: "text", x: 24, y: 164, width: 200, height: 20, text: "Project Gamma", color: colors.text },
+      ],
+    });
+  }
+
+  if (hasPricing) {
+    const pricingY = contentY + 48;
+    const planW = 280;
+    const planGap = 32;
+    const plans = [
+      { name: "Starter", price: "$9", desc: "For individuals" },
+      { name: "Pro", price: "$29", desc: "For teams" },
+      { name: "Enterprise", price: "$99", desc: "For organizations" },
+    ];
+    plans.forEach((plan, i) => {
+      children.push({
+        id: `pricing_${i + 1}`,
+        type: "card",
+        x: contentX + 48 + i * (planW + planGap),
+        y: pricingY,
+        width: planW,
+        height: 280,
+        backgroundColor: colors.card,
+        styles: { padding: 24, borderRadius: 12 },
+        children: [
+          { id: `plan_title_${i + 1}`, type: "text", x: 24, y: 24, width: 232, height: 24, text: plan.name, color: colors.text },
+          { id: `plan_price_${i + 1}`, type: "text", x: 24, y: 56, width: 232, height: 36, text: plan.price + "/mo", color: colors.text },
+          { id: `plan_desc_${i + 1}`, type: "text", x: 24, y: 104, width: 232, height: 20, text: plan.desc, color: colors.muted },
+          { id: `plan_btn_${i + 1}`, type: "button", x: 24, y: 200, width: 232, height: 44, text: "Get Started", color: "#ffffff" },
+        ],
+      });
+    });
+  }
+
+  if (hasSettings && !hasSidebar) {
+    children.push({
+      id: "settings_1",
+      type: "settings",
+      x: contentX + 48,
+      y: contentY + 48,
+      width: contentW - 96,
+      height: 500,
+      backgroundColor: colors.card,
+      styles: { padding: 32, borderRadius: 12 },
+      children: [
+        { id: "set_title", type: "text", x: 32, y: 24, width: 400, height: 28, text: "Settings", color: colors.text },
+        { id: "set_name_l", type: "text", x: 32, y: 80, width: 200, height: 16, text: "Display Name", color: colors.text },
+        { id: "set_name", type: "input", x: 32, y: 102, width: 380, height: 44, text: "", color: colors.text },
+        { id: "set_email_l", type: "text", x: 32, y: 166, width: 200, height: 16, text: "Email", color: colors.text },
+        { id: "set_email", type: "input", x: 32, y: 188, width: 380, height: 44, text: "", color: colors.text },
+        { id: "set_btn", type: "button", x: 32, y: 260, width: 150, height: 44, text: "Save Changes", color: "#ffffff" },
+      ],
+    });
+  }
+
+  if (hasGallery) {
+    const galleryY = contentY + 48;
+    const imgW = 200;
+    const imgH = 140;
+    const imgGap = 16;
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 4; c++) {
+        children.push({
+          id: `gallery_${r}_${c}`,
+          type: "image",
+          x: contentX + 48 + c * (imgW + imgGap),
+          y: galleryY + r * (imgH + imgGap),
+          width: imgW,
+          height: imgH,
+          backgroundColor: colors.muted,
+          children: [],
+        });
+      }
+    }
+  }
+
+  if (hasModal) {
+    children.push({
+      id: "modal_1",
+      type: "modal",
+      x: (DEFAULT_WIDTH - 400) / 2,
+      y: 200,
+      width: 400,
+      height: 280,
+      backgroundColor: colors.card,
+      styles: { padding: 24, borderRadius: 12 },
+      children: [
+        { id: "modal_title", type: "text", x: 24, y: 24, width: 352, height: 24, text: "Confirm Action", color: colors.text },
+        { id: "modal_desc", type: "text", x: 24, y: 60, width: 352, height: 48, text: "Are you sure you want to proceed?", color: colors.muted },
+        { id: "modal_cancel", type: "button", x: 24, y: 200, width: 100, height: 40, text: "Cancel", color: colors.text },
+        { id: "modal_confirm", type: "button", x: 260, y: 200, width: 116, height: 40, text: "Confirm", color: "#ffffff" },
+      ],
+    });
+  }
+
+  if (hasHero && !hasCards && !hasLogin) {
     children.push({
       id: "hero_1",
       type: "hero",
@@ -435,7 +656,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
       y: contentY + 48,
       width: contentW - 96,
       height: 280,
-      backgroundColor: "#0f172a",
+      backgroundColor: theme === "dark" ? "#1a1b23" : "#0f172a",
       children: [
         {
           id: "hero_title",
@@ -469,7 +690,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
       y: 48,
       width: DEFAULT_WIDTH - 96,
       height: 400,
-      backgroundColor: "#ffffff",
+      backgroundColor: colors.card,
       children: [
         {
           id: "title_1",
@@ -479,7 +700,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
           width: 400,
           height: 32,
           text: "Content",
-          color: "#0f172a",
+          color: colors.text,
         },
       ],
     });
@@ -489,7 +710,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
     frame: validateAndFixFrame({
       width: DEFAULT_WIDTH,
       height: 900,
-      background: "#f8fafc",
+      background: colors.bg,
       children,
     }),
     metadata: {

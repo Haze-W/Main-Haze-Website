@@ -1,19 +1,45 @@
 /**
  * AI UI Generation API
  * POST /api/ai/generate
- * Body: { prompt: string }
+ * Body: { prompt: string, model?: string, style?: "light" | "dark" }
  * Returns: { nodes: SceneNode[] }
  */
 
 import { NextResponse } from "next/server";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
 import { aiLayoutToSceneNodes } from "@/lib/ai/schema/adapter";
+import { coralGenerate } from "@/lib/ai/coral-engine";
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+const requestTimestamps: number[] = [];
+
+function checkRateLimit(): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  while (requestTimestamps.length > 0 && requestTimestamps[0] < cutoff) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  requestTimestamps.push(now);
+  return true;
+}
 
 export async function POST(req: Request) {
   try {
+    if (!checkRateLimit()) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again in a minute." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body.model === "string" ? body.model : undefined;
+    const style = body.style === "light" || body.style === "dark" ? body.style : undefined;
 
     if (!prompt) {
       return NextResponse.json(
@@ -22,7 +48,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const layout = await generateLayoutFromPrompt(prompt, { model });
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      const coralResult = coralGenerate({
+        prompt,
+        mode: "ui",
+        nodes: [],
+        projectName: "Untitled",
+      });
+      if (coralResult.action === "GENERATE_UI" && coralResult.nodes && coralResult.nodes.length > 0) {
+        return NextResponse.json({
+          nodes: coralResult.nodes,
+          metadata: { source: "coral", generatedAt: new Date().toISOString() },
+        });
+      }
+    }
+
+    const layout = await generateLayoutFromPrompt(prompt, { model, style });
     const nodes = aiLayoutToSceneNodes(layout);
 
     return NextResponse.json({
@@ -31,8 +74,9 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("AI generate error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to generate UI" },
+      { error: message.includes("abort") ? "Request timed out. Please try again." : "Failed to generate UI" },
       { status: 500 }
     );
   }

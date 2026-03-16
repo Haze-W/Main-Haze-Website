@@ -6,6 +6,7 @@ export interface ParsedPrompt {
   intent: string;
   components: string[];
   style: string;
+  theme: "light" | "dark";
   domain?: string;
   raw: string;
 }
@@ -57,11 +58,28 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   );
   const domain = domainMatch?.[1] ?? undefined;
 
+  const hasDark = lower.includes("dark") || lower.includes("dark mode") || lower.includes("dark theme");
+  const hasLight = lower.includes("light") || lower.includes("light mode");
+  const theme = hasDark ? "dark" : hasLight ? "light" : "dark";
+
   return {
     intent: lower,
     components: components.length > 0 ? components : ["dashboard", "sidebar", "topbar", "card"],
     style: styles.length > 0 ? styles[0] : "modern",
+    theme,
     domain,
     raw: prompt,
   };
+}
+
+/** Parse with optional theme override (from UI) */
+export function parsePromptWithOptions(
+  prompt: string,
+  options?: { theme?: "light" | "dark" }
+): ParsedPrompt {
+  const parsed = parsePrompt(prompt);
+  if (options?.theme) {
+    parsed.theme = options.theme;
+  }
+  return parsed;
 }

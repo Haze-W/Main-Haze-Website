@@ -48,9 +48,9 @@ import { CodePanel } from "@/components/editor/CodePanel";
 import { SettingsPanel } from "@/components/editor/SettingsPanel";
 import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
-import { ComponentsPanel } from "./ComponentsPanel";
-import { PropertiesPanel } from "./PropertiesPanel";
-import { PreviewPanel } from "./PreviewPanel";
+import { ComponentsPanel } from "@/components/editor-v2/ComponentsPanel";
+import { PropertiesPanel } from "@/components/editor-v2/PropertiesPanel";
+import { PreviewPanel } from "@/components/editor-v2/PreviewPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
@@ -817,9 +817,17 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-                onAIGenerate={(nodes) => {
-                  useEditorStore.getState().setNodes(nodes);
-                  useEditorStore.getState().pushHistory();
+                onAIGenerate={(nodes, options) => {
+                  const s = useEditorStore.getState();
+                  const mode = options?.mode ?? "append";
+                  if (mode === "replace") {
+                    s.setNodes(nodes);
+                  } else {
+                    const { panX } = s.viewport;
+                    const offset = nodes.map((n) => ({ ...n, x: n.x + panX * -1, y: n.y }));
+                    s.setNodes([...s.nodes, ...offset]);
+                  }
+                  s.pushHistory();
                 }}
               />
             )}
