@@ -21,6 +21,8 @@ import {
   Sparkles,
   RotateCcw,
   ExternalLink,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEditorStore } from "@/lib/editor/store";
@@ -29,10 +31,16 @@ import styles from "./AIPanel.module.css";
 
 type SlashMode = "ui" | "backend" | "agent" | "fix" | null;
 
+interface AttachedImage {
+  id: string;
+  dataUrl: string;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: AttachedImage[];
   action?: "GENERATE_UI" | "GENERATE_CODE" | "ANSWER" | "FIX";
   nodes?: SceneNode[];
   rust?: string;
@@ -86,8 +94,10 @@ export function AIPanel() {
   const [agent, setAgent] = useState("coral-1");
   const [showAgents, setShowAgents] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
 
   const threadRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
 
@@ -129,11 +139,31 @@ export function AIPanel() {
     s.pushHistory();
   }, []);
 
+  const addImageFromFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAttachedImages((prev) => [...prev, { id: nanoid(), dataUrl }]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const removeAttachedImage = useCallback((id: string) => {
+    setAttachedImages((prev) => prev.filter((img) => img.id !== id));
+  }, []);
+
   const send = useCallback(async (text: string, m: SlashMode) => {
-    if (!text.trim()) return;
-    const userMsg: Message = { id: nanoid(), role: "user", content: text.trim() };
+    if (!text.trim() && attachedImages.length === 0) return;
+    const userMsg: Message = {
+      id: nanoid(),
+      role: "user",
+      content: text.trim() || "(image attached)",
+      images: attachedImages.length > 0 ? [...attachedImages] : undefined,
+    };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setAttachedImages([]);
     setLoading(true);
 
     const lid = nanoid();
@@ -172,7 +202,7 @@ export function AIPanel() {
     } finally {
       setLoading(false);
     }
-  }, [messages, addNodesToCanvas, applyFixes]);
+  }, [messages, addNodesToCanvas, applyFixes, attachedImages]);
 
   const onInput = (val: string) => {
     setInput(val);
@@ -195,8 +225,28 @@ export function AIPanel() {
       if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); if (filtered[slashIdx]) pickSlash(filtered[slashIdx]); return; }
       if (e.key === "Escape") { e.preventDefault(); setShowSlash(false); return; }
     }
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading && input.trim()) send(input, mode); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading && (input.trim() || attachedImages.length > 0)) send(input, mode); }
   };
+
+  const onPaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) addImageFromFile(file);
+        break;
+      }
+    }
+  }, [addImageFromFile]);
+
+  const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    for (let i = 0; i < files.length; i++) addImageFromFile(files[i]);
+    e.target.value = "";
+  }, [addImageFromFile]);
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => { setCopied(id); setTimeout(() => setCopied(null), 2000); });
@@ -210,7 +260,20 @@ export function AIPanel() {
   const renderMsg = (msg: Message) => {
     if (msg.loading) return <div className={styles.loadingDots}><div className={styles.loadDot} /><div className={styles.loadDot} /><div className={styles.loadDot} /></div>;
 
-    if (msg.role === "user") return <div className={styles.userBubble}>{msg.content}</div>;
+    if (msg.role === "user") {
+      return (
+        <div className={styles.userBubble}>
+          {msg.images && msg.images.length > 0 && (
+            <div className={styles.msgImages}>
+              {msg.images.map((img) => (
+                <img key={img.id} src={img.dataUrl} alt="Attached" className={styles.msgImage} />
+              ))}
+            </div>
+          )}
+          {msg.content && <span>{msg.content}</span>}
+        </div>
+      );
+    }
 
     if (msg.error) return (
       <div className={`${styles.assistantCard} ${styles.errorCard}`}>
@@ -318,7 +381,7 @@ export function AIPanel() {
       ) : (
         <div className={styles.empty}>
           <Sparkles size={28} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Render AI</p>
+          <p className={styles.emptyTitle}>Coral AI</p>
           <p className={styles.emptyDesc}>Type a message or use / commands.</p>
           <div className={styles.chipGroups}>
             {CHIPS.map((g) => (
@@ -364,11 +427,34 @@ export function AIPanel() {
           </div>
         )}
 
+        {attachedImages.length > 0 && (
+          <div className={styles.attachedRow}>
+            {attachedImages.map((img) => (
+              <div key={img.id} className={styles.attachedThumb}>
+                <img src={img.dataUrl} alt="Attached" />
+                <button type="button" className={styles.attachedRemove} onClick={() => removeAttachedImage(img.id)} title="Remove">
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className={styles.inputRow}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className={styles.fileInput}
+            onChange={onFileChange}
+          />
+          <button type="button" className={styles.attachBtn} onClick={() => fileInputRef.current?.click()} title="Upload image (or paste)">
+            <ImagePlus size={16} />
+          </button>
           <textarea ref={taRef} className={styles.textarea}
-            placeholder={mode ? `Message (${mode})...` : "Message or type /..."}
-            value={input} onChange={(e) => onInput(e.target.value)} onKeyDown={onKey} rows={1} />
-          <button className={styles.sendBtn} disabled={loading || !input.trim()} onClick={() => send(input, mode)}>
+            placeholder={mode ? `Message (${mode})...` : "Message, paste image, or type /..."}
+            value={input} onChange={(e) => onInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={1} />
+          <button className={styles.sendBtn} disabled={loading || (!input.trim() && attachedImages.length === 0)} onClick={() => send(input, mode)}>
             <ArrowUp size={13} strokeWidth={2.5} />
           </button>
         </div>

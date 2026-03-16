@@ -817,18 +817,6 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-                onAIGenerate={(nodes, options) => {
-                  const s = useEditorStore.getState();
-                  const mode = options?.mode ?? "append";
-                  if (mode === "replace") {
-                    s.setNodes(nodes);
-                  } else {
-                    const { panX } = s.viewport;
-                    const offset = nodes.map((n) => ({ ...n, x: n.x + panX * -1, y: n.y }));
-                    s.setNodes([...s.nodes, ...offset]);
-                  }
-                  s.pushHistory();
-                }}
               />
             )}
           </aside>
