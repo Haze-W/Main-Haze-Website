@@ -12,6 +12,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
+  onboardingCompleted: boolean("onboardingCompleted").notNull().default(false),
+  preferredRuntime: text("preferredRuntime"),
+  preferredLanguage: text("preferredLanguage"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });

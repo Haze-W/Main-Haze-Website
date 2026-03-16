@@ -14,6 +14,9 @@ export interface AuthUser {
   email: string;
   name?: string | null;
   image?: string | null;
+  onboardingCompleted?: boolean;
+  preferredRuntime?: string | null;
+  preferredLanguage?: string | null;
 }
 
 interface AuthState {
@@ -42,12 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user: AuthUser | null = useMemo(() => {
     if (!session?.user) return null;
-    const u = session.user;
+    const u = session.user as AuthUser;
     return {
       id: u.id,
       email: u.email ?? "",
       name: u.name ?? null,
       image: u.image ?? null,
+      onboardingCompleted: u.onboardingCompleted ?? false,
+      preferredRuntime: u.preferredRuntime ?? null,
+      preferredLanguage: u.preferredLanguage ?? null,
     };
   }, [session?.user]);
 

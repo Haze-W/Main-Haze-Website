@@ -1,7 +1,7 @@
 /**
  * AI UI Generation API
  * POST /api/ai/generate
- * Body: { prompt: string, model?: string, style?: "light" | "dark" }
+ * Body: { prompt: string, model?: string, style?: "light" | "dark", runtimeTarget?: string, languageTarget?: string }
  * Returns: { nodes: SceneNode[] }
  */
 
@@ -40,6 +40,8 @@ export async function POST(req: Request) {
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body.model === "string" ? body.model : undefined;
     const style = body.style === "light" || body.style === "dark" ? body.style : undefined;
+    const runtimeTarget = typeof body.runtimeTarget === "string" ? body.runtimeTarget : undefined;
+    const languageTarget = typeof body.languageTarget === "string" ? body.languageTarget : undefined;
 
     if (!prompt) {
       return NextResponse.json(
@@ -65,7 +67,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const layout = await generateLayoutFromPrompt(prompt, { model, style });
+    const layout = await generateLayoutFromPrompt(prompt, {
+      model,
+      style,
+      runtimeTarget,
+      languageTarget,
+    });
     const nodes = aiLayoutToSceneNodes(layout);
 
     return NextResponse.json({

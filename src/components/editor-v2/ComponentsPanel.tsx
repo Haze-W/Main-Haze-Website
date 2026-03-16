@@ -13,6 +13,8 @@ interface ComponentsPanelProps {
   onAddComponent: (key: string, x?: number, y?: number) => void;
   onOpenIconPicker: () => void;
   onAIGenerate?: (nodes: SceneNode[], options?: { mode: AIGenerateMode }) => void;
+  defaultRuntimeTarget?: string | null;
+  defaultLanguageTarget?: string | null;
 }
 
 function DraggableComponent({
@@ -73,7 +75,13 @@ const AI_STYLES = [
   { value: "dark", label: "Dark" },
 ];
 
-export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate }: ComponentsPanelProps) {
+export function ComponentsPanel({
+  onAddComponent,
+  onOpenIconPicker,
+  onAIGenerate,
+  defaultRuntimeTarget,
+  defaultLanguageTarget,
+}: ComponentsPanelProps) {
   const [search, setSearch] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -94,6 +102,8 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
           prompt: aiPrompt.trim(),
           model: aiModel,
           style: aiStyle,
+          runtimeTarget: defaultRuntimeTarget,
+          languageTarget: defaultLanguageTarget,
         }),
       });
       const data = await res.json();
@@ -142,6 +152,16 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
             <Wand2 size={14} />
             AI Generate
           </div>
+          {(defaultRuntimeTarget || defaultLanguageTarget) && (
+            <div className={styles.aiDefaultHints}>
+              {defaultRuntimeTarget && (
+                <span className={styles.aiHintChip}>Runtime: {defaultRuntimeTarget}</span>
+              )}
+              {defaultLanguageTarget && (
+                <span className={styles.aiHintChip}>Language: {defaultLanguageTarget}</span>
+              )}
+            </div>
+          )}
           <div className={styles.aiOptions}>
             <div className={styles.aiOptionRow}>
               <span className={styles.aiOptionLabel}>Add to canvas</span>
