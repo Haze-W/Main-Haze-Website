@@ -260,8 +260,6 @@ export function EditorShell() {
   const [editingName, setEditingName] = useState(false);
   const [userRuntimeTarget, setUserRuntimeTarget] = useState<string | null>(null);
   const [userLanguageTarget, setUserLanguageTarget] = useState<string | null>(null);
-  const [projectRuntimeTarget, setProjectRuntimeTarget] = useState<string | null>(null);
-  const [projectLanguageTarget, setProjectLanguageTarget] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -342,8 +340,6 @@ export function EditorShell() {
       const project = getProject(projectId);
       if (!project) return;
       setProjectName(project.name || "Untitled");
-      setProjectRuntimeTarget(project.runtimeTarget ?? null);
-      setProjectLanguageTarget(project.languageTarget ?? null);
       if (project.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
         setNodes(project.nodes as Parameters<typeof setNodes>[0]);
       }
@@ -864,8 +860,8 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-                defaultRuntimeTarget={projectRuntimeTarget ?? userRuntimeTarget}
-                defaultLanguageTarget={projectLanguageTarget ?? userLanguageTarget}
+                defaultRuntimeTarget={userRuntimeTarget}
+                defaultLanguageTarget={userLanguageTarget}
                 onAIGenerate={(nodes, options) => {
                   const s = useEditorStore.getState();
                   const mode = options?.mode ?? "append";

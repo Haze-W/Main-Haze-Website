@@ -21,7 +21,7 @@ export default function ProjectsPage() {
     <div className={styles.section}>
       <h1>Projects</h1>
       <div className={styles.projectGrid}>
-        <Link href="/dashboard/projects/new" className={styles.projectCardNew}>
+        <Link href="/editor" className={styles.projectCardNew}>
           <span className={styles.plusIcon}>+</span>
           <span>Create New Project</span>
         </Link>
@@ -51,7 +51,7 @@ export default function ProjectsPage() {
             key={tpl.id}
             type="button"
             className={styles.templateCard}
-            onClick={() => (window.location.href = `/dashboard/projects/new?template=${tpl.id}`)}
+            onClick={() => (window.location.href = `/editor?template=${tpl.id}`)}
           >
             <div className={styles.templatePreview}>
               {tpl.id === "blank" && <span className={styles.templateIcon}>□</span>}
