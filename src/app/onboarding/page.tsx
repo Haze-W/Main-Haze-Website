@@ -88,7 +88,7 @@ export default function OnboardingPage() {
 
   return (
     <OnboardingWizard
-      heading="Welcome to Render"
+      heading="Welcome to Haze"
       description="Set your defaults once, then generate desktop app UI faster from prompts and designs."
       runtimeOptions={RUNTIME_WIZARD_OPTIONS}
       languageOptions={LANGUAGE_WIZARD_OPTIONS}

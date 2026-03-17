@@ -1038,7 +1038,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       return (
         <div className={styles.codeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Render"</span></div>
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Haze"</span></div>
           <div className={styles.codeLine}><span style={{ color: "#f97316" }}>export</span> <span style={{ color: "#f97316" }}>default</span> app</div>
         </div>
       );

@@ -32,7 +32,7 @@ interface OnboardingWizardProps {
 const STEPS: StepContent[] = [
   {
     title: "Runtime target",
-    subtitle: "Choose where Render should optimize your generated app output.",
+    subtitle: "Choose where Haze should optimize your generated app output.",
   },
   {
     title: "Language preference",

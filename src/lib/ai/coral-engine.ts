@@ -1,5 +1,5 @@
 /**
- * Coral 1.0 — Custom local AI engine for Render
+ * Coral 1.0 — Custom local AI engine for Haze
  * No external API calls. Pattern-matching + template generation.
  */
 
@@ -412,7 +412,7 @@ function handleBackendMode(prompt: string): CoralResponse {
       text: "Your chatbot is wired to GPT! In Preview: add your OpenAI API key (Settings or the bar above messages), click Save, then chat. Export to get a standalone app. The chat calls /api/ai/chat-completions with your key.",
       js: `// Chat is already wired in the exported app. Uses /api/ai/chat-completions.
 // Add your OpenAI API key in the chat area (or Settings) and click Save.
-// Key is stored in localStorage['render-openai-api-key'].
+// Key is stored in localStorage['haze-openai-api-key'].
 // To customize: edit the _wireChat function in scene-export.`,
       deps: [],
     };
@@ -585,7 +585,7 @@ const KNOWLEDGE_BASE: { keywords: string[]; answer: string }[] = [
   },
   {
     keywords: ["state", "store", "persist", "storage", "data"],
-    answer: "**State Management in Tauri 2:**\n\nFor frontend state: Use Zustand (like Render does), Redux, or any React state library.\n\nFor persistent storage:\n- `@tauri-apps/plugin-store` — key-value store that persists to disk\n- `tauri::State` in Rust — managed state shared across commands\n- SQLite via `@tauri-apps/plugin-sql` — for structured data\n\nFor Rust managed state, use `app.manage(MyState::default())` in setup and access via `state: tauri::State<MyState>` in commands.",
+    answer: "**State Management in Tauri 2:**\n\nFor frontend state: Use Zustand (like Haze does), Redux, or any React state library.\n\nFor persistent storage:\n- `@tauri-apps/plugin-store` — key-value store that persists to disk\n- `tauri::State` in Rust — managed state shared across commands\n- SQLite via `@tauri-apps/plugin-sql` — for structured data\n\nFor Rust managed state, use `app.manage(MyState::default())` in setup and access via `state: tauri::State<MyState>` in commands.",
   },
   {
     keywords: ["build", "compile", "bundle", "release", "deploy"],

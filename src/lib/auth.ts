@@ -39,7 +39,7 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       void sendEmail({
         to: user.email,
-        subject: "Verify your email – Render",
+        subject: "Verify your email – Haze",
         text: `Verify your email by opening this link:\n\n${url}\n\nIf you didn't create an account, you can ignore this email.`,
         html: `<p>Verify your email by clicking the link below.</p><p><a href="${url}">Verify email</a></p><p>If you didn't create an account, you can ignore this email.</p>`,
       });

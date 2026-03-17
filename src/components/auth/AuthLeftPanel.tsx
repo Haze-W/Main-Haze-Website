@@ -41,7 +41,7 @@ export default function AuthLeftPanel({ slogan }: AuthLeftPanelProps) {
         />
       </div>
       <div className={styles.leftContent}>
-        <span className={styles.logo}>Render</span>
+        <span className={styles.logo}>Haze</span>
         <Link href="/" className={styles.backBtn}>
           <ChevronLeft size={16} />
           Back

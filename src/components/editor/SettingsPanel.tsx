@@ -73,7 +73,7 @@ export function SettingsPanel() {
       <section className={styles.section}>
         <h3>About</h3>
         <p className={styles.description}>
-          Render — Visual Tauri GUI Builder. Build real desktop applications visually.
+          Haze — Visual Tauri GUI Builder. Build real desktop applications visually.
         </p>
       </section>
     </div>
