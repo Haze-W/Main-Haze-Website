@@ -47,6 +47,8 @@ export type Tool = "SELECT" | "FRAME" | "HAND";
 interface EditorState {
   // Scene
   nodes: SceneNode[];
+  // One-shot viewport action (e.g. after AI generate)
+  autoFitRequested: boolean;
   // Viewport
   viewport: Viewport;
   // Selection
@@ -89,6 +91,8 @@ type EditorActions = {
   moveNodes: (ids: string[], dx: number, dy: number) => void;
   resizeNode: (id: string, handle: string, dx: number, dy: number) => void;
   setViewport: (v: Partial<Viewport>) => void;
+  requestAutoFit: () => void;
+  clearAutoFit: () => void;
   setSelectedIds: (ids: string[] | Set<string>) => void;
   toggleSelection: (id: string) => void;
   setTool: (tool: Tool) => void;
@@ -186,6 +190,7 @@ const initialNodes: SceneNode[] = [];
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
   nodes: initialNodes,
+  autoFitRequested: false,
   viewport: { panX: 0, panY: 0, zoom: 1 },
   selectedIds: new Set(),
   tool: "SELECT",
@@ -208,6 +213,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   lastCanvasPoint: null,
 
   setNodes: (nodes) => set({ nodes }),
+  requestAutoFit: () => set({ autoFitRequested: true }),
+  clearAutoFit: () => set({ autoFitRequested: false }),
   addNode: (partial, parentId) => {
     const node = createNode(partial as Partial<SceneNode>);
     if (parentId) {

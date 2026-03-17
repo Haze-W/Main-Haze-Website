@@ -111,6 +111,8 @@ export function Canvas() {
     nodes,
     viewport,
     setViewport,
+    autoFitRequested,
+    clearAutoFit,
     selectedIds,
     setSelectedIds,
     setMarquee,
@@ -134,6 +136,51 @@ export function Canvas() {
     gridType,
     setLastCanvasPoint,
   } = useEditorStore();
+
+  // Auto-center (fit) content after AI generates a new layout.
+  useEffect(() => {
+    if (!autoFitRequested) return;
+    if (!containerRect) return;
+    if (!nodes || nodes.length === 0) {
+      clearAutoFit();
+      return;
+    }
+
+    // Compute bounds of all nodes (including nested children) in canvas coordinates.
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    const walk = (n: typeof nodes[number], ox = 0, oy = 0) => {
+      const x = ox + n.x;
+      const y = oy + n.y;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + n.width);
+      maxY = Math.max(maxY, y + n.height);
+      (n.children ?? []).forEach((c: any) => walk(c, x, y));
+    };
+    nodes.forEach((n: any) => walk(n, 0, 0));
+
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+      clearAutoFit();
+      return;
+    }
+
+    const contentW = Math.max(1, maxX - minX);
+    const contentH = Math.max(1, maxY - minY);
+    const pad = 80;
+    const availableW = Math.max(200, containerRect.width - pad * 2);
+    const availableH = Math.max(200, containerRect.height - pad * 2);
+
+    const zoom = Math.max(0.05, Math.min(10, Math.min(availableW / contentW, availableH / contentH)));
+    const panX = (containerRect.width - contentW * zoom) / 2 - minX * zoom;
+    const panY = (containerRect.height - contentH * zoom) / 2 - minY * zoom;
+
+    setViewport({ zoom, panX, panY });
+    clearAutoFit();
+  }, [autoFitRequested, containerRect, nodes, setViewport, clearAutoFit]);
 
 
   const measure = useCallback(() => {

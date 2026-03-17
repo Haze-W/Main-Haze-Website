@@ -813,6 +813,7 @@ export function EditorShell() {
                 onAIGenerate={(nodes) => {
                   useEditorStore.getState().setNodes(nodes);
                   useEditorStore.getState().pushHistory();
+                  useEditorStore.getState().requestAutoFit();
                 }}
               />
             )}

@@ -1,4 +1,4 @@
-import type { AIUIElement } from './ui-schema';
+import type { AIUILayout, AIUIElement, SceneNode } from "./ui-schema";
 
 export interface EditorNode {
   id: string;
@@ -13,6 +13,11 @@ export interface EditorNode {
     [key: string]: any;
   };
   children?: EditorNode[];
+}
+
+export function aiLayoutToSceneNodes(layout: AIUILayout): SceneNode[] {
+  const nodes = layout?.frame?.children ?? [];
+  return nodes as SceneNode[];
 }
 
 export function adaptToEditorNodes(aiNodes: AIUIElement[]): EditorNode[] {

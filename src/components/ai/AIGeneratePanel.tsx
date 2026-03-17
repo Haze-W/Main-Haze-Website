@@ -3,11 +3,44 @@
 import { useState } from 'react';
 import { useEditorStore } from '@/lib/editor-store';
 import type { CanvasNode } from '@/lib/types';
+import type { SceneNode } from '@/lib/editor/types';
 
 export function AIGeneratePanel() {
   const [prompt, setPrompt] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const { addNode, activeFrameId, frames } = useEditorStore(); // Use addNode instead
+
+  const sceneNodeToCanvasNode = (n: SceneNode): Omit<CanvasNode, "id" | "children"> & { children: CanvasNode[] } => {
+    const typeMap: Record<string, CanvasNode["type"]> = {
+      FRAME: "container",
+      GROUP: "container",
+      RECTANGLE: "container",
+      CONTAINER: "container",
+      PANEL: "panel",
+      TOPBAR: "titlebar",
+      TEXT: "text",
+      BUTTON: "button",
+      INPUT: "input",
+      IMAGE: "image",
+      ICON: "icon",
+      LIST: "list",
+      CHECKBOX: "checkbox",
+      SELECT: "select",
+      DIVIDER: "divider",
+      SPACER: "spacer",
+    };
+    const type = typeMap[String(n.type)] ?? "container";
+    const props = (n.props ?? {}) as CanvasNode["props"];
+    return {
+      type,
+      props,
+      layout: { x: n.x, y: n.y, width: n.width, height: n.height },
+      children: (n.children ?? []).map((c) => {
+        const cn = sceneNodeToCanvasNode(c);
+        return { id: c.id, ...cn } as CanvasNode;
+      }),
+    };
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -23,10 +56,22 @@ export function AIGeneratePanel() {
       const data = await response.json();
 
       if (data.nodes) {
-        // Add nodes one by one using addNode
-        data.nodes.forEach((node: CanvasNode) => {
-          addNode(node);
-        });
+        // API can return either legacy CanvasNode[] or editor-v2 SceneNode[] (wrapped in a root frame).
+        const first = data.nodes?.[0];
+        const isLegacy = first && typeof first === "object" && "type" in first && "props" in first && ("layout" in first || Array.isArray(first.children));
+        const isScene = first && typeof first === "object" && "name" in first && "x" in first && "width" in first;
+
+        if (isLegacy) {
+          (data.nodes as CanvasNode[]).forEach((node) => addNode(node));
+        } else if (isScene) {
+          const sceneNodes = data.nodes as SceneNode[];
+          const root = sceneNodes.length === 1 && sceneNodes[0]?.type === "FRAME" ? sceneNodes[0] : null;
+          const toInsert = root ? root.children : sceneNodes;
+          toInsert.forEach((sn) => {
+            const cn = sceneNodeToCanvasNode(sn);
+            addNode({ ...cn, id: sn.id } as unknown as CanvasNode);
+          });
+        }
         setPrompt('');
       }
     } catch (error) {
