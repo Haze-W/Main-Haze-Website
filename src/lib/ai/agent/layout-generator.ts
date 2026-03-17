@@ -15,6 +15,8 @@ export interface LayoutGeneratorOptions {
   style?: "light" | "dark";
   runtimeTarget?: string;
   languageTarget?: string;
+  /** Base64 data URLs for vision - AI will understand and place images per user instructions */
+  images?: string[];
 }
 
 const DRIBBBLE_EXAMPLE_1 = `{
@@ -157,7 +159,16 @@ const DRIBBBLE_EXAMPLE_2 = `{
   }
 }`;
 
-const SYSTEM_PROMPT = `You are an expert UI designer. Create layouts in the style of Dribbble: clean, modern, professional, with strong visual hierarchy.
+const SYSTEM_PROMPT = `You are an expert UI designer. Your job is to CAREFULLY READ and UNDERSTAND the user's prompt before generating anything.
+
+CRITICAL: Analyze the FULL user request. Do NOT just match keywords. The user may want:
+- A specific type of dashboard (e.g. "e-commerce dashboard with order stats" vs "fitness dashboard with workout charts")
+- Custom content (e.g. "dashboard for a coffee shop" → use coffee-related labels like "Daily Sales", "Brews Today")
+- Specific layout preferences (e.g. "minimal dashboard with only 2 cards")
+- Images in specific places (e.g. "hero section with the uploaded photo as background")
+- Domain-specific UI (e.g. "hospital patient dashboard" → medical terminology)
+
+Read every word. Infer intent. Generate exactly what they asked for, not a generic template.
 
 DRIBBBLE DESIGN PRINCIPLES:
 - Generous whitespace: 24-32px between major sections, 16-24px inside cards
@@ -193,20 +204,22 @@ function buildUserPrompt(
   parsed: ReturnType<typeof parsePromptWithOptions>,
   options?: Pick<LayoutGeneratorOptions, "runtimeTarget" | "languageTarget">
 ): string {
-  const comps = parsed.components.join(", ");
-  const domain = parsed.domain ? ` Context: ${parsed.domain}.` : "";
-  const targetHint = options?.runtimeTarget
-    ? `Runtime target: ${options.runtimeTarget}.`
-    : "";
-  const languageHint = options?.languageTarget
-    ? `Preferred language: ${options.languageTarget}.`
-    : "";
+  const targetHint = options?.runtimeTarget ? `Runtime target: ${options.runtimeTarget}. ` : "";
+  const languageHint = options?.languageTarget ? `Preferred language: ${options.languageTarget}. ` : "";
   const themeHint = parsed.theme === "dark"
-    ? "Dark theme: background #0d0f12, cards #1a1b23, sidebar #151620, text #e6edf3, muted #8b949e."
-    : "Light background (#f8fafc or #f1f5f9).";
-  return `Generate a ${parsed.style} desktop UI with: ${comps}.${domain}
-Frame: 1440x900. ${themeHint} ${targetHint} ${languageHint}
-Match the quality and structure of the examples. Return ONLY the JSON object.`;
+    ? "Dark theme: background #0d0f12, cards #1a1b23, sidebar #151620, text #e6edf3, muted #8b949e. "
+    : "Light background (#f8fafc or #f1f5f9). ";
+  const compHint = parsed.components.length > 0
+    ? `\nDetected components (use as guidance, not limits): ${parsed.components.join(", ")}.`
+    : "";
+  const domainHint = parsed.domain ? `\nDomain/context: ${parsed.domain}.` : "";
+  return `USER REQUEST (read carefully and generate exactly what they want):
+"""
+${parsed.raw}
+"""
+Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}
+
+Analyze the request. Generate a layout that fulfills their specific intent. Use appropriate labels, content, and structure. Return ONLY the JSON object, no markdown.`;
 }
 
 function ensureIds(el: AIUIElement, prefix: string, idx: number): AIUIElement {
@@ -231,6 +244,24 @@ function parseLayoutResponse(content: string): AIUILayout | null {
   }
 }
 
+function buildUserMessageContent(
+  userPrompt: string,
+  images?: string[]
+): { type: "text"; text: string } | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> {
+  if (!images || images.length === 0) {
+    return userPrompt;
+  }
+  const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
+  for (const url of images.slice(0, 4)) {
+    if (url && url.startsWith("data:")) parts.push({ type: "image_url", image_url: { url } });
+  }
+  parts.push({
+    type: "text",
+    text: userPrompt + "\n\nThe user attached image(s) in this message. Use them in the layout where appropriate. For image elements, use the exact data URL from the first image in props.src. Place images per the user's instructions (e.g. hero background, profile photo, product image).",
+  });
+  return parts;
+}
+
 export async function generateLayoutFromPrompt(
   prompt: string,
   options?: LayoutGeneratorOptions
@@ -243,13 +274,16 @@ export async function generateLayoutFromPrompt(
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
   const model = options?.model ?? "gpt-4o";
+  const images = options?.images;
 
   if (!apiKey) {
     return getFallbackLayout(parsed);
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  const userContent = buildUserMessageContent(userPrompt, images);
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -267,7 +301,7 @@ export async function generateLayoutFromPrompt(
           { role: "assistant", content: "Understood." },
           { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
           { role: "assistant", content: "Understood." },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         temperature: 0.25,
         max_tokens: 4096,

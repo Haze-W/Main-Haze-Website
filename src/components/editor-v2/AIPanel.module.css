@@ -10,6 +10,15 @@
   overflow: hidden;
 }
 
+.panelFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #0d0f12;
+  min-height: 100vh;
+  box-shadow: 0 0 0 2px rgba(94, 92, 230, 0.2);
+}
+
 /* ── Header ──────────────────────────────────────────────────── */
 
 .header {
@@ -19,6 +28,43 @@
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-muted, rgba(255, 255, 255, 0.06));
   flex-shrink: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.themeSelect {
+  padding: 3px 6px;
+  font-size: 11px;
+  color: var(--fg-primary, #e6edf3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.fullscreenBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: rgba(255, 255, 255, 0.5);
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 80ms ease;
+  padding: 0;
+}
+
+.fullscreenBtn:hover {
+  color: #5e5ce6;
+  background: rgba(94, 92, 230, 0.12);
 }
 
 .agentWrap {
@@ -240,11 +286,38 @@
 }
 
 /* Loading */
-.loadingDots {
+.loadingCard {
   align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loadingDots {
   display: flex;
   gap: 4px;
   padding: 10px 14px;
+}
+
+.thinkingSteps {
+  margin: 0;
+  padding: 0 14px 10px 28px;
+  list-style: none;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+}
+
+.thinkingStep {
+  position: relative;
+  padding-left: 0;
+}
+
+.thinkingStep::before {
+  content: "→";
+  margin-right: 6px;
+  color: #5e5ce6;
+  font-weight: 600;
 }
 
 .loadDot {

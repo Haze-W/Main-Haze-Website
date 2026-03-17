@@ -23,6 +23,8 @@ import {
   ExternalLink,
   ImagePlus,
   X,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEditorStore } from "@/lib/editor/store";
@@ -76,8 +78,18 @@ const MODE_LABELS: Record<string, string> = {
   ui: "/ui", backend: "/backend", agent: "/agent", fix: "/fix",
 };
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function mdToHtml(text: string): string {
-  return text
+  const escaped = escapeHtml(text);
+  return escaped
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\n/g, "<br/>");
@@ -95,6 +107,9 @@ export function AIPanel() {
   const [showAgents, setShowAgents] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,54 +170,110 @@ export function AIPanel() {
 
   const send = useCallback(async (text: string, m: SlashMode) => {
     if (!text.trim() && attachedImages.length === 0) return;
+    const imagesToSend = attachedImages.length > 0 ? [...attachedImages] : undefined;
     const userMsg: Message = {
       id: nanoid(),
       role: "user",
       content: text.trim() || "(image attached)",
-      images: attachedImages.length > 0 ? [...attachedImages] : undefined,
+      images: imagesToSend,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setAttachedImages([]);
     setLoading(true);
+    setThinkingSteps([]);
 
     const lid = nanoid();
     setMessages((prev) => [...prev, { id: lid, role: "assistant", content: "", loading: true }]);
 
-    try {
-      const s = useEditorStore.getState();
-      const hist = messages.filter((x) => !x.loading && !x.error).map((x) => ({ role: x.role, content: x.content }));
-      hist.push({ role: "user", content: text.trim() });
-
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: hist, nodes: s.nodes, projectName: "Untitled", mode: m }),
+    // Show thinking steps for UI mode
+    if (m === "ui") {
+      const steps = ["Reading your request...", "Understanding what you want...", "Designing the layout...", "Generating components...", "Applying layout rules..."];
+      setThinkingSteps([steps[0]]);
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      steps.slice(1).forEach((step, i) => {
+        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 600));
       });
+      const clearThinking = () => { timers.forEach(clearTimeout); setThinkingSteps([]); };
+      try {
+        const s = useEditorStore.getState();
+        const hist = messages.filter((x) => !x.loading && !x.error).map((x) => ({ role: x.role, content: x.content }));
+        hist.push({ role: "user", content: text.trim() });
 
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({ error: "Request failed" }));
-        throw new Error(e.error || `HTTP ${res.status}`);
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: hist,
+            nodes: s.nodes,
+            projectName: "Untitled",
+            mode: m,
+            images: imagesToSend?.map((i) => ({ dataUrl: i.dataUrl })),
+            style: theme,
+          }),
+        });
+
+        clearThinking();
+
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({ error: "Request failed" }));
+          throw new Error(e.error || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        let added = false;
+        if (data.action === "GENERATE_UI" && data.nodes?.length) { addNodesToCanvas(data.nodes); added = true; }
+        if (data.action === "FIX" && data.fixes?.length) applyFixes(data.fixes);
+
+        setMessages((prev) => prev.map((x) => x.id === lid ? {
+          id: nanoid(), role: "assistant" as const, content: data.text || "",
+          action: data.action, nodes: data.nodes, rust: data.rust, js: data.js,
+          deps: data.deps, fixes: data.fixes, addedToCanvas: added,
+        } : x));
+      } catch (err) {
+        clearThinking();
+        setMessages((prev) => prev.map((x) => x.id === lid ? {
+          id: lid, role: "assistant" as const, content: err instanceof Error ? err.message : "Error", error: true,
+        } : x));
+      } finally {
+        setLoading(false);
       }
+    } else {
+      try {
+        const s = useEditorStore.getState();
+        const hist = messages.filter((x) => !x.loading && !x.error).map((x) => ({ role: x.role, content: x.content }));
+        hist.push({ role: "user", content: text.trim() });
 
-      const data = await res.json();
-      let added = false;
-      if (data.action === "GENERATE_UI" && data.nodes?.length) { addNodesToCanvas(data.nodes); added = true; }
-      if (data.action === "FIX" && data.fixes?.length) applyFixes(data.fixes);
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: hist, nodes: s.nodes, projectName: "Untitled", mode: m }),
+        });
 
-      setMessages((prev) => prev.map((x) => x.id === lid ? {
-        id: nanoid(), role: "assistant" as const, content: data.text || "",
-        action: data.action, nodes: data.nodes, rust: data.rust, js: data.js,
-        deps: data.deps, fixes: data.fixes, addedToCanvas: added,
-      } : x));
-    } catch (err) {
-      setMessages((prev) => prev.map((x) => x.id === lid ? {
-        id: lid, role: "assistant" as const, content: err instanceof Error ? err.message : "Error", error: true,
-      } : x));
-    } finally {
-      setLoading(false);
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({ error: "Request failed" }));
+          throw new Error(e.error || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        let added = false;
+        if (data.action === "GENERATE_UI" && data.nodes?.length) { addNodesToCanvas(data.nodes); added = true; }
+        if (data.action === "FIX" && data.fixes?.length) applyFixes(data.fixes);
+
+        setMessages((prev) => prev.map((x) => x.id === lid ? {
+          id: nanoid(), role: "assistant" as const, content: data.text || "",
+          action: data.action, nodes: data.nodes, rust: data.rust, js: data.js,
+          deps: data.deps, fixes: data.fixes, addedToCanvas: added,
+        } : x));
+      } catch (err) {
+        setMessages((prev) => prev.map((x) => x.id === lid ? {
+          id: lid, role: "assistant" as const, content: err instanceof Error ? err.message : "Error", error: true,
+        } : x));
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [messages, addNodesToCanvas, applyFixes, attachedImages]);
+  }, [messages, addNodesToCanvas, applyFixes, attachedImages, theme]);
 
   const onInput = (val: string) => {
     setInput(val);
@@ -258,7 +329,18 @@ export function AIPanel() {
   }, [input]);
 
   const renderMsg = (msg: Message) => {
-    if (msg.loading) return <div className={styles.loadingDots}><div className={styles.loadDot} /><div className={styles.loadDot} /><div className={styles.loadDot} /></div>;
+    if (msg.loading) return (
+      <div className={styles.loadingCard}>
+        <div className={styles.loadingDots}><div className={styles.loadDot} /><div className={styles.loadDot} /><div className={styles.loadDot} /></div>
+        {thinkingSteps.length > 0 && (
+          <ul className={styles.thinkingSteps}>
+            {thinkingSteps.map((step, i) => (
+              <li key={i} className={styles.thinkingStep}>{step}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
 
     if (msg.role === "user") {
       return (
@@ -278,9 +360,12 @@ export function AIPanel() {
     if (msg.error) return (
       <div className={`${styles.assistantCard} ${styles.errorCard}`}>
         <p>{msg.content}</p>
-        <button className={styles.retryBtn} onClick={() => {
+        <button type="button" className={styles.retryBtn} onClick={() => {
           const last = [...messages].reverse().find((x) => x.role === "user");
-          if (last) { setMessages((p) => p.filter((x) => x.id !== msg.id)); send(last.content, mode); }
+          if (last) {
+            setMessages((p) => p.filter((x) => x.id !== msg.id));
+            send(last.content, mode ?? "ui");
+          }
         }}>
           <RotateCcw size={10} /> Retry
         </button>
@@ -295,7 +380,7 @@ export function AIPanel() {
           <div className={`${styles.badge} ${styles.badgeOk}`}><Check size={10} /> Added to Canvas</div>
         )}
         {msg.action === "GENERATE_UI" && !msg.addedToCanvas && msg.nodes?.length && (
-          <button className={styles.actionBtn} onClick={() => {
+          <button type="button" className={styles.actionBtn} onClick={() => {
             addNodesToCanvas(msg.nodes!);
             setMessages((p) => p.map((x) => x.id === msg.id ? { ...x, addedToCanvas: true } : x));
           }}><Layers size={11} /> Add to Canvas</button>
@@ -309,7 +394,7 @@ export function AIPanel() {
           <div className={styles.codeWrap}>
             <div className={styles.codeLabelRow}>
               <span className={styles.codeLang}>Rust</span>
-              <button className={styles.copyBtn} onClick={() => copy(msg.rust!, `r-${msg.id}`)}>
+              <button type="button" className={styles.copyBtn} onClick={() => copy(msg.rust!, `r-${msg.id}`)}>
                 {copied === `r-${msg.id}` ? <><Check size={9} /> Copied</> : <><Copy size={9} /> Copy</>}
               </button>
             </div>
@@ -321,7 +406,7 @@ export function AIPanel() {
           <div className={styles.codeWrap}>
             <div className={styles.codeLabelRow}>
               <span className={styles.codeLang}>TypeScript</span>
-              <button className={styles.copyBtn} onClick={() => copy(msg.js!, `j-${msg.id}`)}>
+              <button type="button" className={styles.copyBtn} onClick={() => copy(msg.js!, `j-${msg.id}`)}>
                 {copied === `j-${msg.id}` ? <><Check size={9} /> Copied</> : <><Copy size={9} /> Copy</>}
               </button>
             </div>
@@ -337,7 +422,7 @@ export function AIPanel() {
         )}
 
         {(msg.action === "GENERATE_CODE" || (msg.action === "FIX" && (msg.rust || msg.js))) && (
-          <button className={styles.actionBtn} onClick={() => useEditorStore.getState().setMode("code")}>
+          <button type="button" className={styles.actionBtn} onClick={() => useEditorStore.getState().setMode("code")}>
             <ExternalLink size={11} /> View in Code Panel
           </button>
         )}
@@ -346,11 +431,11 @@ export function AIPanel() {
   };
 
   return (
-    <div className={styles.panel}>
+    <div className={`${styles.panel} ${fullscreen ? styles.panelFullscreen : ""}`}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.agentWrap} ref={agentRef}>
-          <button className={styles.agentBtn} onClick={() => setShowAgents((v) => !v)}>
+          <button type="button" className={styles.agentBtn} onClick={() => setShowAgents((v) => !v)}>
             <Sparkles size={12} />
             <span>{AGENTS.find((a) => a.id === agent)?.name}</span>
             <ChevronDown size={10} />
@@ -358,7 +443,7 @@ export function AIPanel() {
           {showAgents && (
             <div className={styles.agentDrop}>
               {AGENTS.map((a) => (
-                <button key={a.id} className={`${styles.agentOpt} ${a.id === agent ? styles.agentOptActive : ""}`}
+                <button type="button" key={a.id} className={`${styles.agentOpt} ${a.id === agent ? styles.agentOptActive : ""}`}
                   disabled={!a.active} onClick={() => { if (a.active) { setAgent(a.id); setShowAgents(false); } }}>
                   {a.active ? <Sparkles size={11} /> : <Clock size={11} />}
                   <span>{a.name}</span>
@@ -368,9 +453,28 @@ export function AIPanel() {
             </div>
           )}
         </div>
-        <button className={styles.clearBtn} onClick={() => { setMessages([]); setMode(null); }} title="Clear chat">
-          <Trash2 size={13} />
-        </button>
+        <div className={styles.headerActions}>
+          <select
+            className={styles.themeSelect}
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as "light" | "dark")}
+            title="Theme for generated UI"
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+          <button
+            type="button"
+            className={styles.fullscreenBtn}
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+          <button type="button" className={styles.clearBtn} onClick={() => { setMessages([]); setMode(null); }} title="Clear chat">
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
 
       {/* Thread or empty */}
@@ -389,7 +493,7 @@ export function AIPanel() {
                 <span className={styles.chipLabel}>{SLASH_COMMANDS.find((c) => c.mode === g.mode)?.cmd}</span>
                 <div className={styles.chips}>
                   {g.prompts.map((p) => (
-                    <button key={p} className={styles.chip} onClick={() => { setMode(g.mode); setInput(p); taRef.current?.focus(); }}>
+                    <button type="button" key={p} className={styles.chip} onClick={() => { setMode(g.mode); setInput(p); taRef.current?.focus(); }}>
                       {p}
                     </button>
                   ))}
@@ -406,7 +510,7 @@ export function AIPanel() {
           <div className={styles.slashWrap} id="ai-slash">
             <div className={styles.slashMenu}>
               {filtered.map((c, i) => (
-                <button key={c.cmd} className={`${styles.slashItem} ${i === slashIdx ? styles.slashActive : ""}`}
+                <button type="button" key={c.cmd} className={`${styles.slashItem} ${i === slashIdx ? styles.slashActive : ""}`}
                   onClick={() => pickSlash(c)} onMouseEnter={() => setSlashIdx(i)}>
                   <div className={styles.slashIcon}><c.icon size={12} /></div>
                   <div className={styles.slashText}>
@@ -423,7 +527,7 @@ export function AIPanel() {
           <div className={styles.modePill}>
             <Sparkles size={9} />
             <span>{MODE_LABELS[mode]}</span>
-            <button className={styles.pillClear} onClick={() => setMode(null)}>×</button>
+            <button type="button" className={styles.pillClear} onClick={() => setMode(null)}>×</button>
           </div>
         )}
 
@@ -454,7 +558,7 @@ export function AIPanel() {
           <textarea ref={taRef} className={styles.textarea}
             placeholder={mode ? `Message (${mode})...` : "Message, paste image, or type /..."}
             value={input} onChange={(e) => onInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={1} />
-          <button className={styles.sendBtn} disabled={loading || (!input.trim() && attachedImages.length === 0)} onClick={() => send(input, mode)}>
+          <button type="button" className={styles.sendBtn} disabled={loading || (!input.trim() && attachedImages.length === 0)} onClick={() => send(input, mode)}>
             <ArrowUp size={13} strokeWidth={2.5} />
           </button>
         </div>

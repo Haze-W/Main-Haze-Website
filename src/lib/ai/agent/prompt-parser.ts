@@ -64,7 +64,7 @@ export function parsePrompt(prompt: string): ParsedPrompt {
 
   return {
     intent: lower,
-    components: components.length > 0 ? components : ["dashboard", "sidebar", "topbar", "card"],
+    components: components.length > 0 ? components : [],
     style: styles.length > 0 ? styles[0] : "modern",
     theme,
     domain,

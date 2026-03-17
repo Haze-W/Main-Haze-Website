@@ -12,10 +12,25 @@ const TEMPLATES = [
 ];
 
 export default function ProjectsPage() {
-  const [projects] = useState([
+  const [projects, setProjects] = useState([
     { id: "1", name: "My App", updatedAt: "2 hours ago" },
     { id: "2", name: "Dashboard Prototype", updatedAt: "Yesterday" },
   ]);
+
+  const handleDuplicate = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const proj = projects.find((p) => p.id === id);
+    if (proj) {
+      setProjects((prev) => [...prev, { ...proj, id: `${id}-copy-${Date.now()}`, name: `${proj.name} (copy)`, updatedAt: "Just now" }]);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+  };
 
   return (
     <div className={styles.section}>
@@ -37,8 +52,8 @@ export default function ProjectsPage() {
               <span>{project.updatedAt}</span>
             </div>
             <div className={styles.projectActions}>
-              <button type="button" title="Duplicate">⎘</button>
-              <button type="button" title="Delete">×</button>
+              <button type="button" title="Duplicate" onClick={(e) => handleDuplicate(e, project.id)}>⎘</button>
+              <button type="button" title="Delete" onClick={(e) => handleDelete(e, project.id)}>×</button>
             </div>
           </Link>
         ))}

@@ -115,6 +115,12 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
     if (el.color) props.color = el.color;
   }
 
+  if (type === "IMAGE" && el.props?.src) {
+    const props = node.props ?? {};
+    props.src = el.props.src;
+    if (el.props.alt) props.alt = el.props.alt;
+  }
+
   return node;
 }
 
