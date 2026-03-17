@@ -325,7 +325,8 @@ export async function downloadProjectFromSceneNodes(
   const zip = new JSZip();
   const appName = exportSettings?.appName ?? name;
   const { width, height } = getFrameDimensions(nodes);
-  const html = sceneNodesToHtml(nodes, appName);
+  const apiBase = typeof window !== "undefined" ? window.location.origin : "";
+  const html = sceneNodesToHtml(nodes, appName, undefined, apiBase);
   const css = sceneExportCss();
 
   zip.file("package.json", PACKAGE_JSON(appName));

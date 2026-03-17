@@ -622,8 +622,9 @@ function topBarToHtml(node: SceneNode): string {
  * Exports the TOPBAR node as a real frameless title bar.
  * Supports multi-frame navigation via NAVIGATE_TO_FRAME interactions.
  * If no FRAME exists, renders all canvas nodes directly.
+ * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", canvasBg = "#1e1e1e"): string {
+export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", canvasBg = "#1e1e1e", apiBase = ""): string {
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
@@ -649,7 +650,7 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", can
     // Wrap in a sized div so absolutely-positioned children affect scroll area
     const wrapStyle = `position:relative;width:${contentW}px;height:${contentH}px;min-width:100%;min-height:100%;`;
     const freeStyle = `width:100%;height:100%;overflow:auto;background:${canvasBg};box-sizing:border-box;`;
-    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`);
+    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`, apiBase);
   }
 
   const rootBg = (() => {
@@ -689,10 +690,11 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", can
     return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`;
   }).join("\n");
 
-  return buildHtml(appName, topBarHtml, framesHtml);
+  return buildHtml(appName, topBarHtml, framesHtml, apiBase);
 }
 
-function buildHtml(appName: string, topBarHtml: string, framesHtml: string): string {
+function buildHtml(appName: string, topBarHtml: string, framesHtml: string, apiBase = ""): string {
+  const apiBaseScript = apiBase ? `window.__CHAT_API_BASE__="${apiBase.replace(/"/g, '\\"')}";` : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -709,6 +711,7 @@ ${framesHtml}
     </div>
   </div>
   <script src="window-controls.js"></script>
+  <script>${apiBaseScript}</script>
   <style>
     /* ── Hover presets ── */
     [data-hover="lift"]{transition:transform 0.2s ease,box-shadow 0.2s ease;}
@@ -768,7 +771,7 @@ ${framesHtml}
         target.style.display = 'block';
       }
     }
-    // ── Chat input + Send wire-up (preview interactivity) ──
+    // ── Chat input + Send wire-up (GPT-powered when API key set) ──
     function _wireChat() {
       var inputWrap = document.querySelector('[data-chat-role="chat-input"]');
       var sendBtn = document.querySelector('[data-chat-role="chat-send"]');
@@ -776,6 +779,17 @@ ${framesHtml}
       if (!inputWrap || !sendBtn || !messagesEl) return;
       var input = inputWrap.querySelector('input');
       if (!input) return;
+      var base = (typeof window !== 'undefined' && window.__CHAT_API_BASE__) ? window.__CHAT_API_BASE__ : '';
+      var apiUrl = base + '/api/ai/chat-completions';
+      var storageKey = 'render-openai-api-key';
+      var apiKeyBar = document.createElement('div');
+      apiKeyBar.style.cssText = 'padding:12px 24px;margin-bottom:8px;background:rgba(0,0,0,0.2);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+      apiKeyBar.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.6);">OpenAI API Key:</span><input type="password" placeholder="sk-..." style="flex:1;min-width:180px;padding:6px 10px;font-size:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e6edf3;" data-chat-api-key-input><button style="padding:6px 12px;font-size:12px;background:#5e5ce6;border:none;border-radius:6px;color:#fff;cursor:pointer;" data-chat-save-key>Save</button>';
+      var keyInput = apiKeyBar.querySelector('[data-chat-api-key-input]');
+      var saveBtn = apiKeyBar.querySelector('[data-chat-save-key]');
+      if (keyInput) keyInput.value = localStorage.getItem(storageKey) || '';
+      if (saveBtn) saveBtn.addEventListener('click', function() { if (keyInput) localStorage.setItem(storageKey, keyInput.value); saveBtn.textContent = 'Saved!'; setTimeout(function(){ saveBtn.textContent = 'Save'; }, 1500); });
+      messagesEl.insertBefore(apiKeyBar, messagesEl.firstChild);
       function send() {
         var text = (input.value || '').trim();
         if (!text) return;
@@ -784,11 +798,23 @@ ${framesHtml}
         userDiv.textContent = text;
         var aiDiv = document.createElement('div');
         aiDiv.style.cssText = 'position:relative;left:24px;top:12px;width:700px;font-size:14px;color:#8b949e;line-height:1.5;margin-bottom:24px;';
-        aiDiv.textContent = 'AI: Thinking... (Preview mode — connect to Coral for real responses)';
+        aiDiv.textContent = 'Thinking...';
         messagesEl.appendChild(userDiv);
         messagesEl.appendChild(aiDiv);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         input.value = '';
+        var key = localStorage.getItem(storageKey) || '';
+        var hist = [];
+        Array.prototype.forEach.call(messagesEl.children, function(el) {
+          if (el === apiKeyBar) return;
+          if (el.getAttribute('data-chat-msg-user')) hist.push({role:'user',content:el.textContent||''});
+          if (el.getAttribute('data-chat-msg-ai')) hist.push({role:'assistant',content:el.textContent||''});
+        });
+        hist.push({role:'user',content:text});
+        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist, apiKey: key || undefined }) })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+          .then(function(res){ aiDiv.textContent = res.ok && res.data.content ? res.data.content : (res.data.error || 'Error: ' + (res.ok ? 'No response' : 'Request failed')); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); messagesEl.scrollTop = messagesEl.scrollHeight; })
+          .catch(function(e){ aiDiv.textContent = 'Error: ' + (e && e.message ? e.message : 'Network error'); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); });
       }
       sendBtn.addEventListener('click', send);
       input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });

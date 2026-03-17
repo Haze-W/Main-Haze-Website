@@ -7,7 +7,7 @@ import type { SceneNode } from "@/lib/editor/types";
 
 export interface CoralRequest {
   prompt: string;
-  mode: "ui" | "backend" | "agent" | "fix" | null;
+  mode: "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
   nodes: SceneNode[];
   projectName: string;
 }
@@ -396,49 +396,24 @@ function handleUIMode(prompt: string): CoralResponse {
 function handleBackendMode(prompt: string): CoralResponse {
   const lower = prompt.toLowerCase();
 
-  // Chat / AI integration — wire frontend to send messages
+  // Full chatbot with GPT — UI + backend wired
+  if ((has(lower, "chatbot", "chat app", "full chat") && has(lower, "gpt", "openai", "api key")) || has(lower, "full chatbot with gpt")) {
+    return {
+      action: "GENERATE_UI",
+      text: "Generated a full chatbot app with GPT support. Go to Preview, add your OpenAI API key in the chat area, click Save, and start chatting. Export to get a standalone app that works with your key.",
+      nodes: buildChatbotApp(true),
+    };
+  }
+
+  // Chat / AI integration — wire frontend to send messages (GPT-powered)
   if (has(lower, "chat", "textbox", "text box", "input", "send message", "ai chatbot")) {
     return {
       action: "GENERATE_CODE",
-      text: "Generated frontend code to wire the chat input and Send button. Use /fix to add _previewBehavior to your nodes for interactive preview, or integrate with your AI API below.",
-      js: `// Wire chat input + Send button to your AI
-const input = document.querySelector('[data-chat-role="chat-input"] input');
-const sendBtn = document.querySelector('[data-chat-role="chat-send"]');
-const messagesEl = document.querySelector('[data-chat-role="chat-messages"]');
-
-if (input && sendBtn && messagesEl) {
-  async function send() {
-    const text = (input.value || '').trim();
-    if (!text) return;
-    // Add user message to UI
-    const userDiv = document.createElement('div');
-    userDiv.style.cssText = 'padding:12px 24px;font-size:14px;color:#e6edf3;';
-    userDiv.textContent = text;
-    messagesEl.appendChild(userDiv);
-    input.value = '';
-    // Call your AI API (e.g. /api/ai/chat)
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: text }], mode: 'ui' }),
-      });
-      const data = await res.json();
-      const aiDiv = document.createElement('div');
-      aiDiv.style.cssText = 'padding:12px 24px;font-size:14px;color:#8b949e;line-height:1.5;';
-      aiDiv.textContent = data.text || 'No response';
-      messagesEl.appendChild(aiDiv);
-    } catch (e) {
-      const errDiv = document.createElement('div');
-      errDiv.style.cssText = 'padding:12px 24px;font-size:14px;color:#f87171;';
-      errDiv.textContent = 'Error: ' + (e instanceof Error ? e.message : 'Failed to send');
-      messagesEl.appendChild(errDiv);
-    }
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-  sendBtn.addEventListener('click', send);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
-}`,
+      text: "Your chatbot is wired to GPT! In Preview: add your OpenAI API key (Settings or the bar above messages), click Save, then chat. Export to get a standalone app. The chat calls /api/ai/chat-completions with your key.",
+      js: `// Chat is already wired in the exported app. Uses /api/ai/chat-completions.
+// Add your OpenAI API key in the chat area (or Settings) and click Save.
+// Key is stored in localStorage['render-openai-api-key'].
+// To customize: edit the _wireChat function in scene-export.`,
       deps: [],
     };
   }
@@ -633,8 +608,65 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! While I'm still learning (Coral 1.0), here's what I can help with:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/backend** — Write Tauri 2 Rust commands and TypeScript integration code\n- **/agent** — Answer questions about Tauri, Rust, UI/UX, and app architecture\n- **/fix** — Analyze and fix issues in your canvas or code\n\nTry being more specific, like "How do I handle window close events?" or "Explain Tauri permissions".`,
+    text: `That's a great question! While I'm still learning (Coral 1.0), here's what I can help with:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask anything (uses GPT when API key is set)\n- **/backend** — Write Tauri 2 Rust commands and TypeScript integration code\n- **/agent** — Answer questions about Tauri, Rust, UI/UX, and app architecture\n- **/fix** — Analyze and fix issues in your canvas or code\n\nTry being more specific, like "How do I handle window close events?" or "Explain Tauri permissions".`,
   };
+}
+
+// ── Plan mode handler ─────────────────────────────────────────
+
+function handlePlanMode(prompt: string): CoralResponse {
+  const lower = prompt.toLowerCase();
+  const plans: string[] = [];
+
+  if (has(lower, "dashboard", "admin", "analytics")) {
+    plans.push("**1. Sidebar** — Dark nav (260px) with Dashboard, Analytics, Settings");
+    plans.push("**2. Topbar** — Logo, search, user menu");
+    plans.push("**3. KPI cards** — 3–4 stat cards in a row (Revenue, Users, Growth)");
+    plans.push("**4. Chart area** — Bar/line chart for metrics");
+    plans.push("**5. Activity feed** — Recent events list");
+  } else if (has(lower, "login", "auth", "sign in")) {
+    plans.push("**1. Centered card** — 420×500px, rounded corners");
+    plans.push("**2. Title** — Welcome back / Sign in");
+    plans.push("**3. Email input** — With label");
+    plans.push("**4. Password input** — With label");
+    plans.push("**5. Remember me** — Checkbox");
+    plans.push("**6. Sign in button** — Primary CTA");
+    plans.push("**7. Sign up link** — Below the form");
+  } else if (has(lower, "form", "contact", "multi-step")) {
+    plans.push("**1. Progress indicator** — Steps 1, 2, 3…");
+    plans.push("**2. Step 1** — Basic info (name, email)");
+    plans.push("**3. Step 2** — Details (message, preferences)");
+    plans.push("**4. Step 3** — Review & submit");
+    plans.push("**5. Navigation** — Back / Next / Submit buttons");
+  } else if (has(lower, "e-commerce", "product", "shop")) {
+    plans.push("**1. Navbar** — Logo, categories, cart icon");
+    plans.push("**2. Hero / banner** — Featured product or promo");
+    plans.push("**3. Product grid** — Cards with image, title, price");
+    plans.push("**4. Product detail** — Image gallery, description, add to cart");
+    plans.push("**5. Cart sidebar** — Slide-out or modal");
+  } else if (has(lower, "settings", "preferences", "config")) {
+    plans.push("**1. Sidebar** — Section nav (General, Appearance, Privacy…)");
+    plans.push("**2. Content area** — Form for selected section");
+    plans.push("**3. Inputs** — Display name, email, theme toggle");
+    plans.push("**4. Save / Cancel** — Action buttons");
+  } else {
+    plans.push("**1. Define layout** — Sidebar, topbar, or full-width");
+    plans.push("**2. Header** — Title and navigation");
+    plans.push("**3. Main content** — Primary focus area");
+    plans.push("**4. Secondary content** — Cards, lists, or forms");
+    plans.push("**5. Actions** — Buttons, links, CTAs");
+  }
+
+  return {
+    action: "ANSWER",
+    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Add an OPENAI_API_KEY to get AI-generated plans. Use /ui to generate the layout.*`,
+  };
+}
+
+// ── Ask mode handler (fallback when no GPT) ───────────────────
+
+function handleAskMode(prompt: string): CoralResponse {
+  return handleAgentMode(prompt);
 }
 
 // ── Fix mode handler ───────────────────────────────────────────
@@ -738,6 +770,10 @@ export function coralGenerate(request: CoralRequest): CoralResponse {
   switch (mode) {
     case "ui":
       return handleUIMode(prompt);
+    case "plan":
+      return handlePlanMode(prompt);
+    case "ask":
+      return handleAskMode(prompt);
     case "backend":
       return handleBackendMode(prompt);
     case "agent":
@@ -754,6 +790,12 @@ export function coralGenerate(request: CoralRequest): CoralResponse {
       }
       if (has(lower, "fix", "broken", "bug", "error", "wrong", "debug")) {
         return handleFixMode(prompt, nodes);
+      }
+      if (has(lower, "plan", "steps", "roadmap", "outline")) {
+        return handlePlanMode(prompt);
+      }
+      if (has(lower, "how", "what", "why", "explain", "?")) {
+        return handleAskMode(prompt);
       }
       return handleAgentMode(prompt);
     }

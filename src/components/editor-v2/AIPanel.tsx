@@ -25,13 +25,15 @@ import {
   X,
   Maximize2,
   Minimize2,
+  ListTodo,
+  HelpCircle,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./AIPanel.module.css";
 
-type SlashMode = "ui" | "backend" | "agent" | "fix" | null;
+type SlashMode = "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
 
 interface AttachedImage {
   id: string;
@@ -56,8 +58,10 @@ interface Message {
 
 const SLASH_COMMANDS = [
   { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts" },
+  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Create a step-by-step plan" },
+  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything (GPT-powered)" },
   { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri backend code" },
-  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Ask questions" },
+  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Tauri & Render help" },
   { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Fix issues" },
 ];
 
@@ -68,14 +72,16 @@ const AGENTS = [
 ];
 
 const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
-  { mode: "ui", prompts: ["Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
-  { mode: "backend", prompts: ["System info backend", "File read/write commands"] },
+  { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
+  { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form", "Plan an e-commerce product page"] },
+  { mode: "ask", prompts: ["How do I add dark mode?", "What's the best layout for a settings page?", "Explain flexbox vs grid"] },
+  { mode: "backend", prompts: ["Full chatbot with GPT (add your API key)", "System info backend", "File read/write commands"] },
   { mode: "agent", prompts: ["Window events?", "Tauri permissions"] },
   { mode: "fix", prompts: ["Make the chat textbox work", "Fix canvas layout", "Debug Rust command"] },
 ];
 
 const MODE_LABELS: Record<string, string> = {
-  ui: "/ui", backend: "/backend", agent: "/agent", fix: "/fix",
+  ui: "/ui", plan: "/plan", ask: "/ask", backend: "/backend", agent: "/agent", fix: "/fix",
 };
 
 function escapeHtml(s: string): string {

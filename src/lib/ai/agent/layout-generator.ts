@@ -255,9 +255,13 @@ function buildUserMessageContent(
   for (const url of images.slice(0, 4)) {
     if (url && url.startsWith("data:")) parts.push({ type: "image_url", image_url: { url } });
   }
+  const isDesignReference = /replicate|recreate|copy|match|like this|similar to|based on this|design reference|reference image|screenshot|mockup|wireframe/i.test(userPrompt);
+  const imageInstruction = isDesignReference
+    ? "\n\nDESIGN REFERENCE: The user attached a reference image/screenshot/mockup. REPLICATE this design as closely as possible. Analyze the layout, colors, typography, spacing, and structure. Create a JSON layout that matches the visual design. Use the exact data URL from the first image for any image elements. Match component placement, hierarchy, and styling."
+    : "\n\nThe user attached image(s) in this message. Use them in the layout where appropriate. For image elements, use the exact data URL from the first image in props.src. Place images per the user's instructions (e.g. hero background, profile photo, product image).";
   parts.push({
     type: "text",
-    text: userPrompt + "\n\nThe user attached image(s) in this message. Use them in the layout where appropriate. For image elements, use the exact data URL from the first image in props.src. Place images per the user's instructions (e.g. hero background, profile photo, product image).",
+    text: userPrompt + imageInstruction,
   });
   return parts;
 }
