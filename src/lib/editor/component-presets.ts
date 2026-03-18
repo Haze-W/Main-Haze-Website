@@ -116,7 +116,7 @@ export const COMPONENT_PRESETS: Record<string, ComponentPreset> = {
   TIMELINE: { type: "CONTAINER", name: "Timeline", width: 320, height: 240 },
   KANBAN_COLUMN: { type: "CONTAINER", name: "Kanban", width: 280, height: 400 },
   CHAT_BUBBLE: { type: "CONTAINER", name: "Chat Bubble", width: 200, height: 48 },
-  COMMENT_THREAD: { type: "CONTAINER", name: "Comment", width: 280, height: 80 },
+  COMMENT_THREAD: { type: "CONTAINER", name: "Comment", width: 340, height: 48 },
   USER_PROFILE: { type: "CONTAINER", name: "User Profile", width: 200, height: 80 },
 
   // States

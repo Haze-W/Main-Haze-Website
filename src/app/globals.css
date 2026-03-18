@@ -185,13 +185,13 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--shade-09);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--accent-muted);
+  color: var(--shade-07);
 }
 
 button {

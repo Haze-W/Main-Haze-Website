@@ -46,6 +46,12 @@
   flex-shrink: 0;
 }
 
+.tauriLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;
@@ -119,6 +125,10 @@
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 40px;
+}
+
+.select option:disabled {
+  color: var(--shade-06);
 }
 
 .uploadSection {

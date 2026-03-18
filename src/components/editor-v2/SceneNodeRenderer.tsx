@@ -975,13 +975,15 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       );
     }
 
-    // COMMENT
+    // COMMENT - Add comment style (icon + pill input)
     if (node.name === "Comment") {
       return (
         <div className={styles.commentNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.commentAvatar}>U</div>
-          <div><div className={styles.commentAuthor}>User Name</div><div className={styles.commentText}>This is a comment.</div></div>
+          <div className={styles.commentIconBtn}>+</div>
+          <div className={styles.commentInputWrap}>
+            <span className={styles.commentPlaceholder}>Add comment...</span>
+          </div>
         </div>
       );
     }

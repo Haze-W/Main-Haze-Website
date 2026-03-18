@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, Bell, User, CreditCard, Megaphone, Settings, LogOut, Gem, MessageCircle, ToggleLeft, CheckCircle2 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import styles from "./dashboard.module.css";
 import { SettingsModal } from "./SettingsModal";
+import { useAuth } from "@/lib/auth-context";
 
 export function StandaloneHeader() {
-  const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -111,7 +113,15 @@ export function StandaloneHeader() {
                   <CheckCircle2 size={18} strokeWidth={1.5} />
                   Updates
                 </Link>
-                <button type="button" className={styles.profileDropdownItem} onClick={() => setProfileOpen(false)}>
+                <button
+                  type="button"
+                  className={styles.profileDropdownItem}
+                  onClick={async () => {
+                    setProfileOpen(false);
+                    await logout();
+                    router.push("/login");
+                  }}
+                >
                   <LogOut size={18} strokeWidth={1.5} />
                   Sign out
                 </button>
