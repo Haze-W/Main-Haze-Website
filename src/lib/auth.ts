@@ -16,6 +16,9 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  verification: {
+    storeInDatabase: true,
+  },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== "/sign-up/email" || !ctx.body?.email) return;
@@ -30,6 +33,16 @@ export const auth = betterAuth({
         });
       }
     }),
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
   },
   emailAndPassword: {
     enabled: true,
