@@ -121,7 +121,7 @@ export function PreviewPanel() {
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <span className={styles.label}>Preview</span>
-          <span className={styles.hint}>{status || "Live — Ctrl+scroll to zoom, scroll to pan"}</span>
+          <span className={styles.hint}>{status || "Ctrl+scroll to zoom"}</span>
         </div>
         <div className={styles.toolbarRight}>
           <div className={styles.deviceGroup}>

@@ -28,6 +28,7 @@ function checkRateLimit(): boolean {
 }
 
 export async function POST(req: Request) {
+  let promptText = "";
   try {
     if (!checkRateLimit()) {
       return NextResponse.json(
@@ -37,37 +38,21 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    promptText = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body.model === "string" ? body.model : undefined;
     const style = body.style === "light" || body.style === "dark" ? body.style : undefined;
     const runtimeTarget = typeof body.runtimeTarget === "string" ? body.runtimeTarget : undefined;
     const languageTarget = typeof body.languageTarget === "string" ? body.languageTarget : undefined;
 
-    if (!prompt) {
+    if (!promptText) {
       return NextResponse.json(
         { error: "Missing or invalid prompt" },
         { status: 400 }
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      const coralResult = coralGenerate({
-        prompt,
-        mode: "ui",
-        nodes: [],
-        projectName: "Untitled",
-      });
-      if (coralResult.action === "GENERATE_UI" && coralResult.nodes && coralResult.nodes.length > 0) {
-        return NextResponse.json({
-          nodes: coralResult.nodes,
-          metadata: { source: "coral", generatedAt: new Date().toISOString() },
-        });
-      }
-    }
-
-    const layout = await generateLayoutFromPrompt(prompt, {
+    // Coral 1.0 (Ollama) — always try AI layout first
+    const layout = await generateLayoutFromPrompt(promptText, {
       model,
       style,
       runtimeTarget,
@@ -80,6 +65,19 @@ export async function POST(req: Request) {
       metadata: layout.metadata,
     });
   } catch (err) {
+    // Fallback to Coral (rule-based) when Ollama fails
+    const coralResult = coralGenerate({
+      prompt: promptText || "(describe what you want)",
+      mode: "ui",
+      nodes: [],
+      projectName: "Untitled",
+    });
+    if (coralResult.action === "GENERATE_UI" && coralResult.nodes && coralResult.nodes.length > 0) {
+      return NextResponse.json({
+        nodes: coralResult.nodes,
+        metadata: { source: "coral", generatedAt: new Date().toISOString() },
+      });
+    }
     console.error("AI generate error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(

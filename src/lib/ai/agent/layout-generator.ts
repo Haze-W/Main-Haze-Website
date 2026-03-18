@@ -1,21 +1,20 @@
 /**
  * Layout Generator - Creates UI component tree from parsed prompt
- * Uses LLM API to generate structured JSON (OpenAI compatible)
- * Design principles inspired by Dribbble: clean, modern, professional UI
+ * Uses Ollama (local AI) - Coral 1.0. No API keys. Returns structured JSON for Haze.
  */
 
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
 import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import { DEFAULT_WIDTH } from "../schema/ui-schema";
+import { generateFromOllama } from "../ollama";
 
 export interface LayoutGeneratorOptions {
-  apiKey?: string;
   model?: string;
   style?: "light" | "dark";
   runtimeTarget?: string;
   languageTarget?: string;
-  /** Base64 data URLs for vision - AI will understand and place images per user instructions */
+  /** Base64 data URLs - when using vision models; otherwise described in text */
   images?: string[];
 }
 
@@ -159,40 +158,34 @@ const DRIBBBLE_EXAMPLE_2 = `{
   }
 }`;
 
-const SYSTEM_PROMPT = `You are an elite senior UI/UX designer and frontend system architect. Generate HIGH-END, PRODUCTION-READY UI layouts — not basic designs.
+const SYSTEM_PROMPT = `You are an elite UI/UX designer. Generate RICH, DETAILED UI layouts as JSON.
 
-🎯 CORE GOAL: Layouts that look like they were designed by top-tier product teams (Apple, Stripe, Linear, Notion). Every UI should feel shippable in a real startup WITHOUT redesign.
+⚠️ CRITICAL - NEVER output a single rectangle or empty layout. Every layout MUST have:
+- At least 3 major sections (e.g. sidebar + topbar + content area, or hero + cards + footer)
+- Sidebar (260px) with nav items: icon + text per item. Types: layout-dashboard, bar-chart-2, settings, folder
+- Topbar (64px) with logo icon + text
+- At least 3 CARDS in the content area. Each card MUST have children: icon, title text, value text
+- Real content: "Total Revenue", "$45,231", "Active Users", "2,350" — never empty or placeholder
 
-🧠 DESIGN INTELLIGENCE:
-
-1. STRUCTURE into clear sections: Navbar, Hero/Header, Content sections, CTA, Footer (if applicable).
-2. VISUAL HIERARCHY: Primary (18-24px), secondary (14-16px), tertiary (12px). Logical grouping, no clutter.
-3. SPACING SYSTEM: Use 8px grid — 4, 8, 12, 16, 24, 32, 48, 64. NO random spacing.
-4. REAL PRODUCT: Realistic text (e.g. "Track your revenue in real time" NOT "Lorem ipsum"). Include avatars, icons, labels, badges.
-5. ALIGNMENT: Everything on grid. No floating elements.
-
-🎨 STYLE: Clean, minimal, modern. Soft shadows, subtle borders, balanced whitespace. Premium feel.
-
-DARK THEME: Use dark grays (#0d0f12, #151620, #1a1b23), NOT pure black. Soft elevation, proper contrast.
-
-🖼 IMAGE REPLICATION: If user says "replicate", "like this", "copy this" — analyze structure, recreate layout (not pixel copy), improve spacing and clarity.
-
-OUTPUT: ONLY valid JSON. No markdown, no explanation, no extra text.
-
-FORMAT:
+FORMAT - copy this structure exactly:
 {
-  "frame": { "width": 1440, "height": 900, "background": "#f8fafc", "children": [ ... ] }
+  "frame": { "width": 1440, "height": 900, "background": "#0d0f12", "children": [
+    { "id": "sidebar_1", "type": "sidebar", "x": 0, "y": 0, "width": 260, "height": 900, "backgroundColor": "#151620", "children": [
+      { "id": "nav_icon_1", "type": "icon", "x": 24, "y": 28, "width": 24, "height": 24, "props": { "iconName": "layout-dashboard" }, "color": "#ffffff" },
+      { "id": "nav_1", "type": "text", "x": 56, "y": 32, "width": 180, "height": 24, "text": "Dashboard", "color": "#ffffff" }
+    ]},
+    { "id": "topbar_1", "type": "topbar", "x": 260, "y": 0, "width": 1180, "height": 64, "backgroundColor": "#0d0f12", "children": [
+      { "id": "logo", "type": "text", "x": 32, "y": 18, "width": 140, "height": 28, "text": "App", "color": "#e6edf3" }
+    ]},
+    { "id": "card_1", "type": "card", "x": 296, "y": 96, "width": 320, "height": 180, "backgroundColor": "#1a1b23", "styles": { "padding": 24, "borderRadius": 12 }, "children": [
+      { "id": "c1_icon", "type": "icon", "x": 24, "y": 24, "width": 24, "height": 24, "props": { "iconName": "dollar-sign" }, "color": "#8b949e" },
+      { "id": "c1_title", "type": "text", "x": 56, "y": 24, "width": 240, "height": 20, "text": "Total Revenue", "color": "#8b949e" },
+      { "id": "c1_val", "type": "text", "x": 24, "y": 56, "width": 272, "height": 36, "text": "$45,231", "color": "#e6edf3" }
+    ]}
+  ]}
 }
 
-RULES:
-- Every element: id, type, x, y, width, height.
-- Types: navbar, sidebar, topbar, hero, card, dashboard, form, table, button, text, input, image, icon, frame, container.
-- Icons: Use type "icon" with props: { "iconName": "lucide-name" }. Lucide: layout-dashboard, bar-chart-2, settings, home, users, dollar-sign, trending-up, shopping-cart, activity, folder, pie-chart.
-- Hex colors only. Children coords relative to parent.
-- Sidebar 260-280px. Topbar 64-72px. Cards 320x180, gap 24px.
-- Text width ≥80px. Cards height ≥140px.
-
-🚫 AVOID: Messy layouts, random spacing, unaligned elements, empty sections, "Lorem ipsum", repetitive generic cards.`;
+RULES: Every element needs id, type, x, y, width, height. Text elements need "text" and "color". Icons need props.iconName. Cards need styles.padding and styles.borderRadius. Return ONLY valid JSON, no markdown.`;
 
 function buildUserPrompt(
   parsed: ReturnType<typeof parsePromptWithOptions>,
@@ -217,19 +210,39 @@ function buildUserPrompt(
   const realTextRule =
     "\nREAL TEXT: Use realistic copy (e.g. \"Track your revenue in real time\", \"Manage your team efficiently\"). NEVER use \"Lorem ipsum\" or placeholder gibberish.";
 
-  return `USER REQUEST (read carefully and generate exactly what they want):
+  const structureRule = parsed.sectionTemplate
+    ? `\nSTRUCTURE: ${parsed.sectionTemplate}`
+    : parsed.components.length > 0
+      ? `\nINCLUDE these components with real content: ${parsed.components.join(", ")}. Each card needs icon + title + value. Sidebar needs icon + text per nav item.`
+      : "\nINCLUDE: sidebar (nav with icons), topbar (logo), and at least 3 cards. Each card: icon, title, value (e.g. Total Revenue, $45,231).";
+
+  return `USER REQUEST:
 """
 ${parsed.raw}
 """
-Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}${realTextRule}
+Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}${realTextRule}${structureRule}
 
-Analyze the request. Generate a layout that fulfills their specific intent. Use appropriate labels, content, and structure. Return ONLY the JSON object, no markdown.`;
+Generate a complete layout. Return ONLY the JSON object, no markdown.`;
 }
 
 function ensureIds(el: AIUIElement, prefix: string, idx: number): AIUIElement {
   const id = el.id || `${prefix}_${idx}`;
   const children = el.children?.map((c, i) => ensureIds(c, `${id}_child`, i)) ?? [];
   return { ...el, id, children };
+}
+
+function countContentElements(el: AIUIElement): number {
+  const isContent = el.type === "text" || el.type === "icon" || (el.type === "button" && el.text);
+  let n = isContent ? 1 : 0;
+  for (const c of el.children ?? []) n += countContentElements(c);
+  return n;
+}
+
+function isLayoutMinimal(layout: AIUILayout): boolean {
+  const children = layout.frame.children ?? [];
+  if (children.length < 2) return true;
+  const contentCount = children.reduce((sum, c) => sum + countContentElements(c), 0);
+  return contentCount < 4; // Need at least 4 text/icon/button elements
 }
 
 function parseLayoutResponse(content: string): AIUILayout | null {
@@ -248,26 +261,12 @@ function parseLayoutResponse(content: string): AIUILayout | null {
   }
 }
 
-function buildUserMessageContent(
-  userPrompt: string,
-  images?: string[]
-): { type: "text"; text: string } | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> {
-  if (!images || images.length === 0) {
-    return { type: "text", text: userPrompt };
-  }
-  const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
-  for (const url of images.slice(0, 4)) {
-    if (url && url.startsWith("data:")) parts.push({ type: "image_url", image_url: { url } });
-  }
+function buildImageHint(userPrompt: string, images?: string[]): string {
+  if (!images || images.length === 0) return "";
   const isDesignReference = /replicate|recreate|copy|match|like this|similar to|based on this|design reference|reference image|screenshot|mockup|wireframe/i.test(userPrompt);
-  const imageInstruction = isDesignReference
-    ? "\n\nDESIGN REFERENCE: The user attached a reference image/screenshot/mockup. REPLICATE this design as closely as possible. Analyze the layout, colors, typography, spacing, and structure. Create a JSON layout that matches the visual design. Use the exact data URL from the first image for any image elements. Match component placement, hierarchy, and styling."
-    : "\n\nThe user attached image(s) in this message. Use them in the layout where appropriate. For image elements, use the exact data URL from the first image in props.src. Place images per the user's instructions (e.g. hero background, profile photo, product image).";
-  parts.push({
-    type: "text",
-    text: userPrompt + imageInstruction,
-  });
-  return parts;
+  return isDesignReference
+    ? "\n\nDESIGN REFERENCE: The user attached a reference image. REPLICATE this design: layout, colors, typography, spacing, structure. Create JSON that matches the visual design."
+    : "\n\nThe user attached image(s). Use them as design inspiration. Place image elements where appropriate (hero, profile, product).";
 }
 
 export async function generateLayoutFromPrompt(
@@ -279,71 +278,44 @@ export async function generateLayoutFromPrompt(
     runtimeTarget: options?.runtimeTarget,
     languageTarget: options?.languageTarget,
   });
+  const imageHint = buildImageHint(userPrompt, options?.images);
+  const model = options?.model;
 
-  const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const model = options?.model ?? "gpt-4o";
-  const images = options?.images;
+  const fullPrompt = `${SYSTEM_PROMPT}
 
-  if (!apiKey) {
-    return getFallbackLayout(parsed);
-  }
+Full example to follow (dashboard with sidebar, topbar, 3 cards):
+${DRIBBBLE_EXAMPLE_1}
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+---
+${userPrompt}${imageHint}
 
-  const userContent = buildUserMessageContent(userPrompt, images);
+Return ONLY valid JSON. No markdown, no explanation.`;
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      signal: controller.signal,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Example 1 (dashboard with KPI cards):\n${DRIBBBLE_EXAMPLE_1}` },
-          { role: "assistant", content: "Understood." },
-          { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
-          { role: "assistant", content: "Understood." },
-          { role: "user", content: userContent },
-        ],
-        temperature: 0.25,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      }),
+    let output = await generateFromOllama(fullPrompt, {
+      model,
+      temperature: 0.2,
     });
 
-    if (!response.ok) {
-      clearTimeout(timeoutId);
-      const err = await response.text();
-      console.error("OpenAI API error:", err);
+    let parsedLayout: AIUILayout | null = parseLayoutResponse(output);
+
+    if (!parsedLayout) {
+      const retryPrompt = `Extract the JSON layout. Return ONLY valid JSON, no other text:
+
+${output}`;
+      const retry = await generateFromOllama(retryPrompt, { model, temperature: 0.1 });
+      parsedLayout = parseLayoutResponse(retry);
+    }
+
+    if (!parsedLayout || isLayoutMinimal(parsedLayout)) {
       return getFallbackLayout(parsed);
     }
 
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      clearTimeout(timeoutId);
-      return getFallbackLayout(parsed);
-    }
-
-    const layout = parseLayoutResponse(content);
-    if (!layout) {
-      clearTimeout(timeoutId);
-      return getFallbackLayout(parsed);
-    }
-
-    layout.frame = validateAndFixFrame(layout.frame);
-    layout.metadata = { ...layout.metadata, prompt };
-    clearTimeout(timeoutId);
-    return layout;
+    parsedLayout.frame = validateAndFixFrame(parsedLayout.frame);
+    parsedLayout.metadata = { ...parsedLayout.metadata, prompt };
+    return parsedLayout;
   } catch (err) {
-    clearTimeout(timeoutId);
-    console.error("Layout generation error:", err);
+    console.error("Layout generation error (Ollama):", err);
     return getFallbackLayout(parsed);
   }
 }

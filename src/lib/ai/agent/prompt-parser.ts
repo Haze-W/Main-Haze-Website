@@ -102,17 +102,30 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     }
   }
 
-  // Detect page type for section template
+  // Detect page type for section template and infer components
   let sectionTemplate: string | undefined;
-  if (has(lower, "landing", "homepage", "marketing")) sectionTemplate = SECTION_TEMPLATES.landing;
-  else if (has(lower, "dashboard", "admin", "analytics")) sectionTemplate = SECTION_TEMPLATES.dashboard;
-  else if (has(lower, "login", "sign in", "auth")) sectionTemplate = SECTION_TEMPLATES.login;
-  else if (has(lower, "settings", "preferences")) sectionTemplate = SECTION_TEMPLATES.settings;
-  else if (has(lower, "pricing", "plans")) sectionTemplate = SECTION_TEMPLATES.pricing;
+  const inferred: string[] = [];
+  if (has(lower, "landing", "homepage", "marketing")) {
+    sectionTemplate = SECTION_TEMPLATES.landing;
+    inferred.push("hero", "card");
+  } else if (has(lower, "dashboard", "admin", "analytics", "saas")) {
+    sectionTemplate = SECTION_TEMPLATES.dashboard;
+    inferred.push("sidebar", "topbar", "card");
+  } else if (has(lower, "login", "sign in", "auth")) {
+    sectionTemplate = SECTION_TEMPLATES.login;
+    inferred.push("login");
+  } else if (has(lower, "settings", "preferences")) {
+    sectionTemplate = SECTION_TEMPLATES.settings;
+    inferred.push("sidebar", "settings");
+  } else if (has(lower, "pricing", "plans")) {
+    sectionTemplate = SECTION_TEMPLATES.pricing;
+    inferred.push("pricing", "card");
+  }
+  const allComponents = [...new Set([...components, ...inferred])];
 
   return {
     intent: lower,
-    components: components.length > 0 ? components : [],
+    components: allComponents.length > 0 ? allComponents : components,
     style: styles.length > 0 ? styles[0] : "modern",
     theme,
     domain,

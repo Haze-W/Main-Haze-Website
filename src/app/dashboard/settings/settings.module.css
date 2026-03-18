@@ -1,0 +1,80 @@
+.settings {
+  max-width: 560px;
+}
+
+.settingsHeader {
+  margin-bottom: 32px;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #8e8e93;
+  text-decoration: none;
+  margin-bottom: 12px;
+  transition: color 0.15s;
+}
+
+.backLink:hover {
+  color: #f5f5f7;
+}
+
+.settingsTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #f5f5f7;
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px;
+}
+
+.sectionDesc {
+  font-size: 0.875rem;
+  color: #8e8e93;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.themeToggle {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.themeBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #8e8e93;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.themeBtn:hover {
+  color: #f5f5f7;
+}
+
+.themeBtnActive {
+  color: #f5f5f7;
+  background: rgba(255,255,255,0.1);
+}

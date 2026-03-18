@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import { AuthProvider } from "@/lib/auth-context";
 import { FigmaPasteProvider } from "@/components/FigmaPasteProvider";
+import { ThemeProvider } from "@/components/contexts/theme-provider";
 import "./globals.css";
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -27,11 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
-        <AuthProvider>
+        <ThemeProvider>
           <FigmaPasteProvider>{children}</FigmaPasteProvider>
-        </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

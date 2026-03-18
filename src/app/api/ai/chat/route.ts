@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { coralGenerate } from "@/lib/ai/coral-engine";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
 import { aiLayoutToSceneNodes } from "@/lib/ai/schema/adapter";
+import { chatFromOllama } from "@/lib/ai/ollama";
 
 export async function POST(req: Request) {
   try {
@@ -25,85 +26,55 @@ export async function POST(req: Request) {
     }
 
     const prompt = lastUserMessage.content?.trim() || "";
-    const apiKey = process.env.OPENAI_API_KEY;
 
-    // Use OpenAI for ask mode (GPT-powered Q&A)
-    if (mode === "ask" && apiKey && prompt) {
+    // Ask mode — Coral 1.0 (Ollama) Q&A
+    if (mode === "ask" && prompt) {
       try {
-        const askRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "system",
-                content: "You are a helpful assistant for the Haze design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.",
-              },
-              { role: "user", content: prompt },
-            ],
-            temperature: 0.6,
-            max_tokens: 1024,
-          }),
-        });
-        if (askRes.ok) {
-          const askData = (await askRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
-          const content = askData.choices?.[0]?.message?.content?.trim();
-          if (content) {
-            return NextResponse.json({ action: "ANSWER", text: content });
-          }
+        const content = await chatFromOllama(
+          [
+            {
+              role: "system",
+              content: "You are a helpful assistant for the Haze design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.",
+            },
+            { role: "user", content: prompt },
+          ],
+          { temperature: 0.6 }
+        );
+        if (content) {
+          return NextResponse.json({ action: "ANSWER", text: content });
         }
       } catch (err) {
         console.error("Ask mode error:", err);
       }
     }
 
-    // Use OpenAI for plan mode (structured step-by-step plan)
-    if (mode === "plan" && apiKey && prompt) {
+    // Plan mode — Coral 1.0 (Ollama) step-by-step plans
+    if (mode === "plan" && prompt) {
       try {
-        const planRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "system",
-                content: "You are a UI/UX planning assistant. Create clear, numbered step-by-step plans. Format with **bold** for step titles. Keep plans concise (5-10 steps). End with a brief 'Ready to generate?' if the plan is for UI.",
-              },
-              {
-                role: "user",
-                content: `Create a step-by-step plan for: ${prompt}`,
-              },
-            ],
-            temperature: 0.5,
-            max_tokens: 1024,
-          }),
-        });
-        if (planRes.ok) {
-          const planData = (await planRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
-          const content = planData.choices?.[0]?.message?.content?.trim();
-          if (content) {
-            return NextResponse.json({ action: "ANSWER", text: content });
-          }
+        const content = await chatFromOllama(
+          [
+            {
+              role: "system",
+              content: "You are a UI/UX planning assistant. Create clear, numbered step-by-step plans. Format with **bold** for step titles. Keep plans concise (5-10 steps). End with a brief 'Ready to generate?' if the plan is for UI.",
+            },
+            { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+          ],
+          { temperature: 0.5 }
+        );
+        if (content) {
+          return NextResponse.json({ action: "ANSWER", text: content });
         }
       } catch (err) {
         console.error("Plan mode error:", err);
       }
     }
 
-    // Use OpenAI layout generator when API key exists and mode is UI
-    if (mode === "ui" && apiKey && (prompt || (images && images.length > 0))) {
+    // UI mode — Coral 1.0 (Ollama) layout generator
+    if (mode === "ui" && (prompt || (images && images.length > 0))) {
       const imageUrls = images?.map((i) => i.dataUrl).filter(Boolean) ?? [];
       try {
         const layout = await generateLayoutFromPrompt(prompt || "Create a layout using the attached image(s).", {
-          model: "gpt-4o",
+          model: "llama3",
           style: style ?? "dark",
           images: imageUrls.length > 0 ? imageUrls : undefined,
         });

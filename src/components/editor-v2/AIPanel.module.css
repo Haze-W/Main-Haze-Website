@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Coral AI Panel — 260px left panel
+   Coral 1.0 AI Panel — Haze editor (Brainwave-inspired)
 ═══════════════════════════════════════════════════════════════ */
 
 .panel {
@@ -659,14 +659,16 @@
   align-items: flex-end;
   gap: 5px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-  padding: 5px 6px;
-  transition: border-color 80ms ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 6px 8px;
+  transition: border-color 80ms ease, box-shadow 80ms ease;
+  box-shadow: var(--box-shadow-prompt-input, inset 0 2px 0 0 rgba(255,255,255,0.06));
 }
 
 .inputRow:focus-within {
-  border-color: #5e5ce6;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(94, 92, 230, 0.2);
 }
 
 .textarea {

@@ -1,5 +1,6 @@
 .wrapper {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: #2a2a2e;
   position: relative;

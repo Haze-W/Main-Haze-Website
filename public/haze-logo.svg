@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" fill="none">
+  <!-- Geometric H - purple left bar, white right bar + crossbar (visible on dark bg) -->
+  <rect x="0" y="0" width="8" height="32" fill="#8B5CF6"/>
+  <rect x="16" y="0" width="8" height="32" fill="#FFFFFF"/>
+  <rect x="8" y="12" width="8" height="8" fill="#FFFFFF"/>
+</svg>

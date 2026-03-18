@@ -396,24 +396,22 @@ function handleUIMode(prompt: string): CoralResponse {
 function handleBackendMode(prompt: string): CoralResponse {
   const lower = prompt.toLowerCase();
 
-  // Full chatbot with GPT — UI + backend wired
+  // Full chatbot — UI + Coral 1.0 (Ollama) wired
   if ((has(lower, "chatbot", "chat app", "full chat") && has(lower, "gpt", "openai", "api key")) || has(lower, "full chatbot with gpt")) {
     return {
       action: "GENERATE_UI",
-      text: "Generated a full chatbot app with GPT support. Go to Preview, add your OpenAI API key in the chat area, click Save, and start chatting. Export to get a standalone app that works with your key.",
+      text: "Generated a full chatbot app. Chat uses Coral 1.0 (Ollama) — no API key needed. Run 'ollama run llama3' and start chatting. Export to get a standalone app.",
       nodes: buildChatbotApp(true),
     };
   }
 
-  // Chat / AI integration — wire frontend to send messages (GPT-powered)
+  // Chat / AI integration — Coral 1.0 (Ollama)
   if (has(lower, "chat", "textbox", "text box", "input", "send message", "ai chatbot")) {
     return {
       action: "GENERATE_CODE",
-      text: "Your chatbot is wired to GPT! In Preview: add your OpenAI API key (Settings or the bar above messages), click Save, then chat. Export to get a standalone app. The chat calls /api/ai/chat-completions with your key.",
-      js: `// Chat is already wired in the exported app. Uses /api/ai/chat-completions.
-// Add your OpenAI API key in the chat area (or Settings) and click Save.
-// Key is stored in localStorage['haze-openai-api-key'].
-// To customize: edit the _wireChat function in scene-export.`,
+      text: "Your chatbot is wired to Coral 1.0 (Ollama). No API key needed. Run 'ollama run llama3' and chat. Export to get a standalone app. Chat calls /api/ai/chat-completions.",
+      js: `// Chat is wired in the exported app. Uses /api/ai/chat-completions (Coral 1.0 / Ollama).
+// No API key needed. Ensure Ollama is running: ollama run llama3`,
       deps: [],
     };
   }
@@ -608,7 +606,7 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! While I'm still learning (Coral 1.0), here's what I can help with:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask anything (uses GPT when API key is set)\n- **/backend** — Write Tauri 2 Rust commands and TypeScript integration code\n- **/agent** — Answer questions about Tauri, Rust, UI/UX, and app architecture\n- **/fix** — Analyze and fix issues in your canvas or code\n\nTry being more specific, like "How do I handle window close events?" or "Explain Tauri permissions".`,
+    text: `That's a great question! While I'm still learning (Coral 1.0), here's what I can help with:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask anything (Coral-powered)\n- **/backend** — Write Tauri 2 Rust commands and TypeScript integration code\n- **/agent** — Answer questions about Tauri, Rust, UI/UX, and app architecture\n- **/fix** — Analyze and fix issues in your canvas or code\n\nTry being more specific, like "How do I handle window close events?" or "Explain Tauri permissions".`,
   };
 }
 
@@ -659,11 +657,11 @@ function handlePlanMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Add an OPENAI_API_KEY to get AI-generated plans. Use /ui to generate the layout.*`,
+    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout. Coral 1.0 (Ollama) powers AI plans when running.*`,
   };
 }
 
-// ── Ask mode handler (fallback when no GPT) ───────────────────
+// ── Ask mode handler (Coral/Ollama) ─────────────────────────────
 
 function handleAskMode(prompt: string): CoralResponse {
   return handleAgentMode(prompt);
