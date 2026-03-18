@@ -35,6 +35,8 @@ interface AuthContextValue extends AuthState {
     name?: string,
     password?: string
   ) => Promise<{ error?: { message: string } }>;
+  signInWithGoogle: (callbackURL?: string) => Promise<{ error?: { message: string } }>;
+  signInWithGithub: (callbackURL?: string) => Promise<{ error?: { message: string } }>;
   logout: () => Promise<void>;
 }
 
@@ -94,6 +96,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const signInWithGoogle = useCallback(
+    async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Google sign in failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const signInWithGithub = useCallback(
+    async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.social({
+        provider: "github",
+        callbackURL,
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "GitHub sign in failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     await authClient.signOut();
   }, []);
@@ -105,9 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: isPending,
       login,
       signup,
+      signInWithGoogle,
+      signInWithGithub,
       logout,
     }),
-    [user, isAuthenticated, isPending, login, signup, logout]
+    [user, isAuthenticated, isPending, login, signup, signInWithGoogle, signInWithGithub, logout]
   );
 
   return (
