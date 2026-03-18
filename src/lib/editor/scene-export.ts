@@ -771,7 +771,7 @@ ${framesHtml}
         target.style.display = 'block';
       }
     }
-    // ── Chat input + Send wire-up (GPT-powered when API key set) ──
+    // ── Chat input + Send wire-up (Coral 1.0 / Ollama — no API key) ──
     function _wireChat() {
       var inputWrap = document.querySelector('[data-chat-role="chat-input"]');
       var sendBtn = document.querySelector('[data-chat-role="chat-send"]');
@@ -781,15 +781,6 @@ ${framesHtml}
       if (!input) return;
       var base = (typeof window !== 'undefined' && window.__CHAT_API_BASE__) ? window.__CHAT_API_BASE__ : '';
       var apiUrl = base + '/api/ai/chat-completions';
-      var storageKey = 'haze-openai-api-key';
-      var apiKeyBar = document.createElement('div');
-      apiKeyBar.style.cssText = 'padding:12px 24px;margin-bottom:8px;background:rgba(0,0,0,0.2);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-      apiKeyBar.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.6);">OpenAI API Key:</span><input type="password" placeholder="sk-..." style="flex:1;min-width:180px;padding:6px 10px;font-size:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e6edf3;" data-chat-api-key-input><button style="padding:6px 12px;font-size:12px;background:#5e5ce6;border:none;border-radius:6px;color:#fff;cursor:pointer;" data-chat-save-key>Save</button>';
-      var keyInput = apiKeyBar.querySelector('[data-chat-api-key-input]');
-      var saveBtn = apiKeyBar.querySelector('[data-chat-save-key]');
-      if (keyInput) keyInput.value = localStorage.getItem(storageKey) || '';
-      if (saveBtn) saveBtn.addEventListener('click', function() { if (keyInput) localStorage.setItem(storageKey, keyInput.value); saveBtn.textContent = 'Saved!'; setTimeout(function(){ saveBtn.textContent = 'Save'; }, 1500); });
-      messagesEl.insertBefore(apiKeyBar, messagesEl.firstChild);
       function send() {
         var text = (input.value || '').trim();
         if (!text) return;
@@ -803,15 +794,13 @@ ${framesHtml}
         messagesEl.appendChild(aiDiv);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         input.value = '';
-        var key = localStorage.getItem(storageKey) || '';
         var hist = [];
         Array.prototype.forEach.call(messagesEl.children, function(el) {
-          if (el === apiKeyBar) return;
           if (el.getAttribute('data-chat-msg-user')) hist.push({role:'user',content:el.textContent||''});
           if (el.getAttribute('data-chat-msg-ai')) hist.push({role:'assistant',content:el.textContent||''});
         });
         hist.push({role:'user',content:text});
-        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist, apiKey: key || undefined }) })
+        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist }) })
           .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
           .then(function(res){ aiDiv.textContent = res.ok && res.data.content ? res.data.content : (res.data.error || 'Error: ' + (res.ok ? 'No response' : 'Request failed')); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); messagesEl.scrollTop = messagesEl.scrollHeight; })
           .catch(function(e){ aiDiv.textContent = 'Error: ' + (e && e.message ? e.message : 'Network error'); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); });

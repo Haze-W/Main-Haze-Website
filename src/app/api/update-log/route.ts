@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { parseUpdateLog } from "@/lib/update-log";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { parseUpdateLog, parseLocalUpdateLog } from "@/lib/update-log";
 
 const UPDATE_LOG_PATH = process.env.UPDATE_LOG_GITHUB_PATH || "update-log.json";
 const BRANCH = process.env.UPDATE_LOG_GITHUB_BRANCH || "main";
@@ -16,14 +18,21 @@ export async function GET() {
   const rawUrl = getRawUrl();
 
   if (!rawUrl) {
-    return NextResponse.json(
-      {
-        entries: [],
-        error:
-          "Missing UPDATE_LOG_GITHUB_OWNER or UPDATE_LOG_GITHUB_REPO environment variables.",
-      },
-      { status: 500, headers: { "Cache-Control": "no-store" } },
-    );
+    try {
+      const path = join(process.cwd(), "update-log.json");
+      const raw = await readFile(path, "utf-8");
+      const data = JSON.parse(raw);
+      const entries = parseLocalUpdateLog(data);
+      return NextResponse.json(
+        { entries },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    } catch {
+      return NextResponse.json(
+        { entries: [], error: "No update log configured." },
+        { status: 200, headers: { "Cache-Control": "no-store" } },
+      );
+    }
   }
 
   try {

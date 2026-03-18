@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Components Panel - Raycast Style
+   Components Panel - Haze (theme-aware)
 ═══════════════════════════════════════════════════════════════ */
 
 .panel {
@@ -16,34 +16,34 @@
 
 .searchIcon {
   position: absolute;
-  left: 24px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--fg-muted);
+  color: var(--shade-06);
   pointer-events: none;
+  flex-shrink: 0;
 }
 
 .search {
   width: 100%;
-  height: 32px;
-  padding: 0 var(--space-3) 0 36px;
-  font-size: var(--text-sm);
-  color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  height: 36px;
+  padding: 0 12px 0 38px;
+  font-size: 0.875rem;
+  color: var(--shade-09);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
   outline: none;
   transition: all var(--transition-fast);
 }
 
 .search::placeholder {
-  color: var(--fg-muted);
+  color: var(--shade-06);
 }
 
 .search:focus {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--border-default);
-  box-shadow: 0 0 0 2px var(--accent-subtle);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
 }
 
 .aiSection {
@@ -212,19 +212,19 @@
   gap: var(--space-2);
   margin: 0 var(--space-3) var(--space-3);
   padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--shade-09);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .iconLibraryBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--border-default);
+  background: var(--shade-07_05);
+  border-color: var(--color-s-02);
 }
 
 .iconLibraryIcon {
@@ -244,9 +244,9 @@
 .categoryLabel {
   padding: 0 var(--space-2);
   margin-bottom: var(--space-1);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--shade-06);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -257,21 +257,21 @@
   gap: var(--space-3);
   padding: 8px var(--space-2);
   margin-bottom: 2px;
-  font-size: 13px;
-  color: var(--fg-primary);
-  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+  border-radius: 8px;
   cursor: grab;
   user-select: none;
   transition: background var(--transition-fast);
 }
 
 .componentItem:hover {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-subtle);
+  color: var(--accent);
 }
 
 .componentItem:hover .componentIcon {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--accent);
 }
 
 .componentItem.dragging {
@@ -282,16 +282,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  color: var(--fg-secondary);
+  width: 28px;
+  height: 28px;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  color: var(--shade-06);
   font-size: 14px;
   flex-shrink: 0;
   transition: all var(--transition-fast);
 }
 
 .componentItem:hover .componentIcon {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-01);
+  border-color: var(--accent);
 }

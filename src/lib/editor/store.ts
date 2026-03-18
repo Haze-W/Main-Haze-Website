@@ -71,6 +71,8 @@ interface EditorState {
   canvasBg: string;
   showGrid: boolean;
   gridType: "dots" | "lines" | "cross" | "none";
+  // Theme
+  theme: "light" | "dark";
   // Snap
   snapLines: Array<{ id: string; type: "h" | "v"; pos: number }>;
   // Figma deep selection: which frame is "entered" for child editing
@@ -106,6 +108,7 @@ type EditorActions = {
   setCanvasBg: (v: string) => void;
   setShowGrid: (v: boolean) => void;
   setGridType: (v: "dots" | "lines" | "cross" | "none") => void;
+  setTheme: (v: "light" | "dark") => void;
   enterFrame: (id: string) => void;
   exitFrame: () => void;
   setLastCanvasPoint: (pt: { x: number; y: number } | null) => void;
@@ -203,6 +206,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   canvasBg: "#2a2a2e",
   showGrid: true,
   gridType: "dots",
+  theme: "light",
   snapLines: [],
   enteredFrameId: null,
   lastCanvasPoint: null,
@@ -372,6 +376,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   setCanvasBg: (canvasBg) => set({ canvasBg }),
   setShowGrid: (showGrid) => set({ showGrid }),
   setGridType: (gridType) => set({ gridType }),
+  setTheme: (theme) => set({ theme }),
   enterFrame: (id) => set({ enteredFrameId: id }),
   exitFrame: () => set({ enteredFrameId: null }),
   setLastCanvasPoint: (pt) => set({ lastCanvasPoint: pt }),

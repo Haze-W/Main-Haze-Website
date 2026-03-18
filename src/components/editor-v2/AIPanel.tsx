@@ -59,7 +59,7 @@ interface Message {
 const SLASH_COMMANDS = [
   { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts" },
   { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Create a step-by-step plan" },
-  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything (GPT-powered)" },
+  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything (Coral-powered)" },
   { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri backend code" },
   { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Tauri & Haze help" },
   { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Fix issues" },
@@ -75,7 +75,7 @@ const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
   { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
   { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form", "Plan an e-commerce product page"] },
   { mode: "ask", prompts: ["How do I add dark mode?", "What's the best layout for a settings page?", "Explain flexbox vs grid"] },
-  { mode: "backend", prompts: ["Full chatbot with GPT (add your API key)", "System info backend", "File read/write commands"] },
+  { mode: "backend", prompts: ["Full chatbot with Coral (Ollama)", "System info backend", "File read/write commands"] },
   { mode: "agent", prompts: ["Window events?", "Tauri permissions"] },
   { mode: "fix", prompts: ["Make the chat textbox work", "Fix canvas layout", "Debug Rust command"] },
 ];
@@ -125,6 +125,12 @@ export function AIPanel() {
   useEffect(() => {
     threadRef.current?.scrollTo(0, threadRef.current.scrollHeight);
   }, [messages, loading]);
+
+  useEffect(() => {
+    const onFocus = () => taRef.current?.focus();
+    window.addEventListener("haze-focus-ai", onFocus);
+    return () => window.removeEventListener("haze-focus-ai", onFocus);
+  }, []);
 
   useEffect(() => {
     if (!showAgents) return;
@@ -194,7 +200,7 @@ export function AIPanel() {
 
     // Show thinking steps for UI mode
     if (m === "ui") {
-      const steps = ["Reading your request...", "Understanding what you want...", "Designing the layout...", "Generating components...", "Applying layout rules..."];
+      const steps = ["Reading your request... (first run may take 1–2 min)", "Understanding what you want...", "Designing the layout...", "Generating components...", "Applying layout rules..."];
       setThinkingSteps([steps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
       steps.slice(1).forEach((step, i) => {
@@ -491,8 +497,8 @@ export function AIPanel() {
       ) : (
         <div className={styles.empty}>
           <Sparkles size={28} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Coral AI</p>
-          <p className={styles.emptyDesc}>Type a message or use / commands.</p>
+          <p className={styles.emptyTitle}>Coral 1.0</p>
+          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Haze.</p>
           <div className={styles.chipGroups}>
             {CHIPS.map((g) => (
               <div key={g.mode} className={styles.chipGroup}>
@@ -562,7 +568,7 @@ export function AIPanel() {
             <ImagePlus size={16} />
           </button>
           <textarea ref={taRef} className={styles.textarea}
-            placeholder={mode ? `Message (${mode})...` : "Message, paste image, or type /..."}
+            placeholder={mode ? `Message (${mode})...` : "Describe your UI, paste image, or type /..."}
             value={input} onChange={(e) => onInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={1} />
           <button type="button" className={styles.sendBtn} disabled={loading || (!input.trim() && attachedImages.length === 0)} onClick={() => send(input, mode)}>
             <ArrowUp size={13} strokeWidth={2.5} />

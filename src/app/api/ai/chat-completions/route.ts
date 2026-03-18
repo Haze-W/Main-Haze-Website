@@ -1,20 +1,20 @@
 /**
- * OpenAI Chat Completions Proxy
+ * Coral 1.0 Chat Completions
  * POST /api/ai/chat-completions
- * Body: { messages: { role, content }[], apiKey?: string, model?: string }
+ * Body: { messages: { role, content }[], model?: string }
  *
- * Proxies to OpenAI. If apiKey is provided, uses it. Otherwise uses OPENAI_API_KEY from env.
- * Used by exported chatbot apps so users can add their own GPT key.
+ * Uses Ollama (local AI). No API keys. Runs on your PC.
+ * Used by exported chatbot apps — backend proxies to local Ollama.
  */
 
 import { NextResponse } from "next/server";
+import { chatFromOllama } from "@/lib/ai/ollama";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages, apiKey: userApiKey, model = "gpt-4o" } = body as {
+    const { messages, model = "llama3" } = body as {
       messages: Array<{ role: string; content: string }>;
-      apiKey?: string;
       model?: string;
     };
 
@@ -22,59 +22,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
     }
 
-    const apiKey = (userApiKey && typeof userApiKey === "string" ? userApiKey.trim() : null)
-      || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OpenAI API key required. Add your key in Settings or set OPENAI_API_KEY on the server." },
-        { status: 400 }
-      );
-    }
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: typeof model === "string" ? model : "gpt-4o",
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-        temperature: 0.7,
-        max_tokens: 2048,
-      }),
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      const status = response.status;
-      if (status === 401) {
-        return NextResponse.json(
-          { error: "Invalid API key. Check your OpenAI key in Settings." },
-          { status: 401 }
-        );
-      }
-      if (status === 429) {
-        return NextResponse.json(
-          { error: "Rate limit exceeded. Try again in a moment." },
-          { status: 429 }
-        );
-      }
-      console.error("OpenAI API error:", err);
-      return NextResponse.json(
-        { error: err || "OpenAI request failed" },
-        { status: status >= 400 ? status : 500 }
-      );
-    }
-
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content ?? "";
+    const content = await chatFromOllama(
+      messages.map((m) => ({ role: m.role, content: m.content })),
+      { model: typeof model === "string" ? model : "llama3", temperature: 0.7 }
+    );
 
     return NextResponse.json({ content, role: "assistant" });
   } catch (err) {
     console.error("Chat completions error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: message.includes("fetch") || message.includes("ECONNREFUSED")
+          ? "Ollama is not running. Start it with: ollama run llama3"
+          : message,
+      },
+      { status: 500 }
+    );
   }
 }

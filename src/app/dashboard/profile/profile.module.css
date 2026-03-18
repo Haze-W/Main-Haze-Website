@@ -1,0 +1,176 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-muted));
+}
+
+.userInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--shade-09);
+  margin: 0 0 8px;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 0.9375rem;
+  color: var(--shade-06);
+}
+
+.dot {
+  color: var(--shade-05);
+}
+
+.location,
+.website {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.website {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.website:hover {
+  text-decoration: underline;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.socialBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.socialBtn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--shade-04);
+  color: var(--shade-07);
+  transition: all 0.2s;
+}
+
+.socialBtn:hover {
+  background-color: var(--shade-02);
+  color: var(--shade-09);
+}
+
+.shareBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--shade-09);
+  background-color: var(--shade-02);
+  border: 1px solid var(--shade-04);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shareBtn:hover {
+  background-color: var(--shade-03);
+  border-color: var(--shade-05);
+}
+
+.masonry {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.projectCard {
+  display: block;
+  border-radius: 24px;
+  overflow: hidden;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.projectCard:hover {
+  transform: scale(1.02);
+}
+
+.projectPreview {
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, var(--shade-03) 0%, var(--shade-04) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--shade-06);
+}
+
+.empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 24px;
+  color: var(--shade-06);
+}
+
+.empty p {
+  color: var(--shade-07);
+  font-size: 1rem;
+}
+
+.createLink {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.createLink:hover {
+  text-decoration: underline;
+}
