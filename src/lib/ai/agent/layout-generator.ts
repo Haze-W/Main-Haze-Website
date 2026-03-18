@@ -249,7 +249,7 @@ function buildUserMessageContent(
   images?: string[]
 ): { type: "text"; text: string } | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> {
   if (!images || images.length === 0) {
-    return userPrompt;
+    return { type: "text", text: userPrompt };
   }
   const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
   for (const url of images.slice(0, 4)) {
