@@ -34,8 +34,18 @@
   transition: background 0.15s;
 }
 
-.menuItem:hover {
+.menuItem:hover:not(:disabled) {
   background: var(--surface-03);
+}
+
+.menuItemIcon {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .shortcutBadge {

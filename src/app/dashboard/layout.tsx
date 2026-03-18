@@ -38,6 +38,8 @@ import { CreateProjectModal } from "./CreateProjectModal";
 import { CreateModalProvider } from "./CreateModalContext";
 import { StandaloneHeader } from "./StandaloneHeader";
 import { getFolders, saveFolders, type FolderItem } from "@/lib/folders";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 
 const STANDALONE_PATHS = [
   "/dashboard/pricing",
@@ -83,6 +85,8 @@ export default function DashboardLayout({
 
 function DashboardFullLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { logout } = useAuth();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
@@ -421,7 +425,15 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                       <CheckCircle2 size={18} strokeWidth={1.5} />
                       Updates
                     </Link>
-                    <button type="button" className={styles.profileDropdownItem} onClick={() => setProfileOpen(false)}>
+                    <button
+                      type="button"
+                      className={styles.profileDropdownItem}
+                      onClick={async () => {
+                        setProfileOpen(false);
+                        await logout();
+                        router.push("/login");
+                      }}
+                    >
                       <LogOut size={18} strokeWidth={1.5} />
                       Sign out
                     </button>

@@ -724,8 +724,7 @@
 }
 
 .commentsBtn:hover {
-  background: var(--shade-07_05);
-  color: var(--accent);
+  background: var(--surface-03);
 }
 
 /* ── Sidebar collapsed button ──────────────────────────────────── */

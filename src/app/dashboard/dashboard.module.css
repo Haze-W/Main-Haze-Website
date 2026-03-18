@@ -353,7 +353,7 @@
 }
 
 .notifMarkRead:hover {
-  background-color: var(--accent-subtle);
+  background-color: var(--shade-03);
 }
 
 .notifAvatar {
@@ -752,9 +752,9 @@
 }
 
 .sceneCardNew:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-color: var(--accent-subtle);
+  border-color: var(--shade-05);
+  color: var(--shade-09);
+  background-color: var(--shade-03);
 }
 
 .plusIcon {
@@ -772,8 +772,8 @@
 }
 
 .sceneCardNew:hover .plusIcon {
-  background-color: var(--accent-subtle);
-  color: var(--accent);
+  background-color: var(--shade-04);
+  color: var(--shade-09);
 }
 
 .sceneCardEmpty {

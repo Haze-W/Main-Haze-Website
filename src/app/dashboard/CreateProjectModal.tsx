@@ -2,12 +2,17 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { FolderOpen, CloudUpload, X } from "lucide-react";
+import { CloudUpload, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createProject } from "@/lib/projects";
 import styles from "./CreateProjectModal.module.css";
 
-const FRAMEWORKS = ["React", "Vue", "Svelte", "Next.js", "Remix", "Vanilla"];
+const FRAMEWORKS = [
+  { value: "tauri", label: "Tauri", disabled: false },
+  { value: "electron", label: "Electron", disabled: true },
+  { value: "wpf", label: "WPF", disabled: true },
+  { value: "imgui", label: "Imgui", disabled: true },
+];
 
 export function CreateProjectModal({
   open,
@@ -74,12 +79,12 @@ export function CreateProjectModal({
           <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.header}>
               <div className={styles.headerIcon}>
-                <FolderOpen size={24} strokeWidth={2} />
+                <img src="/tauri-logo.svg" alt="Tauri" className={styles.tauriLogo} />
               </div>
               <div>
                 <h2 className={styles.title}>Create New Project</h2>
                 <p className={styles.subtitle}>
-                  Create a project to structure your team&apos;s workflow.
+                  Start a new project from scratch.
                 </p>
               </div>
             </div>
@@ -100,18 +105,17 @@ export function CreateProjectModal({
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>
-                  Framework <span className={styles.required}>*</span>
+                  Framework
                 </label>
                 <select
                   className={styles.select}
                   value={framework}
                   onChange={(e) => setFramework(e.target.value)}
-                  required
                 >
-                  <option value="">Choose framework</option>
+                  <option value="">Choose framework (optional)</option>
                   {FRAMEWORKS.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                    <option key={f.value} value={f.disabled ? "" : f.value} disabled={f.disabled}>
+                      {f.label}
                     </option>
                   ))}
                 </select>
@@ -160,7 +164,7 @@ export function CreateProjectModal({
                 Cancel
               </button>
               <button type="submit" className={styles.submitBtn}>
-                Save Project
+                Create Project
               </button>
             </div>
           </form>

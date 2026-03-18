@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useEditorStore } from "@/lib/editor/store";
-import { Monitor, Smartphone, RefreshCw, Plus, Minus, RotateCcw } from "lucide-react";
+import { Play, Monitor, Laptop, Smartphone, RefreshCw, Plus, Minus, RotateCcw } from "lucide-react";
 import { clampZoom } from "@/lib/editor/viewport";
 import styles from "./PreviewPanel.module.css";
 
@@ -27,8 +27,10 @@ export function PreviewPanel() {
   const [panX, setPanX]         = useState(0);
   const [panY, setPanY]         = useState(0);
   const [isPanning, setIsPanning] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const areaRef = useRef<HTMLDivElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
 
   const rebuild = (currentNodes = nodes, bg = canvasBg) => {
     setError(null);
@@ -63,7 +65,7 @@ export function PreviewPanel() {
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
 
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+    if (e.shiftKey) {
       const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
       const newZoom = clampZoom(zoom * factor);
       const vx = e.clientX - rect.left;
@@ -116,42 +118,18 @@ export function PreviewPanel() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (optionsOpen && optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
+        setOptionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [optionsOpen]);
+
   return (
     <div className={styles.panel}>
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.label}>Preview</span>
-          <span className={styles.hint}>{status || "Ctrl+scroll to zoom"}</span>
-        </div>
-        <div className={styles.toolbarRight}>
-          <div className={styles.deviceGroup}>
-            {(Object.entries(DEVICE_SIZES) as [DeviceSize, { width: number; height: number; label: string }][]).map(([d, val]) => (
-              <button key={d} type="button" title={val.label}
-                className={`${styles.deviceBtn} ${device === d ? styles.deviceActive : ""}`}
-                onClick={() => setDevice(d)}>
-                {d === "mobile" ? <Smartphone size={14} /> : <Monitor size={d === "desktop" ? 14 : 12} />}
-              </button>
-            ))}
-          </div>
-          <span className={styles.sizeLabel}>{width} × {height}</span>
-          <div className={styles.zoomGroup}>
-            <button type="button" className={styles.zoomBtn} onClick={zoomOut} title="Zoom out">
-              <Minus size={11} strokeWidth={2.5} />
-            </button>
-            <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
-            <button type="button" className={styles.zoomBtn} onClick={zoomIn} title="Zoom in">
-              <Plus size={11} strokeWidth={2.5} />
-            </button>
-            <button type="button" className={styles.zoomBtn} onClick={resetView} title="Reset view">
-              <RotateCcw size={11} />
-            </button>
-          </div>
-          <button type="button" className={styles.refreshBtn} onClick={() => rebuild(nodes, canvasBg)} title="Refresh">
-            <RefreshCw size={13} />
-          </button>
-        </div>
-      </div>
-
       <div
         ref={areaRef}
         className={`${styles.previewArea} ${isPanning ? styles.panning : ""}`}
@@ -162,6 +140,56 @@ export function PreviewPanel() {
         onPointerUp={handlePointerUp}
         onPointerLeave={() => setIsPanning(false)}
       >
+        <div className={styles.floatingOptions} ref={optionsRef}>
+          <button
+            type="button"
+            className={`${styles.playBtn} ${optionsOpen ? styles.playBtnActive : ""}`}
+            onClick={() => setOptionsOpen((o) => !o)}
+            title="Preview options"
+          >
+            <Play size={14} strokeWidth={2.5} fill="currentColor" />
+          </button>
+          {optionsOpen && (
+            <div className={styles.optionsDropdown}>
+              <div className={styles.optionsSection}>
+                <span className={styles.optionsSectionLabel}>Device</span>
+                <div className={styles.deviceGroup}>
+                  {(Object.entries(DEVICE_SIZES) as [DeviceSize, { width: number; height: number; label: string }][]).map(([d, val]) => (
+                    <button key={d} type="button" title={val.label}
+                      className={`${styles.deviceBtn} ${device === d ? styles.deviceActive : ""}`}
+                      onClick={() => setDevice(d)}>
+                      {d === "mobile" ? <Smartphone size={14} /> : d === "tablet" ? <Laptop size={14} /> : <Monitor size={14} />}
+                    </button>
+                  ))}
+                </div>
+                <span className={styles.sizeLabel}>{width} × {height}</span>
+              </div>
+              <div className={styles.optionsDivider} />
+              <div className={styles.optionsSection}>
+                <span className={styles.optionsSectionLabel}>Zoom</span>
+                <div className={styles.zoomGroup}>
+                  <button type="button" className={styles.zoomBtn} onClick={zoomOut} title="Zoom out">
+                    <Minus size={11} strokeWidth={2.5} />
+                  </button>
+                  <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
+                  <button type="button" className={styles.zoomBtn} onClick={zoomIn} title="Zoom in">
+                    <Plus size={11} strokeWidth={2.5} />
+                  </button>
+                  <button type="button" className={styles.zoomBtn} onClick={resetView} title="Reset view">
+                    <RotateCcw size={11} />
+                  </button>
+                </div>
+              </div>
+              <div className={styles.optionsDivider} />
+              <div className={styles.optionsSection}>
+                <button type="button" className={styles.refreshBtn} onClick={() => { rebuild(nodes, canvasBg); setOptionsOpen(false); }} title="Refresh preview">
+                  <RefreshCw size={13} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         {error ? (
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>⚠</div>

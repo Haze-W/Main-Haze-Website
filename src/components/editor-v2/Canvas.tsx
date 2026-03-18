@@ -312,7 +312,7 @@ export function Canvas() {
     ]
   );
 
-  // Figma-style: Scroll = pan. Ctrl/Cmd+scroll or Shift+scroll = zoom (cursor-centered).
+  // Scroll = pan. Shift+scroll = zoom.
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -321,9 +321,7 @@ export function Canvas() {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const isZoom = e.ctrlKey || e.metaKey || e.shiftKey;
-
-      if (isZoom) {
+      if (e.shiftKey) {
         const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
         const newZoom = clampZoom(viewport.zoom * factor);
         const vx = e.clientX - rect.left;
@@ -471,9 +469,9 @@ export function Canvas() {
         </div>
       </div>
 
-      <div className={styles.zoomTooltip} title="Ctrl/Cmd + scroll or Shift + scroll to zoom">
+      <div className={styles.zoomTooltip} title="Shift + scroll to zoom">
         <span className={styles.zoomTooltipValue}>{Math.round(viewport.zoom * 100)}%</span>
-        <span className={styles.zoomTooltipHint}>Ctrl + scroll</span>
+        <span className={styles.zoomTooltipHint}>Shift + scroll</span>
       </div>
 
       {marqueeRect && marqueeRect.width > 1 && marqueeRect.height > 1 && (

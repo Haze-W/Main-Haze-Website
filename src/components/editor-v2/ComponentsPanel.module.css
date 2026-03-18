@@ -266,12 +266,11 @@
 }
 
 .componentItem:hover {
-  background: var(--accent-subtle);
-  color: var(--accent);
+  background: var(--surface-03);
 }
 
 .componentItem:hover .componentIcon {
-  color: var(--accent);
+  color: var(--shade-09);
 }
 
 .componentItem.dragging {
@@ -295,5 +294,5 @@
 
 .componentItem:hover .componentIcon {
   background: var(--surface-01);
-  border-color: var(--accent);
+  border-color: var(--color-s-02);
 }

@@ -36,8 +36,8 @@
 }
 
 .item:hover:not(:disabled) {
-  background: var(--accent, #5e5ce6);
-  color: white;
+  background: var(--surface-03, rgba(255,255,255,0.08));
+  color: var(--fg-primary, #e6edf3);
 }
 
 .item:disabled {
@@ -54,7 +54,7 @@
 }
 
 .item:hover:not(:disabled) .shortcut {
-  color: rgba(255,255,255,0.6);
+  color: var(--fg-muted, #6b7280);
 }
 
 .divider {

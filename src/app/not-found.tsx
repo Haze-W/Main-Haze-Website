@@ -32,7 +32,7 @@ export default function NotFound() {
           fontWeight: 600,
         }}
       >
-        Go to Dashboard
+        Back to Home
       </Link>
     </div>
   );

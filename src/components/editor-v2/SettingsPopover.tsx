@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import Link from "next/link";
 import { useEditorStore } from "@/lib/editor/store";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, LayoutDashboard, Keyboard, Save, Copy } from "lucide-react";
 import styles from "./SettingsPopover.module.css";
 
 interface SettingsPopoverProps {
@@ -10,14 +11,14 @@ interface SettingsPopoverProps {
   isOpen: boolean;
   onClose: () => void;
   onExport?: () => void;
+  onSave?: () => void;
+  onSaveAs?: () => void;
 }
 
-export function SettingsPopover({ anchorRef, isOpen, onClose, onExport }: SettingsPopoverProps) {
+export function SettingsPopover({ anchorRef, isOpen, onClose, onExport, onSave, onSaveAs }: SettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const theme = useEditorStore((s) => s.theme);
   const setTheme = useEditorStore((s) => s.setTheme);
-  const showGrid = useEditorStore((s) => s.showGrid);
-  const setShowGrid = useEditorStore((s) => s.setShowGrid);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,6 +61,14 @@ export function SettingsPopover({ anchorRef, isOpen, onClose, onExport }: Settin
       }}
     >
       <div className={styles.menuSection}>
+        <button type="button" className={`${styles.menuItem} ${styles.menuItemIcon}`} onClick={() => { onSave?.(); onClose(); }}>
+          <Save size={16} strokeWidth={2} />
+          <span>Save Changes</span>
+        </button>
+        <button type="button" className={`${styles.menuItem} ${styles.menuItemIcon}`} onClick={() => { onSaveAs?.(); onClose(); }}>
+          <Copy size={16} strokeWidth={2} />
+          <span>Save As</span>
+        </button>
         <button type="button" className={styles.menuItem} onClick={() => { onExport?.(); onClose(); }}>
           Export...
           <kbd className={styles.shortcutBadge}>⇧⌘E</kbd>
@@ -78,6 +87,13 @@ export function SettingsPopover({ anchorRef, isOpen, onClose, onExport }: Settin
         <button type="button" className={styles.menuItem} onClick={onClose}>Rename</button>
         <button type="button" className={styles.menuItem} onClick={onClose}>Move to folder...</button>
         <button type="button" className={styles.menuItem} onClick={onClose}>Delete</button>
+      </div>
+      <div className={styles.menuDivider} />
+      <div className={styles.menuSection}>
+        <Link href="/dashboard" className={`${styles.menuItem} ${styles.menuItemIcon}`} onClick={onClose}>
+          <LayoutDashboard size={16} strokeWidth={2} />
+          <span>Return to Dashboard</span>
+        </Link>
       </div>
       <div className={styles.menuDivider} />
       <div className={styles.menuSection}>
@@ -102,17 +118,10 @@ export function SettingsPopover({ anchorRef, isOpen, onClose, onExport }: Settin
             </button>
           </div>
         </div>
-        <div className={styles.menuItemRow}>
-          <span>Show grid</span>
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={showGrid}
-              onChange={(e) => setShowGrid(e.target.checked)}
-            />
-            <span className={styles.toggleTrack} />
-          </label>
-        </div>
+        <button type="button" className={`${styles.menuItem} ${styles.menuItemIcon}`} disabled title="Coming soon">
+          <Keyboard size={16} strokeWidth={2} />
+          <span>Keybinds</span>
+        </button>
       </div>
     </div>
   );

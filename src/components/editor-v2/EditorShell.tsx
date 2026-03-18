@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type ComponentType } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -34,6 +35,7 @@ import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
 import { CodePanel } from "@/components/editor/CodePanel";
 import { SettingsPopover } from "./SettingsPopover";
+import { SaveAsModal } from "./SaveAsModal";
 import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
@@ -226,6 +228,9 @@ function LayerItem({
 
 export function EditorShell() {
   const [exportOpen, setExportOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const currentProjectId = searchParams.get("project");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
@@ -773,6 +778,16 @@ export function EditorShell() {
           isOpen={settingsPopoverOpen}
           onClose={() => setSettingsPopoverOpen(false)}
           onExport={() => setExportOpen(true)}
+          onSave={() => {
+            const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+            const projectId = params.get("project");
+            if (projectId) {
+              import("@/lib/projects").then(({ saveProject }) => {
+                saveProject(projectId, { nodes: nodes as unknown[], name: projectName });
+              });
+            }
+          }}
+          onSaveAs={() => setSaveAsOpen(true)}
         />
 
         {/* ── Bottom AI Prompt (1:1 Brainwave) ────────────────────── */}
@@ -788,6 +803,13 @@ export function EditorShell() {
         }}
       />
 
+      <SaveAsModal
+        isOpen={saveAsOpen}
+        onClose={() => setSaveAsOpen(false)}
+        currentProjectId={currentProjectId}
+        currentNodes={nodes as unknown[]}
+        currentProjectName={projectName}
+      />
       <ExportModal
         isOpen={exportOpen}
         onClose={() => setExportOpen(false)}
