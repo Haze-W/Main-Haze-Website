@@ -9,6 +9,8 @@ export interface ParsedPrompt {
   theme: "light" | "dark";
   domain?: string;
   raw: string;
+  designPreset?: string;
+  sectionTemplate?: string;
 }
 
 const COMPONENT_KEYWORDS: Record<string, string[]> = {
@@ -34,6 +36,34 @@ const STYLE_KEYWORDS: Record<string, string[]> = {
   corporate: ["corporate", "business", "professional"],
   dark: ["dark", "dark mode", "dark theme"],
   minimal: ["minimal", "minimalist", "simple"],
+};
+
+/** Design presets — inject into prompt for style guidance */
+export const DESIGN_PRESETS: Record<string, string> = {
+  stripe: "Stripe-style SaaS — clean gradients, purple accents, trust-building layout, conversion-focused",
+  apple: "Apple minimal — lots of whitespace, SF-style typography, subtle shadows, premium feel",
+  landing: "Modern startup landing page — hero, features grid, social proof, strong CTA",
+  glassmorphism: "Glassmorphism dashboard — frosted glass cards, blur, soft elevation",
+  linear: "Linear-style — crisp, fast-feeling, keyboard-first aesthetic, dark mode friendly",
+  notion: "Notion-style — content-first, sidebar nav, clean blocks, collaborative feel",
+};
+
+const PRESET_KEYWORDS: Record<string, string[]> = {
+  stripe: ["stripe", "saas", "payment", "conversion"],
+  apple: ["apple", "minimal", "premium", "sf style"],
+  landing: ["landing", "homepage", "marketing page"],
+  glassmorphism: ["glass", "glassmorphism", "frosted", "blur"],
+  linear: ["linear", "crisp", "keyboard", "fast"],
+  notion: ["notion", "blocks", "wiki", "content-first"],
+};
+
+/** Section templates — required structure by page type */
+export const SECTION_TEMPLATES: Record<string, string> = {
+  landing: "MUST include: Hero (headline + subheadline + CTA), Features grid (3-4 features with icons), CTA section, Footer (links, copyright)",
+  dashboard: "MUST include: Sidebar (nav with icons), Topbar (logo, search, user), Stats cards (3-4 KPI cards), Main content area (charts/tables/lists)",
+  login: "MUST include: Centered card, Title, Email + Password inputs, Remember me, Sign in button, Sign up link",
+  settings: "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
+  pricing: "MUST include: Section title, 3 pricing cards (Starter/Pro/Enterprise), Feature lists, CTA buttons",
 };
 
 export function parsePrompt(prompt: string): ParsedPrompt {
@@ -62,6 +92,24 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   const hasLight = lower.includes("light") || lower.includes("light mode");
   const theme = hasDark ? "dark" : hasLight ? "light" : "dark";
 
+  // Detect design preset from prompt
+  let designPreset: string | undefined;
+  for (const [key, desc] of Object.entries(DESIGN_PRESETS)) {
+    const keywords = PRESET_KEYWORDS[key] ?? [];
+    if (keywords.some((k) => lower.includes(k))) {
+      designPreset = desc;
+      break;
+    }
+  }
+
+  // Detect page type for section template
+  let sectionTemplate: string | undefined;
+  if (has(lower, "landing", "homepage", "marketing")) sectionTemplate = SECTION_TEMPLATES.landing;
+  else if (has(lower, "dashboard", "admin", "analytics")) sectionTemplate = SECTION_TEMPLATES.dashboard;
+  else if (has(lower, "login", "sign in", "auth")) sectionTemplate = SECTION_TEMPLATES.login;
+  else if (has(lower, "settings", "preferences")) sectionTemplate = SECTION_TEMPLATES.settings;
+  else if (has(lower, "pricing", "plans")) sectionTemplate = SECTION_TEMPLATES.pricing;
+
   return {
     intent: lower,
     components: components.length > 0 ? components : [],
@@ -69,7 +117,13 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     theme,
     domain,
     raw: prompt,
+    designPreset,
+    sectionTemplate,
   };
+}
+
+function has(text: string, ...keywords: string[]): boolean {
+  return keywords.some((k) => text.includes(k));
 }
 
 /** Parse with optional theme override (from UI) */

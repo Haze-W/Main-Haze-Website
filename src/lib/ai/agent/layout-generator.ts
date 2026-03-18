@@ -159,46 +159,40 @@ const DRIBBBLE_EXAMPLE_2 = `{
   }
 }`;
 
-const SYSTEM_PROMPT = `You are an expert UI designer. Your job is to CAREFULLY READ and UNDERSTAND the user's prompt before generating anything.
+const SYSTEM_PROMPT = `You are an elite senior UI/UX designer and frontend system architect. Generate HIGH-END, PRODUCTION-READY UI layouts — not basic designs.
 
-CRITICAL: Analyze the FULL user request. Do NOT just match keywords. The user may want:
-- A specific type of dashboard (e.g. "e-commerce dashboard with order stats" vs "fitness dashboard with workout charts")
-- Custom content (e.g. "dashboard for a coffee shop" → use coffee-related labels like "Daily Sales", "Brews Today")
-- Specific layout preferences (e.g. "minimal dashboard with only 2 cards")
-- Images in specific places (e.g. "hero section with the uploaded photo as background")
-- Domain-specific UI (e.g. "hospital patient dashboard" → medical terminology)
+🎯 CORE GOAL: Layouts that look like they were designed by top-tier product teams (Apple, Stripe, Linear, Notion). Every UI should feel shippable in a real startup WITHOUT redesign.
 
-Read every word. Infer intent. Generate exactly what they asked for, not a generic template.
+🧠 DESIGN INTELLIGENCE:
 
-DRIBBBLE DESIGN PRINCIPLES:
-- Generous whitespace: 24-32px between major sections, 16-24px inside cards
-- Clear typography hierarchy: titles 18-24px, labels 12-14px, values 24-36px
-- Subtle color palette: light grays (#f8fafc, #f1f5f9) for backgrounds, dark (#0f172a, #1e293b) for sidebars, muted (#64748b, #94a3b8) for secondary text
-- Rounded corners: 8-12px on cards and containers
-- Sidebar: dark background, 260-280px wide, full height, nav items 32px apart
-- Topbar: white, 64-72px tall
-- Cards: white, 300-340px wide, 160-200px tall, arranged in a 2-3 column grid with 24px gaps
-- Never use tiny dimensions: text needs width ≥80px to display, cards need height ≥140px
+1. STRUCTURE into clear sections: Navbar, Hero/Header, Content sections, CTA, Footer (if applicable).
+2. VISUAL HIERARCHY: Primary (18-24px), secondary (14-16px), tertiary (12px). Logical grouping, no clutter.
+3. SPACING SYSTEM: Use 8px grid — 4, 8, 12, 16, 24, 32, 48, 64. NO random spacing.
+4. REAL PRODUCT: Realistic text (e.g. "Track your revenue in real time" NOT "Lorem ipsum"). Include avatars, icons, labels, badges.
+5. ALIGNMENT: Everything on grid. No floating elements.
 
-STRICT OUTPUT FORMAT - Return ONLY valid JSON:
+🎨 STYLE: Clean, minimal, modern. Soft shadows, subtle borders, balanced whitespace. Premium feel.
+
+DARK THEME: Use dark grays (#0d0f12, #151620, #1a1b23), NOT pure black. Soft elevation, proper contrast.
+
+🖼 IMAGE REPLICATION: If user says "replicate", "like this", "copy this" — analyze structure, recreate layout (not pixel copy), improve spacing and clarity.
+
+OUTPUT: ONLY valid JSON. No markdown, no explanation, no extra text.
+
+FORMAT:
 {
-  "frame": {
-    "width": 1440,
-    "height": 900,
-    "background": "#f8fafc",
-    "children": [ ... ]
-  }
+  "frame": { "width": 1440, "height": 900, "background": "#f8fafc", "children": [ ... ] }
 }
 
 RULES:
-- Output ONLY valid JSON. No markdown, no \`\`\`json\`\`\`, no explanation.
-- Every element MUST have: id (unique string), type, x, y, width, height.
-- Valid types: navbar, sidebar, topbar, hero, card, dashboard, form, table, button, text, input, image, icon, frame, container.
-- ALWAYS add icons: sidebar nav items need icons (layout-dashboard, bar-chart-2, folder, settings, home, users). Cards need icons (dollar-sign, users, trending-up, shopping-cart, activity). Topbar needs logo icon. Use type "icon" with props: { "iconName": "lucide-name" }. Lucide icons: layout-dashboard, bar-chart-2, settings, home, users, dollar-sign, trending-up, shopping-cart, activity, folder, pie-chart.
-- Use hex colors only.
-- Children coordinates (x, y) are relative to parent.
-- Sidebar at x=0, topbar at x=sidebar_width. Content starts at y=topbar_height.
-- When generating cards: use 3-4 cards in a row, each 320x180, gap 24px.`;
+- Every element: id, type, x, y, width, height.
+- Types: navbar, sidebar, topbar, hero, card, dashboard, form, table, button, text, input, image, icon, frame, container.
+- Icons: Use type "icon" with props: { "iconName": "lucide-name" }. Lucide: layout-dashboard, bar-chart-2, settings, home, users, dollar-sign, trending-up, shopping-cart, activity, folder, pie-chart.
+- Hex colors only. Children coords relative to parent.
+- Sidebar 260-280px. Topbar 64-72px. Cards 320x180, gap 24px.
+- Text width ≥80px. Cards height ≥140px.
+
+🚫 AVOID: Messy layouts, random spacing, unaligned elements, empty sections, "Lorem ipsum", repetitive generic cards.`;
 
 function buildUserPrompt(
   parsed: ReturnType<typeof parsePromptWithOptions>,
@@ -213,11 +207,21 @@ function buildUserPrompt(
     ? `\nDetected components (use as guidance, not limits): ${parsed.components.join(", ")}.`
     : "";
   const domainHint = parsed.domain ? `\nDomain/context: ${parsed.domain}.` : "";
+
+  const presetHint = parsed.designPreset
+    ? `\nDESIGN PRESET: ${parsed.designPreset}`
+    : "";
+  const templateHint = parsed.sectionTemplate
+    ? `\nSECTION TEMPLATE: ${parsed.sectionTemplate}`
+    : "";
+  const realTextRule =
+    "\nREAL TEXT: Use realistic copy (e.g. \"Track your revenue in real time\", \"Manage your team efficiently\"). NEVER use \"Lorem ipsum\" or placeholder gibberish.";
+
   return `USER REQUEST (read carefully and generate exactly what they want):
 """
 ${parsed.raw}
 """
-Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}
+Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}${realTextRule}
 
 Analyze the request. Generate a layout that fulfills their specific intent. Use appropriate labels, content, and structure. Return ONLY the JSON object, no markdown.`;
 }
