@@ -41,7 +41,7 @@ export async function POST(req: Request) {
             messages: [
               {
                 role: "system",
-                content: "You are a helpful assistant for the Render design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.",
+                content: "You are a helpful assistant for the Haze design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.",
               },
               { role: "user", content: prompt },
             ],

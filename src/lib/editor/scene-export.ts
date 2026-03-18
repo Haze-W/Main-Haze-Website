@@ -1,5 +1,5 @@
 /**
- * Export SceneNodes to HTML - 1:1 with Render editor display.
+ * Export SceneNodes to HTML - 1:1 with Haze editor display.
  * Preserves Figma styling: colors, images, vectors, text.
  * Exports TOPBAR nodes as real frameless title bars with drag region.
  */
@@ -624,7 +624,7 @@ function topBarToHtml(node: SceneNode): string {
  * If no FRAME exists, renders all canvas nodes directly.
  * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", canvasBg = "#1e1e1e", apiBase = ""): string {
+export function sceneNodesToHtml(nodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
@@ -781,7 +781,7 @@ ${framesHtml}
       if (!input) return;
       var base = (typeof window !== 'undefined' && window.__CHAT_API_BASE__) ? window.__CHAT_API_BASE__ : '';
       var apiUrl = base + '/api/ai/chat-completions';
-      var storageKey = 'render-openai-api-key';
+      var storageKey = 'haze-openai-api-key';
       var apiKeyBar = document.createElement('div');
       apiKeyBar.style.cssText = 'padding:12px 24px;margin-bottom:8px;background:rgba(0,0,0,0.2);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
       apiKeyBar.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.6);">OpenAI API Key:</span><input type="password" placeholder="sk-..." style="flex:1;min-width:180px;padding:6px 10px;font-size:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e6edf3;" data-chat-api-key-input><button style="padding:6px 12px;font-size:12px;background:#5e5ce6;border:none;border-radius:6px;color:#fff;cursor:pointer;" data-chat-save-key>Save</button>';

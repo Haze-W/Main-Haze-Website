@@ -7,7 +7,7 @@ import styles from "./dashboard.module.css";
 export default function DashboardPage() {
   return (
     <div className={styles.dashboardOverview}>
-      <h1 className={styles.overviewTitle}>Welcome to Render</h1>
+      <h1 className={styles.overviewTitle}>Welcome to Haze</h1>
       <p className={styles.overviewSubtitle}>
         Your visual Tauri GUI builder. Manage projects, subscription, and account.
       </p>

@@ -17,7 +17,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Render",
+  title: "Haze",
   description: "Build real Tauri desktop application GUIs visually. Export production-ready source code. No mockups—real layout, real CSS, real components.",
 };
 

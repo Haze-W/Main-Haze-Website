@@ -1,6 +1,6 @@
-# Render — Visual Tauri GUI Builder
+# Haze — Visual Tauri GUI Builder
 
-Render is a next-generation visual UI editor and code generator for building real Tauri desktop application GUIs. Everything rendered visually is backed by real layout logic, real CSS, and exportable production code.
+Haze is a next-generation visual UI editor and code generator for building real Tauri desktop application GUIs. Everything rendered visually is backed by real layout logic, real CSS, and exportable production code.
 
 ## Features
 
@@ -36,7 +36,7 @@ npm start
 
 ## Live Update Log (GitHub-driven)
 
-Render includes a live update log system for dashboard users.
+Haze includes a live update log system for dashboard users.
 
 ### How it works
 
@@ -72,7 +72,7 @@ Example entry:
 ```json
 {
   "id": "v1.0.2",
-  "title": "Render Update v1.0.2",
+  "title": "Haze Update v1.0.2",
   "description": ["Fixed major bugs", "Improved editor performance"],
   "publishedAt": "2026-02-12T14:30:00.000Z"
 }

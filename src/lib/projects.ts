@@ -15,7 +15,7 @@ export interface Project {
   languageTarget?: string;
 }
 
-const PROJECTS_KEY = "render-projects";
+const PROJECTS_KEY = "haze-projects";
 
 function getAll(): Record<string, Project> {
   try {

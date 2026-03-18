@@ -44,7 +44,7 @@ export function TopBar() {
       <div className={styles.left}>
         <Link href="/" className={styles.logo}>
           <span className={styles.logoIcon}>◉</span>
-          <span>Render</span>
+          <span>Haze</span>
         </Link>
         {MENUS.map((menu) => (
           <div

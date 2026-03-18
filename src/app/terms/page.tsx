@@ -17,7 +17,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-2">1. Agreement</h2>
             <p>
-              By accessing or using Render, you agree to be bound by these Terms
+              By accessing or using Haze, you agree to be bound by these Terms
               of Service. If you disagree with any part of the terms, you may not
               access the service.
             </p>
@@ -28,7 +28,7 @@ export default function TermsPage() {
               2. Use of Service
             </h2>
             <p>
-              Render provides a visual desktop app builder. You may use the
+              Haze provides a visual desktop app builder. You may use the
               service to design and export Tauri applications. You are
               responsible for ensuring your use complies with applicable laws.
             </p>
@@ -39,9 +39,9 @@ export default function TermsPage() {
               3. Intellectual Property
             </h2>
             <p>
-              The Render platform and its original content, features, and
-              functionality are owned by Render. Content you create using Render
-              remains yours. By using Render, you grant us limited rights to
+              The Haze platform and its original content, features, and
+              functionality are owned by Haze. Content you create using Haze
+              remains yours. By using Haze, you grant us limited rights to
               provide and improve the service.
             </p>
           </section>
@@ -51,7 +51,7 @@ export default function TermsPage() {
               4. Limitation of Liability
             </h2>
             <p>
-              Render is provided &quot;as is.&quot; We are not liable for any
+              Haze is provided &quot;as is.&quot; We are not liable for any
               indirect, incidental, or consequential damages arising from your
               use of the service.
             </p>
@@ -61,8 +61,8 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-white mb-2">5. Contact</h2>
             <p>
               For questions about these terms, contact us at{" "}
-              <a href="mailto:legal@render.app" className="text-[#58a6ff] hover:underline">
-                legal@render.app
+              <a href="mailto:legal@haze.app" className="text-[#58a6ff] hover:underline">
+                legal@haze.app
               </a>
             </p>
           </section>

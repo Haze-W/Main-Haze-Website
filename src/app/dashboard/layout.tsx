@@ -73,7 +73,7 @@ export default function DashboardLayout({
       <header className={styles.header}>
         <Link href="/dashboard" className={styles.logo}>
           <Zap size={20} className={styles.logoIcon} />
-          <span>Render</span>
+          <span>Haze</span>
         </Link>
         <nav className={styles.nav}>
           {NAV_ITEMS.map(({ href, label }) => (

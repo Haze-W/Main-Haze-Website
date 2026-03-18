@@ -30,7 +30,7 @@ export default function PrivacyPage() {
               2. How We Use Your Information
             </h2>
             <p>
-              We use your information to provide and improve Render, communicate
+              We use your information to provide and improve Haze, communicate
               with you, and ensure the security of our service. We do not sell
               your personal information.
             </p>
@@ -61,8 +61,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-white mb-2">5. Contact</h2>
             <p>
               For privacy-related questions, contact us at{" "}
-              <a href="mailto:privacy@render.app" className="text-[#58a6ff] hover:underline">
-                privacy@render.app
+              <a href="mailto:privacy@haze.app" className="text-[#58a6ff] hover:underline">
+                privacy@haze.app
               </a>
             </p>
           </section>

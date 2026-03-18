@@ -61,7 +61,7 @@ const SLASH_COMMANDS = [
   { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Create a step-by-step plan" },
   { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything (GPT-powered)" },
   { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri backend code" },
-  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Tauri & Render help" },
+  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Tauri & Haze help" },
   { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Fix issues" },
 ];
 
