@@ -16,6 +16,9 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  verification: {
+    storeInDatabase: true,
+  },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== "/sign-up/email" || !ctx.body?.email) return;
