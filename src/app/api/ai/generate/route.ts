@@ -14,6 +14,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body.model === "string" ? body.model : undefined;
+    const viewport = ["desktop", "tablet", "mobile"].includes(body.viewport) ? body.viewport : undefined;
+    const theme = body.theme && typeof body.theme === "object" ? body.theme : undefined;
 
     if (!prompt) {
       return NextResponse.json(
@@ -22,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const layout = await generateLayoutFromPrompt(prompt, { model });
+    const layout = await generateLayoutFromPrompt(prompt, { model, viewport, theme });
     const nodes = aiLayoutToSceneNodes(layout);
 
     return NextResponse.json({

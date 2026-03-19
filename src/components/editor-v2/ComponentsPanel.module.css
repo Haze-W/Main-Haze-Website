@@ -104,6 +104,151 @@
   color: #ff6b6b;
 }
 
+.aiModeTabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: var(--space-2);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.aiModeTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.aiModeTab:hover {
+  color: var(--fg-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+.aiModeTabActive {
+  color: #fff;
+  background: var(--accent);
+}
+.viewportSelector {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+.viewportBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: var(--fg-muted);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.viewportBtn:hover {
+  color: var(--fg-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+.viewportBtnActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(94, 92, 230, 0.1);
+}
+.themeCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-2);
+  font-size: 12px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.themeCheckbox input {
+  accent-color: var(--accent);
+}
+.themeCheckbox span {
+  user-select: none;
+}
+.aiFileInput {
+  display: none;
+}
+.aiUploadZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 24px 16px;
+  margin-bottom: var(--space-2);
+  font-size: 13px;
+  color: var(--fg-muted);
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.aiUploadZone:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--fg-primary);
+  background: rgba(94, 92, 230, 0.05);
+}
+.uploadIcon {
+  color: var(--accent);
+  opacity: 0.8;
+}
+.uploadHint {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.screenshotPreview {
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-muted);
+}
+.screenshotImg {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.3);
+}
+.screenshotActions {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.aiBtnSecondary {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.aiBtnSecondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.aiBtnSecondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .iconLibraryBtn {
   display: flex;
   align-items: center;

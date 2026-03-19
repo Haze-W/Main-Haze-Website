@@ -9,6 +9,14 @@ export const MIN_WIDTH = 1200;
 export const MAX_WIDTH = 1920;
 export const GRID_COLUMNS = 12;
 
+export type ViewportType = "desktop" | "tablet" | "mobile";
+
+export const VIEWPORT_DIMENSIONS: Record<ViewportType, { width: number; height: number }> = {
+  desktop: { width: 1440, height: 900 },
+  tablet: { width: 768, height: 1024 },
+  mobile: { width: 375, height: 812 },
+};
+
 export type UIComponentType =
   | "navbar"
   | "sidebar"

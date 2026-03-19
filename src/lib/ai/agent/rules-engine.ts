@@ -29,8 +29,9 @@ export function snapToGrid(value: number, colWidth: number): number {
 }
 
 export function validateAndFixFrame(frame: AIUIFrame): AIUIFrame {
-  const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, frame.width));
-  const height = Math.max(600, Math.min(2000, frame.height));
+  const minW = frame.width < 500 ? 320 : frame.width < 900 ? 600 : MIN_WIDTH;
+  const width = Math.max(minW, Math.min(MAX_WIDTH, frame.width));
+  const height = Math.max(400, Math.min(2000, frame.height));
   const background = frame.background || "#ffffff";
 
   return {

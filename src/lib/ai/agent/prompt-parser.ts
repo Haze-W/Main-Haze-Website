@@ -1,3 +1,5 @@
+import type { ViewportType } from "../schema/ui-schema";
+
 /**
  * Prompt Interpreter - Processes user prompts for UI generation
  */
@@ -7,6 +9,7 @@ export interface ParsedPrompt {
   components: string[];
   style: string;
   domain?: string;
+  viewport?: ViewportType;
   raw: string;
 }
 
@@ -35,6 +38,12 @@ const STYLE_KEYWORDS: Record<string, string[]> = {
   minimal: ["minimal", "minimalist", "simple"],
 };
 
+const VIEWPORT_KEYWORDS: Record<ViewportType, string[]> = {
+  mobile: ["mobile", "phone", "smartphone", "ios", "android", "small screen"],
+  tablet: ["tablet", "ipad", "medium screen"],
+  desktop: ["desktop", "web", "large screen", "wide"],
+};
+
 export function parsePrompt(prompt: string): ParsedPrompt {
   const lower = prompt.toLowerCase().trim();
   const components: string[] = [];
@@ -57,11 +66,20 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   );
   const domain = domainMatch?.[1] ?? undefined;
 
+  let viewport: ViewportType | undefined;
+  for (const [vp, keywords] of Object.entries(VIEWPORT_KEYWORDS)) {
+    if (keywords.some((k) => lower.includes(k))) {
+      viewport = vp as ViewportType;
+      break;
+    }
+  }
+
   return {
     intent: lower,
     components: components.length > 0 ? components : ["dashboard", "sidebar", "topbar", "card"],
     style: styles.length > 0 ? styles[0] : "modern",
     domain,
+    viewport,
     raw: prompt,
   };
 }

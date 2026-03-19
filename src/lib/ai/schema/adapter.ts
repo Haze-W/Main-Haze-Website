@@ -123,3 +123,52 @@ export function aiLayoutToSceneNodes(layout: AIUILayout): SceneNode[] {
   };
   return [rootFrame];
 }
+
+const REVERSE_TYPE_MAP: Partial<Record<SceneNode["type"], UIComponentType>> = {
+  FRAME: "frame",
+  TEXT: "text",
+  BUTTON: "button",
+  INPUT: "input",
+  IMAGE: "image",
+  ICON: "icon",
+  RECTANGLE: "rectangle",
+  TOPBAR: "topbar",
+  DIVIDER: "divider",
+  SPACER: "spacer",
+};
+
+function sceneNodeToAIElement(node: SceneNode): AIUIElement {
+  const type = (REVERSE_TYPE_MAP[node.type] ?? "frame") as UIComponentType;
+  const props = node.props ?? {};
+  return {
+    id: node.id,
+    type,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    text: (props.content as string) ?? (props.label as string) ?? node.name,
+    color: props.color as string | undefined,
+    backgroundColor: props.backgroundColor as string | undefined,
+    children: (node.children ?? []).map(sceneNodeToAIElement),
+    props: type === "icon" ? { iconName: props.iconName } : undefined,
+  };
+}
+
+export function sceneNodesToAILayout(nodes: SceneNode[]): AIUILayout {
+  if (!nodes.length) {
+    return {
+      frame: { width: 1440, height: 900, background: "#f8fafc", children: [] },
+      metadata: { version: "1.0" },
+    };
+  }
+  const root = nodes[0];
+  const w = root.width ?? 1440;
+  const h = root.height ?? 900;
+  const bg = (root.props?.backgroundColor as string) ?? "#f8fafc";
+  const children = (root.children?.length ? root.children : nodes).map(sceneNodeToAIElement);
+  return {
+    frame: { width: w, height: h, background: bg, children },
+    metadata: { version: "1.0" },
+  };
+}

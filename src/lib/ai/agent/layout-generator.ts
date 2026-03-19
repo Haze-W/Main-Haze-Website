@@ -7,7 +7,9 @@
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
 import { parsePrompt } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
-import { DEFAULT_WIDTH } from "../schema/ui-schema";
+import { DEFAULT_WIDTH, VIEWPORT_DIMENSIONS, type ViewportType } from "../schema/ui-schema";
+import type { DesignTheme } from "./theme-generator";
+import { callLLM } from "../providers";
 
 const DRIBBBLE_EXAMPLE_1 = `{
   "frame": {
@@ -178,14 +180,28 @@ RULES:
 - ALWAYS add icons: sidebar nav items need icons (layout-dashboard, bar-chart-2, folder, settings, home, users). Cards need icons (dollar-sign, users, trending-up, shopping-cart, activity). Topbar needs logo icon. Use type "icon" with props: { "iconName": "lucide-name" }. Lucide icons: layout-dashboard, bar-chart-2, settings, home, users, dollar-sign, trending-up, shopping-cart, activity, folder, pie-chart.
 - Use hex colors only.
 - Children coordinates (x, y) are relative to parent.
-- Sidebar at x=0, topbar at x=sidebar_width. Content starts at y=topbar_height.
-- When generating cards: use 3-4 cards in a row, each 320x180, gap 24px.`;
+- For DESKTOP (1440x900): Sidebar at x=0, topbar at x=sidebar_width. Cards 320x180, 3-4 per row, gap 24px.
+- For TABLET (768x1024): Optional sidebar 200px. Cards ~340px wide, 2 per row.
+- For MOBILE (375x812): NO sidebar. Use topbar only. Cards full width, stacked vertically. Single column layout.`;
 
-function buildUserPrompt(parsed: ReturnType<typeof parsePrompt>): string {
+function getViewportDims(viewport?: ViewportType): { width: number; height: number } {
+  return viewport ? VIEWPORT_DIMENSIONS[viewport] : { width: 1440, height: 900 };
+}
+
+function buildUserPrompt(parsed: ReturnType<typeof parsePrompt>, theme?: DesignTheme): string {
   const comps = parsed.components.join(", ");
   const domain = parsed.domain ? ` Context: ${parsed.domain}.` : "";
-  return `Generate a ${parsed.style} desktop UI with: ${comps}.${domain}
-Frame: 1440x900. Light background (#f8fafc or #f1f5f9).
+  const dims = getViewportDims(parsed.viewport);
+  const viewportHint = parsed.viewport === "mobile"
+    ? " Mobile layout: no sidebar, use topbar or bottom nav, stacked cards, single column."
+    : parsed.viewport === "tablet"
+    ? " Tablet layout: optional collapsible sidebar, 2-column cards."
+    : "";
+  const themeHint = theme
+    ? ` Use this color palette: primary=${theme.colors.primary}, background=${theme.colors.background}, surface=${theme.colors.surface}, sidebar=${theme.colors.sidebar ?? theme.colors.primary}, text=${theme.colors.text}, textMuted=${theme.colors.textMuted}. Font: ${theme.typography.fontFamily}.`
+    : "";
+  return `Generate a ${parsed.style} ${parsed.viewport ?? "desktop"} UI with: ${comps}.${domain}
+Frame: ${dims.width}x${dims.height}. Light background (#f8fafc or #f1f5f9).${viewportHint}${themeHint}
 Match the quality and structure of the examples. Return ONLY the JSON object.`;
 }
 
@@ -213,49 +229,36 @@ function parseLayoutResponse(content: string): AIUILayout | null {
 
 export async function generateLayoutFromPrompt(
   prompt: string,
-  options?: { apiKey?: string; model?: string }
+  options?: { apiKey?: string; model?: string; viewport?: ViewportType; theme?: DesignTheme }
 ): Promise<AIUILayout> {
   const parsed = parsePrompt(prompt);
-  const userPrompt = buildUserPrompt(parsed);
+  if (options?.viewport) parsed.viewport = options.viewport;
+  const userPrompt = buildUserPrompt(parsed, options?.theme);
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const model = options?.model ?? "gpt-4o";
+  const hasAnyKey = apiKey || process.env.ANTHROPIC_API_KEY;
 
-  if (!apiKey) {
+  if (!hasAnyKey) {
     return getFallbackLayout(parsed);
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Example 1 (dashboard with KPI cards):\n${DRIBBBLE_EXAMPLE_1}` },
-          { role: "assistant", content: "Understood." },
-          { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
-          { role: "assistant", content: "Understood." },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.25,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      }),
+    const { content } = await callLLM({
+      apiKey,
+      model: options?.model ?? "gpt-4o",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: `Example 1 (dashboard with KPI cards):\n${DRIBBBLE_EXAMPLE_1}` },
+        { role: "assistant", content: "Understood." },
+        { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
+        { role: "assistant", content: "Understood." },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.25,
+      maxTokens: 4096,
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("OpenAI API error:", err);
-      return getFallbackLayout(parsed);
-    }
-
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) return getFallbackLayout(parsed);
 
     const layout = parseLayoutResponse(content);
@@ -271,15 +274,18 @@ export async function generateLayoutFromPrompt(
 }
 
 function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
-  const hasSidebar = parsed.components.includes("sidebar");
+  const dims = getViewportDims(parsed.viewport);
+  const isMobile = parsed.viewport === "mobile";
+  const isTablet = parsed.viewport === "tablet";
+  const hasSidebar = !isMobile && parsed.components.includes("sidebar");
   const hasTopbar =
     parsed.components.includes("topbar") || parsed.components.includes("navbar");
-  const sidebarWidth = hasSidebar ? 260 : 0;
+  const sidebarWidth = hasSidebar ? (isTablet ? 200 : 260) : 0;
   const topbarHeight = hasTopbar ? 64 : 0;
   const contentX = sidebarWidth;
   const contentY = topbarHeight;
-  const contentW = DEFAULT_WIDTH - sidebarWidth;
-  const contentH = 900 - topbarHeight;
+  const contentW = dims.width - sidebarWidth;
+  const contentH = dims.height - topbarHeight;
 
   const children: AIUIElement[] = [];
 
@@ -322,7 +328,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
       x: 0,
       y: 0,
       width: sidebarWidth,
-      height: 900,
+      height: dims.height,
       backgroundColor: "#0f172a",
       children: sidebarChildren,
     });
@@ -364,11 +370,12 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
 
   const hasCards = parsed.components.includes("card");
   const hasHero = parsed.components.includes("hero");
-  const cardW = 320;
-  const cardH = 180;
   const gap = 24;
-  const startX = contentX + 36;
+  const cardW = isMobile ? contentW - 32 : isTablet ? Math.min(340, (contentW - 36 - gap) / 2) : 320;
+  const cardH = isMobile ? 120 : 180;
+  const startX = contentX + (isMobile ? 16 : 36);
   const startY = contentY + 32;
+  const cardsPerRow = isMobile ? 1 : isTablet ? 2 : 2;
 
   const cardData = [
     { icon: "dollar-sign", label: "Total Revenue", value: "$45,231" },
@@ -378,9 +385,10 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
   ];
 
   if (hasCards) {
-    for (let i = 0; i < 4; i++) {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
+    const cardCount = isMobile ? 4 : 4;
+    for (let i = 0; i < cardCount; i++) {
+      const col = i % cardsPerRow;
+      const row = Math.floor(i / cardsPerRow);
       const data = cardData[i];
       children.push({
         id: `card_${i + 1}`,
@@ -487,8 +495,8 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
 
   return {
     frame: validateAndFixFrame({
-      width: DEFAULT_WIDTH,
-      height: 900,
+      width: dims.width,
+      height: dims.height,
       background: "#f8fafc",
       children,
     }),

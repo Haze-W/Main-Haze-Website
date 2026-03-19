@@ -50,6 +50,7 @@ import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { AIChatPanel } from "./AIChatPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
@@ -251,7 +252,7 @@ function LayerItem({
 export function EditorShell() {
   const [exportOpen, setExportOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [leftTab, setLeftTab] = useState<"explorer" | "assets">("explorer");
+  const [leftTab, setLeftTab] = useState<"explorer" | "assets" | "chat">("explorer");
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("Untitled");
@@ -794,6 +795,13 @@ export function EditorShell() {
               >
                 Assets
               </button>
+              <button
+                type="button"
+                className={`${styles.panelTab} ${leftTab === "chat" ? styles.tabActive : ""}`}
+                onClick={() => setLeftTab("chat")}
+              >
+                AI Chat
+              </button>
             </div>
 
             {leftTab === "explorer" ? (
@@ -818,12 +826,20 @@ export function EditorShell() {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : leftTab === "assets" ? (
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
                 onAIGenerate={(nodes) => {
                   useEditorStore.getState().setNodes(nodes);
+                  useEditorStore.getState().pushHistory();
+                }}
+              />
+            ) : (
+              <AIChatPanel
+                nodes={nodes}
+                onApplyNodes={(newNodes) => {
+                  useEditorStore.getState().setNodes(newNodes);
                   useEditorStore.getState().pushHistory();
                 }}
               />
