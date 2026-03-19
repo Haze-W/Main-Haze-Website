@@ -277,6 +277,11 @@ const DynamicIcon = dynamic(
 
 function HoverPreview({ iconName }: { iconName: string }) {
   return (
-    <DynamicIcon name={getValidIconName(iconName) as never} size={22} strokeWidth={1.5} />
+    <DynamicIcon
+        name={getValidIconName(iconName) as never}
+        size={22}
+        strokeWidth={1.5}
+        fallback={() => <span style={{ fontSize: 22 }}>◆</span>}
+      />
   );
 }

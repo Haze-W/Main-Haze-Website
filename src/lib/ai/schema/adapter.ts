@@ -5,23 +5,35 @@
 import { nanoid } from "nanoid";
 import type { SceneNode } from "@/lib/editor/types";
 import type { AIUIElement, AIUILayout, UIComponentType } from "./ui-schema";
+import { getValidIconName } from "@/lib/icon-valid";
+
+/** Semantic types that map to CONTAINER with variant for proper editor styling */
+const CONTAINER_VARIANT_TYPES: Partial<Record<UIComponentType, string>> = {
+  navbar: "navbar",
+  sidebar: "sidebar",
+  card: "card",
+  hero: "content",
+  topbar: "topbar",
+  modal: "modal",
+  settings: "content",
+};
 
 const TYPE_MAP: Record<UIComponentType, SceneNode["type"]> = {
-  navbar: "FRAME",
-  sidebar: "FRAME",
-  hero: "FRAME",
+  navbar: "CONTAINER",
+  sidebar: "CONTAINER",
+  hero: "CONTAINER",
   dashboard: "FRAME",
-  card: "FRAME",
+  card: "CONTAINER",
   table: "FRAME",
   form: "FRAME",
   pricing: "FRAME",
   analytics: "FRAME",
-  modal: "FRAME",
+  modal: "CONTAINER",
   login: "FRAME",
   gallery: "FRAME",
-  settings: "FRAME",
+  settings: "CONTAINER",
   menu: "FRAME",
-  topbar: "TOPBAR",
+  topbar: "CONTAINER",
   frame: "FRAME",
   text: "TEXT",
   button: "BUTTON",
@@ -36,8 +48,8 @@ const TYPE_MAP: Record<UIComponentType, SceneNode["type"]> = {
 
 function mapType(type: UIComponentType, el?: AIUIElement): SceneNode["type"] {
   const base = TYPE_MAP[type] ?? "FRAME";
-  if (type === "topbar" && el?.children && el.children.length > 0) {
-    return "FRAME";
+  if (type === "topbar" && (!el?.children || el.children.length === 0)) {
+    return "TOPBAR";
   }
   return base;
 }
@@ -46,6 +58,7 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
   const id = el.id || nanoid();
   const type = mapType(el.type, el);
   const isCard = el.type === "card";
+  const variant = type === "TOPBAR" ? undefined : CONTAINER_VARIANT_TYPES[el.type];
   const node: SceneNode = {
     id,
     type,
@@ -59,13 +72,14 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
     locked: false,
     props: {
       ...(el.props ?? {}),
+      ...(variant && { variant }),
       ...(isCard && {
         boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         borderRadius: el.styles?.borderRadius ?? 12,
       }),
       content: el.text,
       color: el.color ?? "#000000",
-      backgroundColor: el.backgroundColor ?? (type === "FRAME" ? "#ffffff" : undefined),
+      backgroundColor: el.backgroundColor ?? (type === "FRAME" || type === "CONTAINER" ? "#ffffff" : undefined),
       fontFamily: el.styles?.fontFamily ?? "Inter",
       fontSize: el.styles?.fontSize ?? 14,
       fontWeight: el.styles?.fontWeight ?? "normal",
@@ -96,9 +110,15 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
 
   if (type === "ICON") {
     const props = node.props ?? {};
-    props.iconName = (el.props?.iconName as string) ?? "circle";
+    props.iconName = getValidIconName((el.props?.iconName as string) ?? "circle");
     props.size = el.width && el.height ? Math.min(el.width, el.height) : 24;
     if (el.color) props.color = el.color;
+  }
+
+  if (type === "IMAGE" && el.props?.src) {
+    const props = node.props ?? {};
+    props.src = el.props.src;
+    if (el.props.alt) props.alt = el.props.alt;
   }
 
   return node;

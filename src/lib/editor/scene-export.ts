@@ -1,5 +1,5 @@
 /**
- * Export SceneNodes to HTML - 1:1 with Render editor display.
+ * Export SceneNodes to HTML - 1:1 with Haze editor display.
  * Preserves Figma styling: colors, images, vectors, text.
  * Exports TOPBAR nodes as real frameless title bars with drag region.
  */
@@ -398,9 +398,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   const onLoadJs = getOnLoadJs(node);
   const nodeIdAttr = `data-node-id="${node.id}"`;
   const onLoadAttr = onLoadJs ? `data-onload="${escapeHtml(onLoadJs)}"` : "";
+  const previewBehavior = node.props?._previewBehavior as string | undefined;
+  const previewAttr = previewBehavior ? `data-chat-role="${escapeHtml(previewBehavior)}"` : "";
   const hasInteraction = !!(interactionAttrs || hoverAttr);
   const cursorStyle = hasInteraction ? "cursor:pointer;" : "";
-  const extraAttrs = [nodeIdAttr, interactionAttrs, hoverAttr, onLoadAttr].filter(Boolean).join(" ");
+  const extraAttrs = [nodeIdAttr, interactionAttrs, hoverAttr, onLoadAttr, previewAttr].filter(Boolean).join(" ");
 
   // TEXT NODE
   if (isText) {
@@ -469,11 +471,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(txtStyle)}">${escapeHtml(content)}</div>`;
     }
 
-    // INPUT
+    // INPUT — render as real <input> so user can type in preview
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
-      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.4);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}">${escapeHtml(ph)}</div>`;
+      const inputType = (props.type as string) === "password" ? "password" : "text";
+      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.9);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
     // RECTANGLE
@@ -481,7 +484,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const bg = (props.backgroundColor as string) || "rgba(50,50,58,0.6)";
       const borderColor = (props.borderColor as string) || "";
       const border = borderColor ? `border:1px solid ${borderColor};` : "";
-      const rectStyle = `${styleStr};background:${bg};border-radius:4px;${border}`;
+      const boxShadow = (props.boxShadow as string) || "";
+      const rectStyle = `${styleStr};background:${bg};border-radius:${(props.borderRadius as number) ?? 4}px;${border}${boxShadow ? `box-shadow:${boxShadow};` : ""}`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(rectStyle)}"></div>`;
     }
 
@@ -535,7 +539,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
     // CONTAINER / PANEL / generic — render background + children
     const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
-    const containerStyle = `${styleStr};background:${bg};border-radius:6px;border:1px solid rgba(255,255,255,0.06);`;
+    const radius = (props.borderRadius as number) ?? 6;
+    const boxShadow = (props.boxShadow as string) || "";
+    const isChatMessages = (props._previewBehavior as string) === "chat-messages";
+    const overflow = isChatMessages ? "overflow-y:auto;overflow-x:hidden;" : "";
+    const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;border:1px solid rgba(255,255,255,0.06);${boxShadow ? `box-shadow:${boxShadow};` : ""}${overflow}`;
     return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
   }
 
@@ -614,8 +622,9 @@ function topBarToHtml(node: SceneNode): string {
  * Exports the TOPBAR node as a real frameless title bar.
  * Supports multi-frame navigation via NAVIGATE_TO_FRAME interactions.
  * If no FRAME exists, renders all canvas nodes directly.
+ * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", canvasBg = "#1e1e1e"): string {
+export function sceneNodesToHtml(nodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
@@ -641,7 +650,7 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", can
     // Wrap in a sized div so absolutely-positioned children affect scroll area
     const wrapStyle = `position:relative;width:${contentW}px;height:${contentH}px;min-width:100%;min-height:100%;`;
     const freeStyle = `width:100%;height:100%;overflow:auto;background:${canvasBg};box-sizing:border-box;`;
-    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`);
+    return buildHtml(appName, topBarHtml, `    <div data-frame style="${freeStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`, apiBase);
   }
 
   const rootBg = (() => {
@@ -673,18 +682,19 @@ export function sceneNodesToHtml(nodes: SceneNode[], appName = "Render App", can
     const childHtml = (f.children ?? [])
       .filter((c) => c.type !== "TOPBAR")
       .map((c) => {
-        const relChild = { ...c, x: c.x - f.x, y: c.y - f.y };
-        return nodeToHtml(relChild, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3);
+        // Children are already in frame-local coordinates; do not subtract frame position
+        return nodeToHtml(c, (f.layoutMode ?? "NONE") !== "NONE" ? (f.layoutMode as "HORIZONTAL" | "VERTICAL") : "NONE", 3);
       })
       .filter(Boolean)
       .join("\n");
     return `    <div data-frame data-frame-id="${f.id}" style="${fStyle}"><div style="${wrapStyle}">\n${childHtml}\n    </div></div>`;
   }).join("\n");
 
-  return buildHtml(appName, topBarHtml, framesHtml);
+  return buildHtml(appName, topBarHtml, framesHtml, apiBase);
 }
 
-function buildHtml(appName: string, topBarHtml: string, framesHtml: string): string {
+function buildHtml(appName: string, topBarHtml: string, framesHtml: string, apiBase = ""): string {
+  const apiBaseScript = apiBase ? `window.__CHAT_API_BASE__="${apiBase.replace(/"/g, '\\"')}";` : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -701,6 +711,7 @@ ${framesHtml}
     </div>
   </div>
   <script src="window-controls.js"></script>
+  <script>${apiBaseScript}</script>
   <style>
     /* ── Hover presets ── */
     [data-hover="lift"]{transition:transform 0.2s ease,box-shadow 0.2s ease;}
@@ -760,12 +771,50 @@ ${framesHtml}
         target.style.display = 'block';
       }
     }
+    // ── Chat input + Send wire-up (Coral 1.0 / Ollama — no API key) ──
+    function _wireChat() {
+      var inputWrap = document.querySelector('[data-chat-role="chat-input"]');
+      var sendBtn = document.querySelector('[data-chat-role="chat-send"]');
+      var messagesEl = document.querySelector('[data-chat-role="chat-messages"]');
+      if (!inputWrap || !sendBtn || !messagesEl) return;
+      var input = inputWrap.querySelector('input');
+      if (!input) return;
+      var base = (typeof window !== 'undefined' && window.__CHAT_API_BASE__) ? window.__CHAT_API_BASE__ : '';
+      var apiUrl = base + '/api/ai/chat-completions';
+      function send() {
+        var text = (input.value || '').trim();
+        if (!text) return;
+        var userDiv = document.createElement('div');
+        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#e6edf3;margin-bottom:8px;';
+        userDiv.textContent = text;
+        var aiDiv = document.createElement('div');
+        aiDiv.style.cssText = 'position:relative;left:24px;top:12px;width:700px;font-size:14px;color:#8b949e;line-height:1.5;margin-bottom:24px;';
+        aiDiv.textContent = 'Thinking...';
+        messagesEl.appendChild(userDiv);
+        messagesEl.appendChild(aiDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        input.value = '';
+        var hist = [];
+        Array.prototype.forEach.call(messagesEl.children, function(el) {
+          if (el.getAttribute('data-chat-msg-user')) hist.push({role:'user',content:el.textContent||''});
+          if (el.getAttribute('data-chat-msg-ai')) hist.push({role:'assistant',content:el.textContent||''});
+        });
+        hist.push({role:'user',content:text});
+        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist }) })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+          .then(function(res){ aiDiv.textContent = res.ok && res.data.content ? res.data.content : (res.data.error || 'Error: ' + (res.ok ? 'No response' : 'Request failed')); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); messagesEl.scrollTop = messagesEl.scrollHeight; })
+          .catch(function(e){ aiDiv.textContent = 'Error: ' + (e && e.message ? e.message : 'Network error'); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); });
+      }
+      sendBtn.addEventListener('click', send);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+    }
     // ── ON_LOAD interactions ──
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('[data-onload]').forEach(function(el) {
         var js = el.getAttribute('data-onload');
         if (js) { try { (new Function(js)).call(el); } catch(e) { console.warn('ON_LOAD error', e); } }
       });
+      _wireChat();
     });
   </script>
 </body>

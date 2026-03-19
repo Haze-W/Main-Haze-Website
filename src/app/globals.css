@@ -1,24 +1,57 @@
 /* ═══════════════════════════════════════════════════════════════
-   Render - Design System (Raycast Inspired)
+   Haze - Design System (Brainwave-inspired)
+   Coral = AI model | Haze = main product
 ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Base palette - Deep macOS dark mode style */
+  /* Base palette - Brainwave-inspired surfaces */
   --bg-base: #000000;
   --bg-raised: rgba(28, 28, 30, 0.6);
   --bg-overlay: rgba(40, 40, 44, 0.7);
   --bg-dropdown: #1c1c1e;
   --bg-hover: rgba(255, 255, 255, 0.08);
   --bg-active: rgba(255, 255, 255, 0.12);
+
+  /* Brainwave design tokens (LIGHT theme) - used in editor */
+  --spacing: 0.25rem;
+  --shade-01: #fcfcfc;
+  --shade-01_95: #fcfcfcf2;
+  --shade-02: #f8f7f7;
+  --shade-03: #f1f1f1;
+  --shade-04: #ececec;
+  --shade-05: #e2e2e2;
+  --shade-06: #7b7b7b;
+  --shade-06_30: #7b7b7b4d;
+  --shade-06_50: #7b7b7b80;
+  --shade-07: #323232;
+  --shade-07_05: #3232320d;
+  --shade-07_10: #3232321a;
+  --shade-08: #222;
+  --shade-08_05: #2222220d;
+  --shade-08_10: #2222221a;
+  --shade-09: #121212;
+  --shade-09_05: #1212120d;
+  --shade-09_10: #1212121a;
+  --shade-09_35: #12121259;
+  --surface-01: var(--shade-01);
+  --surface-02: var(--shade-02);
+  --surface-03: var(--shade-03);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000013, 0px 8px 16px -12px #00000020;
+  --box-shadow-prompt-input: inset 0 2px 0 0 #fff, 0px 18px 24px -20px #00000020, 0px 8px 16px -12px #00000013;
+  --box-shadow-depth-01: 0 6px 3px 0 #00000003, 0 3px 3px 0 #00000005, 0 1px 1px 0 #00000005;
+  --box-shadow-popover: 0 153px 61px 0 #00000003, 0 86px 52px 0 #0000000a, 0 38px 38px 0 #0000000f, 0 10px 21px 0 #00000012;
+  
+  /* Toolbar action buttons (View Code, Export) - always dark text on light gray */
+  --toolbar-btn-text: #121212;
   
   --fg-primary: #ffffff;
   --fg-secondary: #a1a1a6;
   --fg-muted: #636366;
   --fg-disabled: #3a3a3c;
   
-  /* Accent - Raycast-like vibrant red/magenta or subtle blue. Let's go with a sleek primary accent. */
-  --accent: #FF6363; /* Raycast red branding feel, or we can use a deep primary blue like #0A84FF */
-  /* Let's use a sleek purple/indigo, very modern */
+  /* Accent - Haze/Coral purple/indigo */
   --accent: #5e5ce6;
   --accent-muted: #7d7aff;
   --accent-glow: rgba(94, 92, 230, 0.2);
@@ -81,6 +114,52 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-full: 9999px;
+
+  /* Editor layout - light theme */
+  --editor-bg: #f1f1f1;
+  --sidebar-bg: #fbfbfb;
+}
+
+/* Dark theme - next-themes adds class="dark" to html */
+html.dark {
+  --shade-01: #1a1a1c;
+  --shade-02: #252528;
+  --shade-03: #2e2e32;
+  --shade-04: #363638;
+  --shade-05: #48484c;
+  --shade-06: #8e8e93;
+  --shade-07: #aeaeb2;
+  --shade-08: #c7c7cc;
+  --shade-09: #f5f5f7;
+}
+
+/* Dark theme overrides for editor */
+[data-editor-theme="dark"] {
+  --toolbar-btn-text: #121212;
+  --editor-bg: #252528;
+  --sidebar-bg: #1a1a1c;
+  --surface-01: #252528;
+  --surface-02: #252528;
+  --surface-03: #252528;
+  --shade-01: #252528;
+  --shade-02: #2e2e32;
+  --shade-03: #363638;
+  --shade-04: #3a3a3e;
+  --shade-05: #48484c;
+  --shade-06: #8e8e93;
+  --shade-07: #aeaeb2;
+  --shade-08: #c7c7cc;
+  --shade-09: #f5f5f7;
+  --shade-07_05: rgba(174,174,178,0.08);
+  --shade-07_10: rgba(0,0,0,0.2);
+  --shade-09_10: rgba(0,0,0,0.15);
+  --shade-09_35: rgba(0,0,0,0.5);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000040, 0px 8px 16px -12px #00000030;
+  --box-shadow-prompt-input: inset 0 2px 0 0 rgba(255,255,255,0.06), 0px 18px 24px -20px #00000040, 0px 8px 16px -12px #00000030;
+  --box-shadow-depth-01: 0 6px 3px 0 rgba(0,0,0,0.2), 0 3px 3px 0 rgba(0,0,0,0.15), 0 1px 1px 0 rgba(0,0,0,0.1);
+  --box-shadow-popover: 0 24px 48px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.08);
 }
 
 * {
@@ -106,13 +185,13 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--shade-09);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--accent-muted);
+  color: var(--shade-07);
 }
 
 button {

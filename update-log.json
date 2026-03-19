@@ -1,47 +1,96 @@
-[
-  {
-    "id": "v0.1.2",
-    "title": "Render v0.1.2 — Editor Overhaul & Bug Fixes",
-    "description": [
-      "Ctrl+V paste now works — copy elements with Ctrl+C and paste them back with Ctrl+V.",
-      "Locked nodes are now truly locked — they cannot be selected, moved, or deleted until unlocked. Locked nodes show a not-allowed cursor and are visually dimmed.",
-      "Layers panel completely overhauled — hover any layer to reveal visibility toggle, lock/unlock, and delete buttons. Double-click a layer name to rename it inline.",
-      "Hidden layers are now visually dimmed in the layers panel so you can see at a glance what is visible and what is not.",
-      "Arrow key nudging is now undoable — moving elements with arrow keys is tracked in history and can be reversed with Ctrl+Z.",
-      "H shortcut conflict fixed — pressing H switches to the Hand tool, Shift+H is now free for Flip Horizontal without accidentally switching tools.",
-      "Flip Horizontal and Flip Vertical now work correctly on Figma-imported elements.",
-      "Code view app name now stays in sync with the export modal — changing the app name in Export updates the Code panel instantly.",
-      "Preview mode now shows all canvas elements even without a Frame — drop anything onto the canvas and it appears in Preview immediately.",
-      "Preview mode error display — if something goes wrong in the preview, you now see the error message instead of a blank screen."
-    ],
-    "publishedAt": "2026-03-14T12:00:00.000Z"
-  },
-  {
-    "id": "v0.1.1",
-    "title": "Render v0.1.1 — Interactions, Animations & Preview Mode",
-    "description": [
-      "Added Preview Mode — test your app live inside the editor without exporting. Click, hover, navigate between frames, all interactions work in real time.",
-      "Added Interactions system — wire up any element with On Click, On Hover, On Load triggers. Navigate to Frame, Show/Hide elements, Open URL, Toggle visibility, Send IPC events.",
-      "Added frame transitions — Fade, Slide Left/Right/Up/Down, Scale Up/Down when navigating between screens.",
-      "Added Hover Effects — one-click presets: Lift, Glow, Scale, Dim, Brighten, Border Glow. Applied instantly to any element.",
-      "Added animation blocks — Fade In, Slide Up, Scale Up, Pulse, Shake, Bounce with configurable duration and delay.",
-      "Fixed 40+ component assets — Navbar, Sidebar, Card, Modal, Table, Charts, Form, Pricing Card, Kanban, Timeline and more now render with real visual structure.",
-      "Tabs, Accordion, and Carousel are now interactive in the editor.",
-      "Slider thumb is now draggable. Charts read from editable data fields.",
-      "Fixed opacity, rotation, flip rendering, checkbox and switch toggle on click."
-    ],
-    "publishedAt": "2026-03-14T09:00:00.000Z"
-  },
-  {
-    "id": "v0.1.0",
-    "title": "Render v0.1.0 — Initial Release",
-    "description": [
-      "Design Terminal editor with canvas, component library, and properties panel.",
-      "Figma import — paste directly from Figma to bring in real designs with colors, images, vectors, and text.",
-      "Export — one-click download of a complete Tauri 2 project ready to run.",
-      "Top bar export with real drag regions and window controls.",
-      "Component library with frames, layout, text, buttons, inputs, forms, charts, and more."
-    ],
-    "publishedAt": "2026-02-11T00:00:00.000Z"
-  }
-]
+{
+  "version": "1.1.2.2",
+  "lastUpdated": "2025-03-15",
+  "entries": [
+    {
+      "category": "AI UI Generator",
+      "changes": [
+        {
+          "title": "Adapter improvements",
+          "file": "src/lib/ai/schema/adapter.ts",
+          "description": "Map semantic types (sidebar, card, navbar, hero, modal, settings, topbar) to CONTAINER with variant for correct editor styling; use getValidIconName() for icon validation; fix TOPBAR variant to use variant: 'topbar' instead of 'navbar'"
+        },
+        {
+          "title": "ComponentsPanel enhancements",
+          "file": "src/components/editor-v2/ComponentsPanel.tsx",
+          "description": "Replace vs Append toggle (default: Append); Theme selector (Light/Dark); Model selector (GPT-4o, GPT-4o Mini, GPT-4 Turbo); Retry button on error; Loading skeleton during generation"
+        },
+        {
+          "title": "EditorShell append/replace modes",
+          "files": ["src/components/editor-v2/EditorShell.tsx", "src/components/editor/EditorShell.tsx"],
+          "description": "Append mode: viewport-aware positioning; Replace mode: replace canvas contents"
+        },
+        {
+          "title": "Prompt parser theme support",
+          "file": "src/lib/ai/agent/prompt-parser.ts",
+          "description": "Added theme (light/dark) from prompt or UI; Added parsePromptWithOptions() for theme override"
+        },
+        {
+          "title": "Layout generator improvements",
+          "file": "src/lib/ai/agent/layout-generator.ts",
+          "description": "Dark/light theme support with theme colors; 30s timeout for OpenAI calls; clearTimeout on all early-return paths to avoid timer leaks; Fallback layouts for login, form, table, pricing, settings, gallery, modal"
+        },
+        {
+          "title": "Rules engine overlap resolution",
+          "file": "src/lib/ai/agent/rules-engine.ts",
+          "description": "Iterative overlap resolution until no overlaps remain (instead of single pass); Bounds validation so children stay within parent"
+        },
+        {
+          "title": "API route enhancements",
+          "file": "src/app/api/ai/generate/route.ts",
+          "description": "Rate limiting (20 requests per minute); Coral as fallback when no OPENAI_API_KEY; Accepts model and style in request body; Clearer error messages including timeout"
+        }
+      ]
+    },
+    {
+      "category": "Website Fixes",
+      "changes": [
+        {
+          "title": "EditorShell broken imports",
+          "file": "src/components/editor/EditorShell.tsx",
+          "description": "Fixed ComponentsPanel, PropertiesPanel, PreviewPanel imports from ./ComponentsPanel etc. to @/components/editor-v2/ComponentsPanel"
+        },
+        {
+          "title": "Build script",
+          "file": "package.json",
+          "description": "Added --webpack to build script to avoid Turbopack/WASM issues"
+        }
+      ]
+    },
+    {
+      "category": "Bug Fixes",
+      "changes": [
+        {
+          "title": "Timeout leak in layout-generator",
+          "file": "src/lib/ai/agent/layout-generator.ts",
+          "description": "Added clearTimeout(timeoutId) before each early return (API error, empty content, parse failure)"
+        },
+        {
+          "title": "TOPBAR variant mismatch",
+          "file": "src/lib/ai/schema/adapter.ts",
+          "description": "TOPBAR nodes no longer receive variant: 'navbar'; variant set only for CONTAINER types"
+        },
+        {
+          "title": "Overlap resolution iteration",
+          "file": "src/lib/ai/agent/rules-engine.ts",
+          "description": "Replaced single-pass overlap fix with iterative loop until no overlaps remain, with iteration limit to avoid infinite loops"
+        }
+      ]
+    },
+    {
+      "category": "Lucide DynamicIcon",
+      "changes": [
+        {
+          "title": "DynamicIcon fallback prop",
+          "files": [
+            "src/components/editor-v2/SceneNodeRenderer.tsx",
+            "src/components/editor/IconPickerContent.tsx",
+            "src/components/editor/IconPickerModal.tsx",
+            "src/components/editor/CanvasNode.tsx"
+          ],
+          "description": "Added fallback prop to all DynamicIcon usages to prevent '[lucide-react]: Name in Lucide DynamicIcon not found' console errors; CanvasNode uses getValidIconName() with proper top-level import"
+        }
+      ]
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import type { UpdateLogEntry } from "@/lib/update-log";
 import styles from "@/app/dashboard/dashboard.module.css";
 
 const POLL_INTERVAL_MS = 15000;
-const LAST_SEEN_KEY = "render:last-seen-update-id";
+const LAST_SEEN_KEY = "haze:last-seen-update-id";
 
 type UpdateLogResponse = {
   entries: UpdateLogEntry[];

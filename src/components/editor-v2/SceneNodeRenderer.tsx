@@ -38,7 +38,7 @@ export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererP
 }
 
 function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode } = useEditorStore();
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds } = useEditorStore();
   const [isHovered, setIsHovered] = useState(false);
 
   const handleResizeStart = useCallback(
@@ -126,7 +126,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
   } : {};
 
   const drag = createDragHandler(node.id, zoom, moveNodes, pushHistory, isLocked);
-  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (baseStyle.opacity ?? 1) * 0.7 } : {}) };
+  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (Number(baseStyle.opacity) || 1) * 0.7 } : {}) };
 
   // ── ICON ──────────────────────────────────────────────────────────────────
   if (node.type === "ICON") {
@@ -142,7 +142,13 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         {...hoverHandlers}
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-        <DynamicIcon name={iconName as never} size={size} strokeWidth={1.5} style={{ color }} />
+        <DynamicIcon
+          name={iconName as never}
+          size={size}
+          strokeWidth={1.5}
+          style={{ color }}
+          fallback={() => <span style={{ fontSize: size, color }}>◆</span>}
+        />
       </div>
     );
   }
@@ -171,7 +177,12 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         {variant === "icon" && (props.iconName as string) ? (
-          <DynamicIcon name={getValidIconName(props.iconName as string) as never} size={20} strokeWidth={2} />
+          <DynamicIcon
+            name={getValidIconName(props.iconName as string) as never}
+            size={20}
+            strokeWidth={2}
+            fallback={() => <span style={{ fontSize: 20 }}>◆</span>}
+          />
         ) : label}
       </div>
     );
@@ -352,6 +363,34 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
 
   // ── CONTAINER with named variants ────────────────────────────────────────
   if (node.type === "CONTAINER") {
+
+    // CONTAINER with children — render them so design matches preview (sidebar, navbar, card, content)
+    if (node.children && node.children.length > 0) {
+      const bg = (props.backgroundColor as string) || undefined;
+      const radius = (props.borderRadius as number) ?? 6;
+      const shadow = (props.boxShadow as string) || undefined;
+      const containerStyle: React.CSSProperties = {
+        ...merged,
+        ...(bg && { backgroundColor: bg }),
+        borderRadius: radius,
+        ...(shadow && { boxShadow: shadow }),
+      };
+      return (
+        <div className={styles.genericNode} style={containerStyle} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 1 }}>
+            {node.children.map((child) => (
+              <SceneNodeRenderer
+                key={child.id}
+                node={child}
+                isSelected={selectedIds.has(child.id)}
+                zoom={zoom}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     // PROGRESS BAR
     if (variant === "progress" || node.name === "Progress Bar") {
@@ -936,13 +975,15 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       );
     }
 
-    // COMMENT
+    // COMMENT - Add comment style (icon + pill input)
     if (node.name === "Comment") {
       return (
         <div className={styles.commentNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.commentAvatar}>U</div>
-          <div><div className={styles.commentAuthor}>User Name</div><div className={styles.commentText}>This is a comment.</div></div>
+          <div className={styles.commentIconBtn}>+</div>
+          <div className={styles.commentInputWrap}>
+            <span className={styles.commentPlaceholder}>Add comment...</span>
+          </div>
         </div>
       );
     }
@@ -999,7 +1040,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       return (
         <div className={styles.codeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Render"</span></div>
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Haze"</span></div>
           <div className={styles.codeLine}><span style={{ color: "#f97316" }}>export</span> <span style={{ color: "#f97316" }}>default</span> app</div>
         </div>
       );

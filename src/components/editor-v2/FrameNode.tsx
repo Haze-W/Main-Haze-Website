@@ -99,7 +99,7 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
         border: isSelected && !isFrameEntered ? "none" : "1px solid rgba(255,255,255,0.06)",
         borderRadius: (node.props?.borderRadius as number) ?? 6,
         background: (node.props?.backgroundColor as string) ?? "rgba(30,30,34,0.95)",
-        ...(node.props?.boxShadow && { boxShadow: node.props.boxShadow as string }),
+        ...(node.props?.boxShadow ? { boxShadow: String(node.props.boxShadow) } : {}),
         overflow: node.overflow === "HIDDEN" ? "hidden" : "visible",
         cursor: "pointer",
         boxSizing: "border-box",

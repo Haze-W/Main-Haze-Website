@@ -8,9 +8,12 @@ export interface ParsedPrompt {
   intent: string;
   components: string[];
   style: string;
+  theme: "light" | "dark";
   domain?: string;
   viewport?: ViewportType;
   raw: string;
+  designPreset?: string;
+  sectionTemplate?: string;
 }
 
 const COMPONENT_KEYWORDS: Record<string, string[]> = {
@@ -38,10 +41,39 @@ const STYLE_KEYWORDS: Record<string, string[]> = {
   minimal: ["minimal", "minimalist", "simple"],
 };
 
+<<<<<<< HEAD
 const VIEWPORT_KEYWORDS: Record<ViewportType, string[]> = {
   mobile: ["mobile", "phone", "smartphone", "ios", "android", "small screen"],
   tablet: ["tablet", "ipad", "medium screen"],
   desktop: ["desktop", "web", "large screen", "wide"],
+=======
+/** Design presets — inject into prompt for style guidance */
+export const DESIGN_PRESETS: Record<string, string> = {
+  stripe: "Stripe-style SaaS — clean gradients, purple accents, trust-building layout, conversion-focused",
+  apple: "Apple minimal — lots of whitespace, SF-style typography, subtle shadows, premium feel",
+  landing: "Modern startup landing page — hero, features grid, social proof, strong CTA",
+  glassmorphism: "Glassmorphism dashboard — frosted glass cards, blur, soft elevation",
+  linear: "Linear-style — crisp, fast-feeling, keyboard-first aesthetic, dark mode friendly",
+  notion: "Notion-style — content-first, sidebar nav, clean blocks, collaborative feel",
+};
+
+const PRESET_KEYWORDS: Record<string, string[]> = {
+  stripe: ["stripe", "saas", "payment", "conversion"],
+  apple: ["apple", "minimal", "premium", "sf style"],
+  landing: ["landing", "homepage", "marketing page"],
+  glassmorphism: ["glass", "glassmorphism", "frosted", "blur"],
+  linear: ["linear", "crisp", "keyboard", "fast"],
+  notion: ["notion", "blocks", "wiki", "content-first"],
+};
+
+/** Section templates — required structure by page type */
+export const SECTION_TEMPLATES: Record<string, string> = {
+  landing: "MUST include: Hero (headline + subheadline + CTA), Features grid (3-4 features with icons), CTA section, Footer (links, copyright)",
+  dashboard: "MUST include: Sidebar (nav with icons), Topbar (logo, search, user), Stats cards (3-4 KPI cards), Main content area (charts/tables/lists)",
+  login: "MUST include: Centered card, Title, Email + Password inputs, Remember me, Sign in button, Sign up link",
+  settings: "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
+  pricing: "MUST include: Section title, 3 pricing cards (Starter/Pro/Enterprise), Feature lists, CTA buttons",
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 };
 
 export function parsePrompt(prompt: string): ParsedPrompt {
@@ -66,20 +98,76 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   );
   const domain = domainMatch?.[1] ?? undefined;
 
+<<<<<<< HEAD
   let viewport: ViewportType | undefined;
   for (const [vp, keywords] of Object.entries(VIEWPORT_KEYWORDS)) {
     if (keywords.some((k) => lower.includes(k))) {
       viewport = vp as ViewportType;
+=======
+  const hasDark = lower.includes("dark") || lower.includes("dark mode") || lower.includes("dark theme");
+  const hasLight = lower.includes("light") || lower.includes("light mode");
+  const theme = hasDark ? "dark" : hasLight ? "light" : "dark";
+
+  // Detect design preset from prompt
+  let designPreset: string | undefined;
+  for (const [key, desc] of Object.entries(DESIGN_PRESETS)) {
+    const keywords = PRESET_KEYWORDS[key] ?? [];
+    if (keywords.some((k) => lower.includes(k))) {
+      designPreset = desc;
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       break;
     }
   }
 
+<<<<<<< HEAD
+=======
+  // Detect page type for section template and infer components
+  let sectionTemplate: string | undefined;
+  const inferred: string[] = [];
+  if (has(lower, "landing", "homepage", "marketing")) {
+    sectionTemplate = SECTION_TEMPLATES.landing;
+    inferred.push("hero", "card");
+  } else if (has(lower, "dashboard", "admin", "analytics", "saas")) {
+    sectionTemplate = SECTION_TEMPLATES.dashboard;
+    inferred.push("sidebar", "topbar", "card");
+  } else if (has(lower, "login", "sign in", "auth")) {
+    sectionTemplate = SECTION_TEMPLATES.login;
+    inferred.push("login");
+  } else if (has(lower, "settings", "preferences")) {
+    sectionTemplate = SECTION_TEMPLATES.settings;
+    inferred.push("sidebar", "settings");
+  } else if (has(lower, "pricing", "plans")) {
+    sectionTemplate = SECTION_TEMPLATES.pricing;
+    inferred.push("pricing", "card");
+  }
+  const allComponents = [...new Set([...components, ...inferred])];
+
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   return {
     intent: lower,
-    components: components.length > 0 ? components : ["dashboard", "sidebar", "topbar", "card"],
+    components: allComponents.length > 0 ? allComponents : components,
     style: styles.length > 0 ? styles[0] : "modern",
+    theme,
     domain,
     viewport,
     raw: prompt,
+    designPreset,
+    sectionTemplate,
   };
+}
+
+function has(text: string, ...keywords: string[]): boolean {
+  return keywords.some((k) => text.includes(k));
+}
+
+/** Parse with optional theme override (from UI) */
+export function parsePromptWithOptions(
+  prompt: string,
+  options?: { theme?: "light" | "dark" }
+): ParsedPrompt {
+  const parsed = parsePrompt(prompt);
+  if (options?.theme) {
+    parsed.theme = options.theme;
+  }
+  return parsed;
 }

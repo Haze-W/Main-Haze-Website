@@ -1,8 +1,7 @@
 /**
  * Validates and normalises Lucide icon names.
- * lucide-react/dynamic iconNames are kebab-case ("arrow-right")
- * but DynamicIcon expects PascalCase ("ArrowRight").
- * This module handles both directions.
+ * lucide-react DynamicIcon expects kebab-case keys ("layout-dashboard").
+ * This module validates against iconNames and returns the correct format.
  */
 
 let validKebabSet: Set<string> | null = null;
@@ -42,26 +41,27 @@ export function pascalToKebab(name: string): string {
 }
 
 /**
- * Returns a valid PascalCase icon name for use with DynamicIcon.
+ * Returns a valid kebab-case icon name for use with DynamicIcon.
+ * DynamicIcon expects keys from dynamicIconImports which are kebab-case.
  * Accepts both kebab-case and PascalCase input.
- * Falls back to "Circle" if the name is invalid.
+ * Falls back to "circle" if the name is invalid.
  */
 export function getValidIconName(name: string | undefined): string {
-  if (!name || typeof name !== "string") return "Circle";
+  if (!name || typeof name !== "string") return "circle";
 
   // Normalise to kebab for validation
   const kebab = name.includes("-") ? name : pascalToKebab(name);
   const valid = getValidKebabNames();
 
   if (valid.has(kebab)) {
-    return kebabToPascal(kebab);
+    return kebab;
   }
 
   // Try direct match (already PascalCase)
   const asKebab = pascalToKebab(name);
   if (valid.has(asKebab)) {
-    return kebabToPascal(asKebab);
+    return asKebab;
   }
 
-  return "Circle";
+  return "circle";
 }

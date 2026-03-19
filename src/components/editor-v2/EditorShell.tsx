@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, type ComponentType } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -12,46 +14,35 @@ import {
   MousePointer2,
   Layout,
   Hand,
-  FilePlus,
-  FolderOpen,
-  Save,
-  Download,
-  Undo2,
-  Redo2,
-  Scissors,
-  Copy,
-  ClipboardPaste,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Square,
-  Layers,
-  HelpCircle,
-  BookOpen,
-  Keyboard,
-  Clipboard,
-  Plus,
   Minus,
+  Plus,
+  Play,
   ChevronRight,
+  ChevronDown,
   Eye,
   EyeOff,
   Lock,
   Unlock,
   Trash2,
-  FolderTree,
+  Search,
+  Settings,
+  PanelLeft,
+  MessageSquare,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
 import { CodePanel } from "@/components/editor/CodePanel";
-import { SettingsPanel } from "@/components/editor/SettingsPanel";
+import { SettingsPopover } from "./SettingsPopover";
+import { SaveAsModal } from "./SaveAsModal";
 import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { AIChatPanel } from "./AIChatPanel";
 import { PreviewPanel } from "./PreviewPanel";
+import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./EditorShell.module.css";
 
@@ -60,30 +51,6 @@ type LucideIcon = ComponentType<{
   className?: string;
   strokeWidth?: number;
 }>;
-
-interface MenuActionItem {
-  id: string;
-  divider?: false;
-  label: string;
-  shortcut?: string;
-  action: string;
-  icon: LucideIcon;
-  disabled?: boolean;
-}
-
-interface MenuDividerItem {
-  id: string;
-  divider: true;
-}
-
-type MenuEntry = MenuActionItem | MenuDividerItem;
-
-interface MenuGroup {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  items: MenuEntry[];
-}
 
 function getTypeIcon(type: string): string {
   const map: Record<string, string> = {
@@ -116,14 +83,13 @@ function LayerItem({
   depth: number;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [hovered, setHovered] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameValue, setNameValue] = useState(node.name);
 
-  // Keep nameValue in sync if node.name changes externally
   useEffect(() => {
     if (!renaming) setNameValue(node.name);
   }, [node.name, renaming]);
+
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const toggleSelection = useEditorStore((s) => s.toggleSelection);
@@ -148,8 +114,8 @@ function LayerItem({
   return (
     <div className={styles.layerGroup}>
       <div
-        className={`${styles.layerItem} ${isSelected ? styles.layerSelected : ""} ${isHidden ? styles.layerHidden : ""}`}
-        style={{ paddingLeft: depth * 14 + 6 }}
+        className={`${styles.layerItem} ${isSelected ? styles.layerItemSelected : ""} ${isHidden ? styles.layerHidden : ""}`}
+        style={{ paddingLeft: depth * 14 + 6, position: "relative" }}
         onClick={(e) => {
           if (renaming) return;
           if (isLocked) return;
@@ -161,23 +127,27 @@ function LayerItem({
           setRenaming(true);
           setNameValue(node.name);
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
         <button
           type="button"
           className={styles.expandBtn}
           style={{ visibility: hasChildren ? "visible" : "hidden" }}
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
         >
           <ChevronRight
             size={10}
-            style={{ transition: "transform 120ms ease", transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
+            style={{
+              transition: "transform 120ms ease",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+            }}
           />
         </button>
-
-        <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
-
+        <div className={styles.layerIcon}>
+          <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
+        </div>
         {renaming ? (
           <input
             autoFocus
@@ -187,78 +157,99 @@ function LayerItem({
             onBlur={commitRename}
             onKeyDown={(e) => {
               if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") { setNameValue(node.name); setRenaming(false); }
+              if (e.key === "Escape") {
+                setNameValue(node.name);
+                setRenaming(false);
+              }
               e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>{node.name}</span>
+          <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>
+            {node.name}
+          </span>
         )}
-
-        {isLocked && !hovered && (
-          <span className={styles.layerBadge} title="Locked"><Lock size={9} /></span>
+        {isLocked && (
+          <span className={styles.layerBadge} title="Locked">
+            <Lock size={9} />
+          </span>
         )}
-
-        {hovered && !renaming && (
-          <div className={styles.layerActions}>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title={isHidden ? "Show" : "Hide"}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateNode(node.id, { visible: isHidden ? true : false });
-                pushHistory();
-              }}
-            >
-              {isHidden ? <EyeOff size={11} /> : <Eye size={11} />}
-            </button>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title={isLocked ? "Unlock" : "Lock"}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateNode(node.id, { locked: !isLocked });
-                pushHistory();
-              }}
-            >
-              {isLocked ? <Unlock size={11} /> : <Lock size={11} />}
-            </button>
-            <button
-              type="button"
-              className={styles.layerAction}
-              title="Delete"
-              onClick={(e) => { e.stopPropagation(); deleteNodes([node.id]); }}
-            >
-              <Trash2 size={11} />
-            </button>
-          </div>
-        )}
+        <div className={styles.layerActions}>
+          <button
+            type="button"
+            className={styles.layerAction}
+            title={isHidden ? "Show" : "Hide"}
+            onClick={(e) => {
+              e.stopPropagation();
+              updateNode(node.id, { visible: isHidden ? true : false });
+              pushHistory();
+            }}
+          >
+            {isHidden ? <EyeOff size={11} /> : <Eye size={11} />}
+          </button>
+          <button
+            type="button"
+            className={styles.layerAction}
+            title={isLocked ? "Unlock" : "Lock"}
+            onClick={(e) => {
+              e.stopPropagation();
+              updateNode(node.id, { locked: !isLocked });
+              pushHistory();
+            }}
+          >
+            {isLocked ? <Unlock size={11} /> : <Lock size={11} />}
+          </button>
+          <button
+            type="button"
+            className={styles.layerAction}
+            title="Delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteNodes([node.id]);
+            }}
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
       </div>
-      {expanded && hasChildren && node.children!.map((child) => (
-        <LayerItem
-          key={child.id}
-          node={child}
-          isSelected={selectedIds.has(child.id)}
-          depth={depth + 1}
-        />
-      ))}
+      {expanded &&
+        hasChildren &&
+        node.children!.map((child) => (
+          <LayerItem
+            key={child.id}
+            node={child}
+            isSelected={selectedIds.has(child.id)}
+            depth={depth + 1}
+          />
+        ))}
     </div>
   );
 }
 
 export function EditorShell() {
   const [exportOpen, setExportOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const currentProjectId = searchParams.get("project");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+<<<<<<< HEAD
   const [leftTab, setLeftTab] = useState<"explorer" | "assets" | "chat">("explorer");
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
+=======
+  const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
+  const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
+  const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
+  const [rightTab, setRightTab] = useState<"design" | "code">("design");
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+
+  const theme = useEditorStore((s) => s.theme);
 
   const {
     nodes,
@@ -289,7 +280,6 @@ export function EditorShell() {
 
   const lastCanvasPoint = useEditorStore((s) => s.lastCanvasPoint);
 
-  // Auto-save nodes to project storage whenever the scene changes
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -300,24 +290,28 @@ export function EditorShell() {
         import("@/lib/projects").then(({ saveProject }) => {
           saveProject(projectId, { nodes: nodes as unknown[] });
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }, 1000);
     return () => clearTimeout(t);
   }, [nodes]);
 
-  // Load saved project nodes on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const projectId = params.get("project");
     if (!projectId) return;
-    import("@/lib/projects").then(({ getProject }) => {
-      const project = getProject(projectId);
-      if (project?.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
-        setNodes(project.nodes as Parameters<typeof setNodes>[0]);
-      }
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    import("@/lib/projects")
+      .then(({ getProject }) => {
+        const project = getProject(projectId);
+        if (!project) return;
+        setProjectName(project.name || "Untitled");
+        if (project.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
+          setNodes(project.nodes as Parameters<typeof setNodes>[0]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const getPlacement = () => {
@@ -356,19 +350,25 @@ export function EditorShell() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || over.id !== "canvas-drop") return;
     const data = active.data.current as
       | { type?: string; key?: string; iconName?: string }
       | undefined;
     const pos = getPlacement();
     if (data?.type === "component" && data.key) {
-      handleAddComponent(data.key, pos.x, pos.y);
+      if (over?.id === "canvas-drop") {
+        handleAddComponent(data.key, pos.x, pos.y);
+      } else {
+        handleAddComponent(data.key);
+      }
     } else if (data?.type === "icon" && data.iconName) {
-      handleAddIcon(data.iconName, pos.x, pos.y);
+      if (over?.id === "canvas-drop") {
+        handleAddIcon(data.iconName, pos.x, pos.y);
+      } else {
+        handleAddIcon(data.iconName);
+      }
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
@@ -419,18 +419,25 @@ export function EditorShell() {
       if ((e.ctrlKey || e.metaKey) && e.key === "c") {
         if (selectedIds.size > 0) {
           e.preventDefault();
-          const nodes = [...selectedIds].map((id) => useEditorStore.getState().getNode(id)).filter(Boolean);
+          const nodes = [...selectedIds]
+            .map((id) => useEditorStore.getState().getNode(id))
+            .filter(Boolean);
           if (nodes.length > 0) {
-            navigator.clipboard.writeText(JSON.stringify({ _renderCopy: true, nodes })).catch(() => {});
+            navigator.clipboard
+              .writeText(JSON.stringify({ _renderCopy: true, nodes }))
+              .catch(() => {});
           }
         }
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "v") {
         e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
-          if (text) tryPasteFromClipboard(text).catch(() => {});
-        }).catch(() => {});
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (text) tryPasteFromClipboard(text).catch(() => {});
+          })
+          .catch(() => {});
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
@@ -478,320 +485,109 @@ export function EditorShell() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedIds, deleteNodes, undo, redo, moveNodes, duplicateNodes, setTool, bringToFront, sendToBack, groupNodes, ungroupNodes, pushHistory]);
+  }, [
+    selectedIds,
+    deleteNodes,
+    undo,
+    redo,
+    moveNodes,
+    duplicateNodes,
+    setTool,
+    bringToFront,
+    sendToBack,
+    groupNodes,
+    ungroupNodes,
+    pushHistory,
+  ]);
 
-  // Close menu on outside click
-  useEffect(() => {
-    const onOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        setSubmenuOpen(null);
-      }
-    };
-    if (menuOpen) document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, [menuOpen]);
-
-  // Focus name input when editing
   useEffect(() => {
     if (editingName && nameInputRef.current) {
+      nameInputRef.current.focus();
       nameInputRef.current.select();
     }
   }, [editingName]);
 
-  const menuActions: Record<string, () => void> = {
-    "File.New": () => {
-      useEditorStore.getState().setNodes([]);
-      setMenuOpen(false);
-    },
-    "File.Export": () => {
-      setExportOpen(true);
-      setMenuOpen(false);
-    },
-    "Edit.Undo": () => {
-      undo();
-      setMenuOpen(false);
-    },
-    "Edit.Redo": () => {
-      redo();
-      setMenuOpen(false);
-    },
-    "Edit.Duplicate": () => {
-      duplicateNodes([...selectedIds]);
-      setMenuOpen(false);
-    },
-    "Edit.Delete": () => {
-      deleteNodes([...selectedIds]);
-      setMenuOpen(false);
-    },
-    "View.Zoom In": () => {
-      setViewport({ zoom: Math.min(10, viewport.zoom * 1.25) });
-      setMenuOpen(false);
-    },
-    "View.Zoom Out": () => {
-      setViewport({ zoom: Math.max(0.05, viewport.zoom / 1.25) });
-      setMenuOpen(false);
-    },
-    "View.Reset Zoom": () => {
-      setViewport({ zoom: 1, panX: 0, panY: 0 });
-      setMenuOpen(false);
-    },
-    "Insert.Frame": () => {
-      setTool("FRAME");
-      setMenuOpen(false);
-    },
-    "Insert.Component": () => {
-      setLeftTab("assets");
-      setMenuOpen(false);
-    },
-  };
-
-  const menuStructure: MenuGroup[] = [
-    {
-      id: "file",
-      label: "File",
-      icon: FilePlus,
-      items: [
-        { id: "new", label: "New", shortcut: "Ctrl+N", action: "File.New", icon: FilePlus },
-        { id: "open", label: "Open…", shortcut: "Ctrl+O", action: "File.Open", icon: FolderOpen, disabled: true },
-        { id: "save", label: "Save", shortcut: "Ctrl+S", action: "File.Save", icon: Save, disabled: true },
-        { id: "div1", divider: true },
-        { id: "export", label: "Export", shortcut: "Ctrl+E", action: "File.Export", icon: Download },
-      ],
-    },
-    {
-      id: "edit",
-      label: "Edit",
-      icon: Clipboard,
-      items: [
-        { id: "undo", label: "Undo", shortcut: "Ctrl+Z", action: "Edit.Undo", icon: Undo2 },
-        { id: "redo", label: "Redo", shortcut: "Ctrl+Shift+Z", action: "Edit.Redo", icon: Redo2 },
-        { id: "div2", divider: true },
-        { id: "cut", label: "Cut", shortcut: "Ctrl+X", action: "Edit.Cut", icon: Scissors, disabled: true },
-        { id: "copy", label: "Copy", shortcut: "Ctrl+C", action: "Edit.Copy", icon: Copy, disabled: true },
-        { id: "paste", label: "Paste", shortcut: "Ctrl+V", action: "Edit.Paste", icon: ClipboardPaste, disabled: true },
-        { id: "div3", divider: true },
-        { id: "duplicate", label: "Duplicate", shortcut: "Ctrl+D", action: "Edit.Duplicate", icon: Copy },
-        { id: "delete", label: "Delete", shortcut: "Del", action: "Edit.Delete", icon: Scissors },
-      ],
-    },
-    {
-      id: "view",
-      label: "View",
-      icon: ZoomIn,
-      items: [
-        { id: "zoomin", label: "Zoom In", shortcut: "Ctrl++", action: "View.Zoom In", icon: ZoomIn },
-        { id: "zoomout", label: "Zoom Out", shortcut: "Ctrl+-", action: "View.Zoom Out", icon: ZoomOut },
-        { id: "reset", label: "Reset Zoom", shortcut: "Ctrl+0", action: "View.Reset Zoom", icon: RotateCcw },
-      ],
-    },
-    {
-      id: "insert",
-      label: "Insert",
-      icon: Square,
-      items: [
-        { id: "frame", label: "Frame", shortcut: "F", action: "Insert.Frame", icon: Layout },
-        { id: "component", label: "Component", action: "Insert.Component", icon: Layers },
-      ],
-    },
-    {
-      id: "help",
-      label: "Help",
-      icon: HelpCircle,
-      items: [
-        { id: "docs", label: "Documentation", action: "Help.Docs", icon: BookOpen, disabled: true },
-        { id: "shortcuts", label: "Keyboard Shortcuts", action: "Help.Shortcuts", icon: Keyboard, disabled: true },
-      ],
-    },
-  ];
+  const filteredNodes = searchQuery
+    ? nodes.filter((n) =>
+        n.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : nodes;
 
   return (
-    <div className={styles.shell}>
-      {/* ── Top Bar ─────────────────────────────────────────────────── */}
-      <header className={styles.topbar}>
-        <div className={styles.topbarLeft} ref={menuRef}>
-          <span className={styles.logoMark}>R</span>
-
-          <nav className={styles.menuBar}>
-            {menuStructure.map((group) => (
-              <div key={group.id} className={styles.menuBarItem}>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+      <div
+        className={styles.shell}
+        data-editor-theme={theme}
+        data-sidebar-left-hidden={!sidebarLeftVisible}
+      >
+        {/* ── Left Sidebar ───────────────────────────────────────── */}
+        {sidebarLeftVisible && (
+        <aside className={styles.sidebarLeft}>
+          <div className={styles.sidebarHeader}>
+            <div className={styles.sidebarLogoRow}>
+              <div className={styles.sidebarLogoBrand}>
+                <div className={styles.logoContainer}>
+                  <img src="/haze-logo.png" alt="Haze" className={styles.logoImg} />
+                </div>
+                <span className={styles.logoText}>Haze</span>
+              </div>
+              <div className={styles.sidebarLogoActions}>
                 <button
                   type="button"
-                  className={`${styles.menuBarBtn} ${submenuOpen === group.id ? styles.menuBarActive : ""}`}
-                  onClick={() => {
-                    if (submenuOpen === group.id) {
-                      setSubmenuOpen(null);
-                      setMenuOpen(false);
-                    } else {
-                      setSubmenuOpen(group.id);
-                      setMenuOpen(true);
-                    }
-                  }}
-                  onMouseEnter={() => {
-                    if (menuOpen) setSubmenuOpen(group.id);
-                  }}
+                  className={styles.layoutToggleBtn}
+                  title="Toggle sidebar"
+                  onClick={() => setSidebarLeftVisible((v) => !v)}
                 >
-                  {group.label}
+                  <PanelLeft size={20} strokeWidth={2} />
                 </button>
-                {submenuOpen === group.id && (
-                  <div className={styles.menuDropdown}>
-                    {group.items.map((item, idx) =>
-                      item.divider ? (
-                        <div key={`div-${idx}`} className={styles.menuDivider} />
-                      ) : (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={styles.submenuItem}
-                          disabled={item.disabled}
-                          onClick={() => {
-                            const action = menuActions[item.action];
-                            action?.();
-                          }}
-                        >
-                          <item.icon size={13} className={styles.submenuIcon} />
-                          <span className={styles.submenuLabel}>{item.label}</span>
-                          {item.shortcut && (
-                            <span className={styles.shortcut}>{item.shortcut}</span>
-                          )}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
+                <button
+                  ref={settingsBtnRef}
+                  type="button"
+                  className={styles.settingsBtn}
+                  title="Settings"
+                  onClick={() => setSettingsPopoverOpen((v) => !v)}
+                >
+                  <Settings size={20} strokeWidth={2} />
+                </button>
               </div>
-            ))}
-          </nav>
-
-          <div className={styles.menuDividerV} />
-
-          {editingName ? (
-            <input
-              ref={nameInputRef}
-              className={styles.nameInput}
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              onBlur={() => setEditingName(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === "Escape") setEditingName(false);
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              className={styles.nameBtn}
-              onClick={() => setEditingName(true)}
-              title="Rename project"
-            >
-              {projectName}
-            </button>
-          )}
-        </div>
-
-        {/* Center: tool buttons */}
-        <div className={styles.toolGroup}>
-          <button
-            type="button"
-            className={`${styles.toolBtn} ${tool === "SELECT" ? styles.toolActive : ""}`}
-            onClick={() => setTool("SELECT")}
-            title="Select (V)"
-          >
-            <MousePointer2 size={14} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolBtn} ${tool === "FRAME" ? styles.toolActive : ""}`}
-            onClick={() => setTool("FRAME")}
-            title="Frame (F)"
-          >
-            <Layout size={14} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolBtn} ${tool === "HAND" ? styles.toolActive : ""}`}
-            onClick={() => setTool("HAND")}
-            title="Hand (H)"
-          >
-            <Hand size={14} strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Mode tabs */}
-        <div className={styles.modeTabs}>
-          {(["design", "code", "preview"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`${styles.modeTab} ${mode === m ? styles.modeActive : ""}`}
-              onClick={() => setMode(m)}
-            >
-              {m === "design" ? "Design" : m === "code" ? "Code" : "▶ Preview"}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.spacer} />
-
-        {/* Right: undo/redo + zoom + export */}
-        <div className={styles.topbarRight}>
-          <button type="button" className={styles.iconBtn} onClick={undo} title="Undo (Ctrl+Z)">
-            <Undo2 size={14} />
-          </button>
-          <button type="button" className={styles.iconBtn} onClick={redo} title="Redo (Ctrl+Shift+Z)">
-            <Redo2 size={14} />
-          </button>
-
-          <div className={styles.divider} />
-
-          <div className={styles.zoomControl}>
-            <button
-              type="button"
-              className={styles.zoomBtn}
-              onClick={() => setViewport({ zoom: Math.max(0.05, viewport.zoom / 1.25) })}
-              title="Zoom out"
-            >
-              <Minus size={12} strokeWidth={2.5} />
-            </button>
-            <span className={styles.zoomLabel}>{Math.round(viewport.zoom * 100)}%</span>
-            <button
-              type="button"
-              className={styles.zoomBtn}
-              onClick={() => setViewport({ zoom: Math.min(10, viewport.zoom * 1.25) })}
-              title="Zoom in"
-            >
-              <Plus size={12} strokeWidth={2.5} />
-            </button>
-          </div>
-
-          <div className={styles.divider} />
-
-          <button
-            type="button"
-            className={styles.exportBtn}
-            onClick={() => setExportOpen(true)}
-          >
-            Export
-          </button>
-        </div>
-      </header>
-
-      {/* ── Body ──────────────────────────────────────────────────────── */}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className={styles.body}>
-          {/* Left panel */}
-          <aside className={styles.leftPanel}>
-            <div className={styles.panelTabs}>
+            </div>
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                onBlur={() => setEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape") setEditingName(false);
+                }}
+                className={styles.projectNameInput}
+              />
+            ) : (
               <button
                 type="button"
-                className={`${styles.panelTab} ${leftTab === "explorer" ? styles.tabActive : ""}`}
-                onClick={() => setLeftTab("explorer")}
+                className={styles.projectSelector}
+                onClick={() => setEditingName(true)}
               >
-                Explorer
+                {projectName}
+                <ChevronDown size={16} className={styles.projectChevron} />
+              </button>
+            )}
+            <div className={styles.projectSubtitle}>UI Design Project</div>
+          </div>
+
+          <div className={styles.tabsRow}>
+            <div className={styles.tabsPill}>
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${leftTab === "layers" ? styles.tabBtnActive : ""}`}
+                onClick={() => setLeftTab("layers")}
+              >
+                Layers
               </button>
               <button
                 type="button"
-                className={`${styles.panelTab} ${leftTab === "assets" ? styles.tabActive : ""}`}
-                onClick={() => setLeftTab("assets")}
+                className={`${styles.tabBtn} ${leftTab === "components" ? styles.tabBtnActive : ""}`}
+                onClick={() => setLeftTab("components")}
               >
                 Assets
               </button>
@@ -803,19 +599,16 @@ export function EditorShell() {
                 AI Chat
               </button>
             </div>
+          </div>
 
-            {leftTab === "explorer" ? (
-              <div className={styles.explorerPanel}>
-                <div className={styles.explorerHeader}>
-                  <FolderTree size={13} className={styles.explorerIcon} />
-                  <span className={styles.explorerTitle}>Explorer</span>
-                  <span className={styles.explorerCount}>{nodes.length}</span>
-                </div>
+          {leftTab === "layers" && (
+            <>
+              <div className={styles.layerTreeWrap}>
                 <div className={styles.layerTree}>
-                  {nodes.length === 0 ? (
+                  {filteredNodes.length === 0 ? (
                     <div className={styles.layerEmpty}>No layers yet</div>
                   ) : (
-                    nodes.map((node, i) => (
+                    filteredNodes.map((node, i) => (
                       <LayerItem
                         key={`${node.id}-${i}`}
                         node={node}
@@ -826,15 +619,33 @@ export function EditorShell() {
                   )}
                 </div>
               </div>
+<<<<<<< HEAD
             ) : leftTab === "assets" ? (
+=======
+              <div className={styles.searchBar}>
+                <form className={styles.searchForm}>
+                  <Search size={16} className={styles.searchIcon} />
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder="Search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <span className={styles.key}>⌘ K</span>
+                </form>
+              </div>
+            </>
+          )}
+
+          {leftTab === "components" && (
+            <div className={styles.panelContent}>
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-                onAIGenerate={(nodes) => {
-                  useEditorStore.getState().setNodes(nodes);
-                  useEditorStore.getState().pushHistory();
-                }}
               />
+<<<<<<< HEAD
             ) : (
               <AIChatPanel
                 nodes={nodes}
@@ -859,9 +670,174 @@ export function EditorShell() {
             <aside className={styles.rightPanel}>
               <PropertiesPanel />
             </aside>
+=======
+            </div>
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
           )}
+
+        </aside>
+        )}
+
+        {/* Show sidebar toggle when collapsed */}
+        {!sidebarLeftVisible && (
+          <button
+            type="button"
+            className={styles.sidebarCollapsedBtn}
+            onClick={() => setSidebarLeftVisible(true)}
+            title="Show sidebar"
+          >
+            <PanelLeft size={20} strokeWidth={2} style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
+
+        {/* ── Right Sidebar ──────────────────────────────────────── */}
+        <aside className={styles.sidebarRight}>
+          <div className={styles.sidebarRightHeader}>
+            <button
+              type="button"
+              className={styles.exportBtnSidebar}
+              onClick={() => setExportOpen(true)}
+            >
+              Export
+            </button>
+            <button type="button" className={styles.shareBtn}>
+              Share
+            </button>
+          </div>
+          <div className={styles.rightTabs}>
+            <div className={styles.rightTabsPill}>
+              <button
+                type="button"
+                className={`${styles.rightTabBtn} ${rightTab === "design" ? styles.rightTabBtnActive : ""}`}
+                onClick={() => {
+                  setRightTab("design");
+                  setMode("design");
+                }}
+              >
+                Design
+              </button>
+              <button
+                type="button"
+                className={`${styles.rightTabBtn} ${rightTab === "code" ? styles.rightTabBtnActive : ""}`}
+                onClick={() => setRightTab("code")}
+              >
+                Properties
+              </button>
+            </div>
+          </div>
+          <div className={styles.rightPanelContent}>
+            {rightTab === "design" && <PropertiesPanel />}
+            {rightTab === "code" && <PreviewPanel />}
+          </div>
+        </aside>
+
+        {/* ── Floating Toolbar ───────────────────────────────────── */}
+        <div className={styles.toolbar}>
+          <div className={styles.toolbarTools}>
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${tool === "SELECT" ? styles.toolBtnActive : ""}`}
+              onClick={() => setTool("SELECT")}
+              title="Select (V)"
+            >
+              <MousePointer2 size={20} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${tool === "FRAME" ? styles.toolBtnActive : ""}`}
+              onClick={() => setTool("FRAME")}
+              title="Frame (F)"
+            >
+              <Layout size={20} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${tool === "HAND" ? styles.toolBtnActive : ""}`}
+              onClick={() => setTool("HAND")}
+              title="Hand (H)"
+            >
+              <Hand size={20} strokeWidth={2} />
+            </button>
+            <button type="button" className={`${styles.toolbarIconBtn} ${styles.commentsBtn}`} title="Comments">
+              <MessageSquare size={20} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${mode === "preview" ? styles.toolBtnActive : ""}`}
+              onClick={() => setMode(mode === "preview" ? "design" : "preview")}
+              title="Preview"
+            >
+              <Play size={20} strokeWidth={2} />
+            </button>
+          </div>
+          <div className={styles.toolbarDivider} />
+          <div className={styles.toolbarZoom}>
+            <button
+              type="button"
+              className={styles.zoomBtn}
+              onClick={() => setViewport({ zoom: Math.max(0.05, viewport.zoom / 1.25) })}
+              title="Zoom out"
+              disabled={viewport.zoom <= 0.05}
+            >
+              <Minus size={20} strokeWidth={2} />
+            </button>
+            <span className={styles.zoomLabel}>{Math.round(viewport.zoom * 100)}%</span>
+            <button
+              type="button"
+              className={styles.zoomBtn}
+              onClick={() => setViewport({ zoom: Math.min(10, viewport.zoom * 1.25) })}
+              title="Zoom in"
+            >
+              <Plus size={20} strokeWidth={2} />
+            </button>
+          </div>
+          <div className={styles.toolbarDivider} />
+          <button
+            type="button"
+            className={`${styles.toolbarDarkBtn} ${mode === "design" ? styles.toolbarDarkBtnActive : ""}`}
+            onClick={() => setMode("design")}
+          >
+            Design
+          </button>
+          <button
+            type="button"
+            className={styles.toolbarDarkBtn}
+            onClick={() => {
+              setMode("code");
+              setRightTab("code");
+            }}
+          >
+            View Code
+          </button>
         </div>
-      </DndContext>
+
+        {/* ── Canvas Area ────────────────────────────────────────── */}
+        <main className={styles.canvasArea}>
+          {mode === "design" && <Canvas />}
+          {mode === "code" && <CodePanel />}
+          {mode === "preview" && <PreviewPanel />}
+        </main>
+
+        <SettingsPopover
+          anchorRef={settingsBtnRef}
+          isOpen={settingsPopoverOpen}
+          onClose={() => setSettingsPopoverOpen(false)}
+          onExport={() => setExportOpen(true)}
+          onSave={() => {
+            const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+            const projectId = params.get("project");
+            if (projectId) {
+              import("@/lib/projects").then(({ saveProject }) => {
+                saveProject(projectId, { nodes: nodes as unknown[], name: projectName });
+              });
+            }
+          }}
+          onSaveAs={() => setSaveAsOpen(true)}
+        />
+
+        {/* ── Bottom AI Prompt (1:1 Brainwave) ────────────────────── */}
+        <BottomAIPrompt />
+      </div>
 
       <IconPickerModal
         isOpen={iconPickerOpen}
@@ -872,6 +848,13 @@ export function EditorShell() {
         }}
       />
 
+      <SaveAsModal
+        isOpen={saveAsOpen}
+        onClose={() => setSaveAsOpen(false)}
+        currentProjectId={currentProjectId}
+        currentNodes={nodes as unknown[]}
+        currentProjectName={projectName}
+      />
       <ExportModal
         isOpen={exportOpen}
         onClose={() => setExportOpen(false)}
@@ -880,10 +863,16 @@ export function EditorShell() {
           await preloadLucideIcons();
           const { downloadProjectFromSceneNodes } = await import("@/lib/tauri-export");
           const nodes = useEditorStore.getState().nodes;
-          const exportName = (settings.appName ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "my-tauri-app";
+          const exportName = (settings.appName ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            || "my-tauri-app";
           await downloadProjectFromSceneNodes(nodes, exportName, settings);
         }}
       />
-    </div>
+    </DndContext>
   );
 }

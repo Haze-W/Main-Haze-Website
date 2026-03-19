@@ -1,0 +1,219 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f4f5f7;
+}
+
+.gridBackground {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border: 1px solid #e6e8ec;
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  padding: 28px;
+  z-index: 1;
+}
+
+.progressWrap {
+  margin-bottom: 20px;
+}
+
+.progressTrack {
+  height: 4px;
+  border-radius: 999px;
+  background: #eceff3;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 999px;
+  background: #111827;
+  transition: width 140ms ease;
+}
+
+.heading {
+  margin: 0;
+  font-size: 30px;
+  color: #111827;
+}
+
+.description {
+  margin: 8px 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+
+.stepSubtitle {
+  margin: 8px 0 18px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.optionsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.optionsList {
+  display: grid;
+  gap: 12px;
+}
+
+.optionCard,
+.optionRow {
+  width: 100%;
+  text-align: left;
+  background: #fafbfc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  display: grid;
+  gap: 4px;
+  transition: all 140ms ease;
+}
+
+.optionCard:hover,
+.optionRow:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+}
+
+.optionCard:focus-visible,
+.optionRow:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 2px;
+}
+
+.optionCardActive {
+  border-color: #111827;
+  box-shadow: inset 0 0 0 1px #111827;
+  background: #f3f4f6;
+}
+
+.optionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.optionDescription {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+.summary {
+  background: #fafbfc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.summaryRow + .summaryRow {
+  border-top: 1px solid #e5e7eb;
+}
+
+.summaryRow strong {
+  color: #111827;
+}
+
+.errorText {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.secondaryBtn,
+.primaryBtn {
+  min-width: 120px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.secondaryBtn {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.primaryBtn {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #030712;
+}
+
+.secondaryBtn:disabled,
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 20px;
+  }
+
+  .optionsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .secondaryBtn,
+  .primaryBtn {
+    width: 100%;
+  }
+}

@@ -10,7 +10,7 @@ const TAURI_CONF = (name: string, frameless = false, width = 1200, height = 800)
   {
     productName: name,
     version: "0.1.0",
-    identifier: `com.render.${name.toLowerCase().replace(/\s+/g, "-")}`,
+    identifier: `com.haze.${name.toLowerCase().replace(/\s+/g, "-")}`,
     build: {
       frontendDist: "../dist",
       devUrl: "http://localhost:3000",
@@ -50,8 +50,8 @@ const TAURI_CONF = (name: string, frameless = false, width = 1200, height = 800)
 const CARGO_TOML = (name: string) => `[package]
 name = "${name.toLowerCase().replace(/\s+/g, "-")}"
 version = "0.1.0"
-description = "Tauri app built with Render"
-authors = ["Render"]
+description = "Tauri app built with Haze"
+authors = ["Haze"]
 license = "MIT"
 edition = "2021"
 
@@ -172,7 +172,7 @@ export default defineConfig({
 });
 `;
 
-const README = `# Tauri App - Built with Render
+const README = `# Tauri App - Built with Haze
 
 ## Prerequisites
 
@@ -314,7 +314,7 @@ export async function downloadProject(
 }
 
 /**
- * Export from SceneNodes - 1:1 with Render display.
+ * Export from SceneNodes - 1:1 with Haze display.
  * No custom top bar. Uses frame size. Preserves Figma colors, images, vectors.
  */
 export async function downloadProjectFromSceneNodes(
@@ -325,7 +325,8 @@ export async function downloadProjectFromSceneNodes(
   const zip = new JSZip();
   const appName = exportSettings?.appName ?? name;
   const { width, height } = getFrameDimensions(nodes);
-  const html = sceneNodesToHtml(nodes, appName);
+  const apiBase = typeof window !== "undefined" ? window.location.origin : "";
+  const html = sceneNodesToHtml(nodes, appName, undefined, apiBase);
   const css = sceneExportCss();
 
   zip.file("package.json", PACKAGE_JSON(appName));

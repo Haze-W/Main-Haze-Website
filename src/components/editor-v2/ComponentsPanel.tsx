@@ -2,15 +2,17 @@
 
 import { useState, useRef } from "react";
 import { useDraggable } from "@dnd-kit/core";
+<<<<<<< HEAD
 import { Search, Sparkles, Wand2, Loader2, ImageIcon, Upload, Monitor, Tablet, Smartphone } from "lucide-react";
+=======
+import { Sparkles } from "lucide-react";
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
-import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
 interface ComponentsPanelProps {
   onAddComponent: (key: string, x?: number, y?: number) => void;
   onOpenIconPicker: () => void;
-  onAIGenerate?: (nodes: SceneNode[]) => void;
 }
 
 function DraggableComponent({
@@ -60,6 +62,7 @@ function getIcon(type: string): string {
   return icons[type] ?? "•";
 }
 
+<<<<<<< HEAD
 type AIMode = "prompt" | "screenshot";
 type ViewportType = "desktop" | "tablet" | "mobile";
 
@@ -106,6 +109,13 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
       setAiLoading(false);
     }
   };
+=======
+export function ComponentsPanel({
+  onAddComponent,
+  onOpenIconPicker,
+}: ComponentsPanelProps) {
+  const [search, setSearch] = useState("");
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 
   const handleScreenshotExtract = async () => {
     if (!screenshotPreview || !onAIGenerate) return;
@@ -172,7 +182,20 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
   return (
     <div className={styles.panel}>
       <div className={styles.searchContainer}>
-        <Search size={14} className={styles.searchIcon} />
+        <svg
+          className={styles.searchIcon}
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
         <input
           type="search"
           placeholder="Filter components..."
@@ -183,6 +206,7 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
         />
       </div>
 
+<<<<<<< HEAD
       {onAIGenerate && (
         <div className={styles.aiSection}>
           <div className={styles.aiLabel}>
@@ -315,6 +339,8 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
         </div>
       )}
 
+=======
+>>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       <button
         type="button"
         className={styles.iconLibraryBtn}
@@ -338,7 +364,7 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
           </div>
         ))}
         {filtered.length === 0 && (
-          <div style={{ padding: 12, color: "var(--fg-muted)", fontSize: 13, textAlign: "center" }}>
+          <div style={{ padding: 12, color: "var(--shade-06)", fontSize: 13, textAlign: "center" }}>
             No components found
           </div>
         )}
