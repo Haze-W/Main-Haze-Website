@@ -233,16 +233,10 @@ export function EditorShell() {
   const searchParams = useSearchParams();
   const currentProjectId = searchParams.get("project");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-<<<<<<< HEAD
-  const [leftTab, setLeftTab] = useState<"explorer" | "assets" | "chat">("explorer");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
-=======
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
-  const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
+  const [leftTab, setLeftTab] = useState<"layers" | "components" | "chat">("layers");
   const [rightTab, setRightTab] = useState<"design" | "code">("design");
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -593,7 +587,7 @@ export function EditorShell() {
               </button>
               <button
                 type="button"
-                className={`${styles.panelTab} ${leftTab === "chat" ? styles.tabActive : ""}`}
+                className={`${styles.tabBtn} ${leftTab === "chat" ? styles.tabBtnActive : ""}`}
                 onClick={() => setLeftTab("chat")}
               >
                 AI Chat
@@ -619,9 +613,6 @@ export function EditorShell() {
                   )}
                 </div>
               </div>
-<<<<<<< HEAD
-            ) : leftTab === "assets" ? (
-=======
               <div className={styles.searchBar}>
                 <form className={styles.searchForm}>
                   <Search size={16} className={styles.searchIcon} />
@@ -640,41 +631,26 @@ export function EditorShell() {
 
           {leftTab === "components" && (
             <div className={styles.panelContent}>
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-              />
-<<<<<<< HEAD
-            ) : (
-              <AIChatPanel
-                nodes={nodes}
-                onApplyNodes={(newNodes) => {
+                onAIGenerate={(newNodes) => {
                   useEditorStore.getState().setNodes(newNodes);
                   useEditorStore.getState().pushHistory();
                 }}
               />
-            )}
-          </aside>
-
-          {/* Canvas / code view */}
-          <main className={styles.canvasArea}>
-            {mode === "design" && <Canvas />}
-            {mode === "code" && <CodePanel />}
-            {mode === "settings" && <SettingsPanel />}
-            {mode === "preview" && <PreviewPanel />}
-          </main>
-
-          {/* Right panel */}
-          {mode === "design" && (
-            <aside className={styles.rightPanel}>
-              <PropertiesPanel />
-            </aside>
-=======
             </div>
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
           )}
 
+          {leftTab === "chat" && (
+            <AIChatPanel
+              nodes={nodes}
+              onApplyNodes={(newNodes) => {
+                useEditorStore.getState().setNodes(newNodes);
+                useEditorStore.getState().pushHistory();
+              }}
+            />
+          )}
         </aside>
         )}
 
