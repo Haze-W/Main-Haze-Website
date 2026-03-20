@@ -28,146 +28,13 @@ export interface LayoutGeneratorOptions {
   designTheme?: DesignTheme;
 }
 
-const DRIBBBLE_EXAMPLE_1 = `{
-  "frame": {
-    "width": 1440,
-    "height": 900,
-    "background": "#f8fafc",
-    "children": [
-      {
-        "id": "sidebar_1",
-        "type": "sidebar",
-        "x": 0,
-        "y": 0,
-        "width": 260,
-        "height": 900,
-        "backgroundColor": "#0f172a",
-        "children": [
-          { "id": "nav_icon_1", "type": "icon", "x": 24, "y": 28, "width": 24, "height": 24, "props": { "iconName": "layout-dashboard" }, "color": "#ffffff" },
-          { "id": "nav_1", "type": "text", "x": 56, "y": 32, "width": 180, "height": 24, "text": "Dashboard", "color": "#ffffff" },
-          { "id": "nav_icon_2", "type": "icon", "x": 24, "y": 60, "width": 24, "height": 24, "props": { "iconName": "bar-chart-2" }, "color": "#94a3b8" },
-          { "id": "nav_2", "type": "text", "x": 56, "y": 64, "width": 180, "height": 24, "text": "Analytics", "color": "#94a3b8" },
-          { "id": "nav_icon_3", "type": "icon", "x": 24, "y": 92, "width": 24, "height": 24, "props": { "iconName": "folder" }, "color": "#94a3b8" },
-          { "id": "nav_3", "type": "text", "x": 56, "y": 96, "width": 180, "height": 24, "text": "Projects", "color": "#94a3b8" },
-          { "id": "nav_icon_4", "type": "icon", "x": 24, "y": 124, "width": 24, "height": 24, "props": { "iconName": "settings" }, "color": "#94a3b8" },
-          { "id": "nav_4", "type": "text", "x": 56, "y": 128, "width": 180, "height": 24, "text": "Settings", "color": "#94a3b8" }
-        ]
-      },
-      {
-        "id": "topbar_1",
-        "type": "topbar",
-        "x": 260,
-        "y": 0,
-        "width": 1180,
-        "height": 64,
-        "backgroundColor": "#ffffff",
-        "children": [
-          { "id": "logo_icon", "type": "icon", "x": 32, "y": 18, "width": 28, "height": 28, "props": { "iconName": "layout-dashboard" }, "color": "#0f172a" },
-          { "id": "logo", "type": "text", "x": 68, "y": 18, "width": 140, "height": 28, "text": "Acme", "color": "#0f172a" }
-        ]
-      },
-      {
-        "id": "card_1",
-        "type": "card",
-        "x": 296,
-        "y": 96,
-        "width": 320,
-        "height": 180,
-        "backgroundColor": "#ffffff",
-        "styles": { "padding": 24, "borderRadius": 12 },
-        "children": [
-          { "id": "c1_icon", "type": "icon", "x": 24, "y": 24, "width": 24, "height": 24, "props": { "iconName": "dollar-sign" }, "color": "#64748b" },
-          { "id": "c1_title", "type": "text", "x": 56, "y": 24, "width": 240, "height": 20, "text": "Total Revenue", "color": "#64748b" },
-          { "id": "c1_val", "type": "text", "x": 24, "y": 56, "width": 272, "height": 36, "text": "$45,231", "color": "#0f172a" }
-        ]
-      },
-      {
-        "id": "card_2",
-        "type": "card",
-        "x": 640,
-        "y": 96,
-        "width": 320,
-        "height": 180,
-        "backgroundColor": "#ffffff",
-        "styles": { "padding": 24, "borderRadius": 12 },
-        "children": [
-          { "id": "c2_icon", "type": "icon", "x": 24, "y": 24, "width": 24, "height": 24, "props": { "iconName": "users" }, "color": "#64748b" },
-          { "id": "c2_title", "type": "text", "x": 56, "y": 24, "width": 240, "height": 20, "text": "Active Users", "color": "#64748b" },
-          { "id": "c2_val", "type": "text", "x": 24, "y": 56, "width": 272, "height": 36, "text": "2,350", "color": "#0f172a" }
-        ]
-      },
-      {
-        "id": "card_3",
-        "type": "card",
-        "x": 984,
-        "y": 96,
-        "width": 320,
-        "height": 180,
-        "backgroundColor": "#ffffff",
-        "styles": { "padding": 24, "borderRadius": 12 },
-        "children": [
-          { "id": "c3_icon", "type": "icon", "x": 24, "y": 24, "width": 24, "height": 24, "props": { "iconName": "trending-up" }, "color": "#64748b" },
-          { "id": "c3_title", "type": "text", "x": 56, "y": 24, "width": 240, "height": 20, "text": "Conversion", "color": "#64748b" },
-          { "id": "c3_val", "type": "text", "x": 24, "y": 56, "width": 272, "height": 36, "text": "+12.5%", "color": "#0f172a" }
-        ]
-      }
-    ]
-  }
-}`;
-
-const DRIBBBLE_EXAMPLE_2 = `{
-  "frame": {
-    "width": 1440,
-    "height": 900,
-    "background": "#f1f5f9",
-    "children": [
-      {
-        "id": "sidebar_1",
-        "type": "sidebar",
-        "x": 0,
-        "y": 0,
-        "width": 280,
-        "height": 900,
-        "backgroundColor": "#1e293b",
-        "children": [
-          { "id": "nav_icon_1", "type": "icon", "x": 32, "y": 36, "width": 24, "height": 24, "props": { "iconName": "home" }, "color": "#f8fafc" },
-          { "id": "nav_1", "type": "text", "x": 64, "y": 40, "width": 200, "height": 24, "text": "Overview", "color": "#f8fafc" },
-          { "id": "nav_icon_2", "type": "icon", "x": 32, "y": 72, "width": 24, "height": 24, "props": { "iconName": "bar-chart-2" }, "color": "#94a3b8" },
-          { "id": "nav_2", "type": "text", "x": 64, "y": 76, "width": 200, "height": 24, "text": "Reports", "color": "#94a3b8" },
-          { "id": "nav_icon_3", "type": "icon", "x": 32, "y": 108, "width": 24, "height": 24, "props": { "iconName": "settings" }, "color": "#94a3b8" },
-          { "id": "nav_3", "type": "text", "x": 64, "y": 112, "width": 200, "height": 24, "text": "Settings", "color": "#94a3b8" }
-        ]
-      },
-      {
-        "id": "topbar_1",
-        "type": "topbar",
-        "x": 280,
-        "y": 0,
-        "width": 1160,
-        "height": 72,
-        "backgroundColor": "#ffffff",
-        "children": [
-          { "id": "logo_icon", "type": "icon", "x": 32, "y": 24, "width": 24, "height": 24, "props": { "iconName": "layout-dashboard" }, "color": "#0f172a" },
-          { "id": "logo", "type": "text", "x": 64, "y": 22, "width": 120, "height": 28, "text": "Dashboard", "color": "#0f172a" }
-        ]
-      },
-      {
-        "id": "hero_1",
-        "type": "hero",
-        "x": 320,
-        "y": 104,
-        "width": 1080,
-        "height": 240,
-        "backgroundColor": "#0f172a",
-        "children": [
-          { "id": "hero_title", "type": "text", "x": 48, "y": 48, "width": 500, "height": 36, "text": "Welcome back", "color": "#ffffff" },
-          { "id": "hero_sub", "type": "text", "x": 48, "y": 96, "width": 400, "height": 24, "text": "Here's what's happening with your projects.", "color": "#94a3b8" }
-        ]
-      }
-    ]
-  }
-}`;
-
+/** No concrete example UI JSON — avoids the model copying the same dashboard labels every time. */
+const ABSTRACT_JSON_SHAPE_GUIDE = `
+Output shape: { "frame": { "width", "height", "background" (hex), "children": [ ... ] } }
+Each child: "id", "type", "x", "y", "width", "height", optional "backgroundColor", "color", "text", "styles": { "padding", "borderRadius" }, "props": { "iconName": "lucide-kebab-name" }, "children": [ nested ] }.
+Types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings.
+Coordinates are relative to parent. Vary structure to match the user's app (chat thread, player, login, landing, etc.) — do NOT default to sidebar + three KPI metric cards unless they asked for analytics.
+`.trim();
 const SYSTEM_PROMPT = `You are an elite product UI generator (FAST mode: think through intent → spec → layout internally; output only JSON).
 
 Output ONE JSON object: { "frame": { "width", "height", "background", "children": [...] } }.
@@ -341,20 +208,37 @@ function ensureIds(el: AIUIElement, prefix: string, idx: number): AIUIElement {
   return { ...el, id, children };
 }
 
-function countContentElements(el: AIUIElement): number {
-  const isContent = el.type === "text" || el.type === "icon" || (el.type === "button" && el.text);
-  let n = isContent ? 1 : 0;
-  for (const c of el.children ?? []) n += countContentElements(c);
+function countSubtreeNodes(el: AIUIElement): number {
+  let n = 1;
+  for (const c of el.children ?? []) n += countSubtreeNodes(c);
+  return n;
+}
+
+function countMeaningfulUnits(el: AIUIElement): number {
+  const m =
+    el.type === "text" ||
+    el.type === "icon" ||
+    el.type === "button" ||
+    el.type === "input" ||
+    el.type === "image";
+  let n = m ? 1 : 0;
+  for (const c of el.children ?? []) n += countMeaningfulUnits(c);
   return n;
 }
 
 function isLayoutMinimal(layout: AIUILayout): boolean {
   const roots = layout.frame.children ?? [];
   if (roots.length === 0) return true;
-  let total = 0;
-  for (const c of roots) total += countContentElements(c);
-  /** Do not require 2+ root nodes — one main frame/container may hold the full tree. */
-  return total < 5;
+  let totalNodes = 0;
+  let meaningful = 0;
+  for (const c of roots) {
+    totalNodes += countSubtreeNodes(c);
+    meaningful += countMeaningfulUnits(c);
+  }
+  if (meaningful >= 5) return false;
+  if (totalNodes >= 12) return false;
+  if (meaningful >= 4 && totalNodes >= 8) return false;
+  return true;
 }
 
 function parseLayoutResponse(content: string): AIUILayout | null {
@@ -399,11 +283,10 @@ export async function generateLayoutFromPrompt(
   );
   const imageHint = buildImageHint(userPrompt, options?.images);
 
-  const schemaSnippet = DRIBBBLE_EXAMPLE_1.slice(0, 3200);
   const userContent = `${userPrompt}${imageHint}
 
-JSON SHAPE REFERENCE ONLY — replace every label, metric, and section with content from the PRIORITY block above (do not copy placeholder business metrics unless relevant):
-${schemaSnippet}`;
+JSON SCHEMA (no example labels — all copy must come from the PRIORITY block above):
+${ABSTRACT_JSON_SHAPE_GUIDE}`;
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
   const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
@@ -437,14 +320,14 @@ ${schemaSnippet}`;
 === USER BUILD REQUEST (obey this; do not default to a stock dashboard) ===
 ${userPrompt}${imageHint}
 
-=== SHAPE REFERENCE: same nesting ideas, NEW content from user request ===
-${schemaSnippet}
+=== SCHEMA (no example UI to copy — invent structure from the user request) ===
+${ABSTRACT_JSON_SHAPE_GUIDE}
 
 Return ONLY the JSON object. No markdown.`;
 
     let output = await generateFromOllama(fullPrompt, {
       model: options?.model,
-      temperature: 0.28,
+      temperature: 0.45,
     });
 
     let parsedLayout: AIUILayout | null = parseLayoutResponse(output);

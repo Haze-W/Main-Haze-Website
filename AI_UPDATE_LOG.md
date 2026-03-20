@@ -100,3 +100,54 @@ Major upgrade to the AI layout generation system. The system now produces high-e
 - Existing APIs unchanged (`generateLayoutFromPrompt`, `parsePromptWithOptions`)
 - `ParsedPrompt` extended with optional fields only
 - Fallback layout behavior unchanged
+
+---
+
+## March 2026 — Editor AI reliability, build feedback, layout accuracy & elite pipeline
+
+### Fixed
+
+- **Bottom bar “What would you like to build?”** — Successful generations no longer failed silently: replaced invalid `addNodesToCanvas` usage with **`applyGeneratedLayout`** (updates nodes, history, preview mode) and **`POST /api/ai/generate`** as the primary path.
+- **Layouts ignoring the user prompt** — Model was often collapsing to the same dashboard template. Addressed by:
+  - **`isLayoutMinimal` logic** — A single root frame with deep nested content is no longer treated as “empty”; richness is judged by **recursive** text/icon/button count (**≥ 5**), reducing unjustified fallbacks to the stock template.
+  - **Prompt priority** — Explicit **PRIORITY** block around the raw user text; instructions not to default to generic KPI copy (e.g. “Total Revenue”) unless analytics/finance is relevant.
+  - **Cloud path** — Shorter JSON shape reference (trimmed example) so the model focuses on user intent; tuned **`maxTokens`** / **`temperature`** for quality vs diversity.
+  - **Ollama path** — User request placed first; reduced **`num_predict`** for faster responses (`src/lib/ai/ollama.ts`).
+- **Fallback layouts** — **`inferFallbackCards`** + **`titleFromUserPrompt`** so rule-based fallback reflects keywords (todo, music, chat, analytics, food, etc.) and topbar/titles align with the prompt instead of a generic “App”.
+
+### Added
+
+- **On-canvas AI build progress** — While generating, users see status on the canvas:
+  - **Store** (`src/lib/editor/store.ts`): `aiBuild` state, `setAiBuild`, `appendAiBuildLine`, `clearAiBuild`.
+  - **Helpers** (`src/lib/editor/ai-build-ui.ts`): `startAiBuildTicker`, `pushAiBuildStatus`, `endAiBuildTicker`.
+  - **Editor shell** (`EditorShell.tsx` + `EditorShell.module.css`): Overlay on the canvas area (spinner + live log, `role="status"`, `aria-live="polite"`).
+  - **Wired from** `BottomAIPrompt.tsx` and `ComponentsPanel.tsx` (generate + screenshot extract flows).
+- **Elite / product-style generation (single-call FAST mode)** — Encoded in **`layout-generator.ts`** without multi-round LLM chains:
+  - **Archetype hints** — Keyword routes for chatbot, messaging, booking, ecommerce, portfolio, CRM, admin, social, finance, landing, productivity, SaaS dashboard; each injects required **regions** (e.g. chatbot → history + thread + composer).
+  - **Style rotation** — **`STYLE_VARIATIONS`** + stable hash from prompt so generations push **distinct** palette/structure/radius/density and avoid cliché blue/purple SaaS unless the prompt fits.
+- **Partial vs full generation routing** — New **`src/lib/ai/agent/generate-intent.ts`**: **`isGreenfieldLayoutRequest`**, **`isLikelyLayoutPatch`**, **`shouldUseRefineForBottomBar`**. When the canvas **already has nodes** and the message looks like an **edit** (colors, spacing, dark mode, “add a…”, etc.), the bottom bar calls **`POST /api/ai/chat`** (refine). Clear **greenfield** phrases still use **`/api/ai/generate`**.
+
+### Changed
+
+- **`layout-generator.ts` — `SYSTEM_PROMPT`** — Reframed as elite FAST generator: user text as source of truth, internal archetype inference, anti-repetition, complete UIs, JSON-only output.
+- **`layout-refiner.ts`** — Stronger **partial regeneration** rules (edit-in-place, preserve unrelated nodes, full rebuild only when explicitly requested). **`maxTokens`** reduced **8192 → 4096** for faster refinement.
+- **`EditorShell.module.css`** — AI overlay background uses **`rgba(...)`** instead of **`color-mix`** for broader browser support.
+
+### Files touched (this release)
+
+| Area | Path |
+|------|------|
+| Bottom prompt | `src/components/editor-v2/BottomAIPrompt.tsx` |
+| Assets / generate UI | `src/components/editor-v2/ComponentsPanel.tsx` |
+| Editor chrome / overlay | `src/components/editor-v2/EditorShell.tsx`, `EditorShell.module.css` |
+| Editor state | `src/lib/editor/store.ts` |
+| Build UI helpers | `src/lib/editor/ai-build-ui.ts` |
+| Layout generation | `src/lib/ai/agent/layout-generator.ts` |
+| Greenfield vs patch | `src/lib/ai/agent/generate-intent.ts` |
+| Conversational refine | `src/lib/ai/agent/layout-refiner.ts` |
+| Local LLM tuning | `src/lib/ai/ollama.ts` (if adjusted in same effort) |
+
+### Notes
+
+- Build progress is **client-side status + ticker** plus explicit **`pushAiBuildStatus`** calls; **server-sent streaming** of step-by-step generation is not implemented yet.
+- **AI Refine** side panel (`AIChatPanel`) uses the same **`/api/ai/chat`** refine path; the on-canvas build overlay is primarily driven from the bottom bar and Components panel flows above.
