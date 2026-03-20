@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Plus, LayoutGrid, Filter, ChevronDown } from "lucide-react";
 import { listProjects } from "@/lib/projects";
 import styles from "./dashboard.module.css";
 import { useOpenCreateModal } from "./CreateModalContext";
+import { useToast } from "@/components/Toast";
 
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
@@ -18,9 +19,15 @@ function formatRelativeTime(iso: string): string {
   return d.toLocaleDateString();
 }
 
+type ProjectSort = "recent" | "name";
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<{ id: string; name: string; folder: string; updatedAt: string }[]>([]);
+  const [sort, setSort] = useState<ProjectSort>("recent");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const openCreate = useOpenCreateModal();
+  const { show } = useToast();
 
   useEffect(() => {
     try {
@@ -62,7 +69,7 @@ export default function DashboardPage() {
           </span>
           <span>Create New Project</span>
         </button>
-        {projects.map((project) => (
+        {displayProjects.map((project) => (
           <Link
             key={project.id}
             href={`/editor?project=${project.id}`}

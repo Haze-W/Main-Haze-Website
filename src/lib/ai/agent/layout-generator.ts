@@ -4,25 +4,29 @@
  */
 
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
+import {
+  DEFAULT_WIDTH,
+  VIEWPORT_DIMENSIONS,
+  type ViewportType,
+} from "../schema/ui-schema";
 import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
-<<<<<<< HEAD
-import { DEFAULT_WIDTH, VIEWPORT_DIMENSIONS, type ViewportType } from "../schema/ui-schema";
 import type { DesignTheme } from "./theme-generator";
 import { callLLM } from "../providers";
-=======
-import { DEFAULT_WIDTH } from "../schema/ui-schema";
 import { generateFromOllama } from "../ollama";
 
 export interface LayoutGeneratorOptions {
+  apiKey?: string;
   model?: string;
   style?: "light" | "dark";
   runtimeTarget?: string;
   languageTarget?: string;
-  /** Base64 data URLs - when using vision models; otherwise described in text */
+  /** Base64 data URLs for multimodal / vision-style prompts */
   images?: string[];
+  viewport?: ViewportType;
+  /** Tokens from /api/ai/theme */
+  designTheme?: DesignTheme;
 }
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 
 const DRIBBBLE_EXAMPLE_1 = `{
   "frame": {
@@ -191,77 +195,52 @@ FORMAT - copy this structure exactly:
   ]}
 }
 
-<<<<<<< HEAD
-RULES:
-- Output ONLY valid JSON. No markdown, no \`\`\`json\`\`\`, no explanation.
-- Every element MUST have: id (unique string), type, x, y, width, height.
-- Valid types: navbar, sidebar, topbar, hero, card, dashboard, form, table, button, text, input, image, icon, frame, container.
-- ALWAYS add icons: sidebar nav items need icons (layout-dashboard, bar-chart-2, folder, settings, home, users). Cards need icons (dollar-sign, users, trending-up, shopping-cart, activity). Topbar needs logo icon. Use type "icon" with props: { "iconName": "lucide-name" }. Lucide icons: layout-dashboard, bar-chart-2, settings, home, users, dollar-sign, trending-up, shopping-cart, activity, folder, pie-chart.
-- Use hex colors only.
-- Children coordinates (x, y) are relative to parent.
-- For DESKTOP (1440x900): Sidebar at x=0, topbar at x=sidebar_width. Cards 320x180, 3-4 per row, gap 24px.
-- For TABLET (768x1024): Optional sidebar 200px. Cards ~340px wide, 2 per row.
-- For MOBILE (375x812): NO sidebar. Use topbar only. Cards full width, stacked vertically. Single column layout.`;
+Follow the USER MESSAGE for viewport, theme, and exact features. Output ONLY valid JSON (one object with a "frame" key).`;
 
 function getViewportDims(viewport?: ViewportType): { width: number; height: number } {
   return viewport ? VIEWPORT_DIMENSIONS[viewport] : { width: 1440, height: 900 };
 }
 
-function buildUserPrompt(parsed: ReturnType<typeof parsePrompt>, theme?: DesignTheme): string {
-  const comps = parsed.components.join(", ");
-  const domain = parsed.domain ? ` Context: ${parsed.domain}.` : "";
-  const dims = getViewportDims(parsed.viewport);
-  const viewportHint = parsed.viewport === "mobile"
-    ? " Mobile layout: no sidebar, use topbar or bottom nav, stacked cards, single column."
-    : parsed.viewport === "tablet"
-    ? " Tablet layout: optional collapsible sidebar, 2-column cards."
-    : "";
-  const themeHint = theme
-    ? ` Use this color palette: primary=${theme.colors.primary}, background=${theme.colors.background}, surface=${theme.colors.surface}, sidebar=${theme.colors.sidebar ?? theme.colors.primary}, text=${theme.colors.text}, textMuted=${theme.colors.textMuted}. Font: ${theme.typography.fontFamily}.`
-    : "";
-  return `Generate a ${parsed.style} ${parsed.viewport ?? "desktop"} UI with: ${comps}.${domain}
-Frame: ${dims.width}x${dims.height}. Light background (#f8fafc or #f1f5f9).${viewportHint}${themeHint}
-Match the quality and structure of the examples. Return ONLY the JSON object.`;
-=======
-RULES: Every element needs id, type, x, y, width, height. Text elements need "text" and "color". Icons need props.iconName. Cards need styles.padding and styles.borderRadius. Return ONLY valid JSON, no markdown.`;
-
 function buildUserPrompt(
   parsed: ReturnType<typeof parsePromptWithOptions>,
-  options?: Pick<LayoutGeneratorOptions, "runtimeTarget" | "languageTarget">
+  options?: Pick<LayoutGeneratorOptions, "runtimeTarget" | "languageTarget">,
+  designTheme?: DesignTheme
 ): string {
+  const dims = getViewportDims(parsed.viewport);
   const targetHint = options?.runtimeTarget ? `Runtime target: ${options.runtimeTarget}. ` : "";
   const languageHint = options?.languageTarget ? `Preferred language: ${options.languageTarget}. ` : "";
-  const themeHint = parsed.theme === "dark"
-    ? "Dark theme: background #0d0f12, cards #1a1b23, sidebar #151620, text #e6edf3, muted #8b949e. "
-    : "Light background (#f8fafc or #f1f5f9). ";
-  const compHint = parsed.components.length > 0
-    ? `\nDetected components (use as guidance, not limits): ${parsed.components.join(", ")}.`
-    : "";
-  const domainHint = parsed.domain ? `\nDomain/context: ${parsed.domain}.` : "";
 
-  const presetHint = parsed.designPreset
-    ? `\nDESIGN PRESET: ${parsed.designPreset}`
-    : "";
-  const templateHint = parsed.sectionTemplate
-    ? `\nSECTION TEMPLATE: ${parsed.sectionTemplate}`
-    : "";
-  const realTextRule =
-    "\nREAL TEXT: Use realistic copy (e.g. \"Track your revenue in real time\", \"Manage your team efficiently\"). NEVER use \"Lorem ipsum\" or placeholder gibberish.";
+  const themeHintPalette =
+    designTheme != null
+      ? `Use this palette: primary=${designTheme.colors.primary}, background=${designTheme.colors.background}, surface=${designTheme.colors.surface}, sidebar=${designTheme.colors.sidebar ?? designTheme.colors.primary}, text=${designTheme.colors.text}, muted=${designTheme.colors.textMuted}. Font: ${designTheme.typography.fontFamily}. `
+      : parsed.theme === "dark"
+        ? "Dark theme: #0d0f12 bg, #1a1b23 cards, #151620 sidebar, #e6edf3 text. "
+        : "Light theme: #f8fafc / #f1f5f9 backgrounds, white cards. ";
 
-  const structureRule = parsed.sectionTemplate
-    ? `\nSTRUCTURE: ${parsed.sectionTemplate}`
-    : parsed.components.length > 0
-      ? `\nINCLUDE these components with real content: ${parsed.components.join(", ")}. Each card needs icon + title + value. Sidebar needs icon + text per nav item.`
-      : "\nINCLUDE: sidebar (nav with icons), topbar (logo), and at least 3 cards. Each card: icon, title, value (e.g. Total Revenue, $45,231).";
+  const compHint =
+    parsed.components.length > 0
+      ? `Required UI pieces: ${parsed.components.join(", ")}. `
+      : "";
+  const domainHint = parsed.domain ? `Domain: ${parsed.domain}. ` : "";
+  const presetHint = parsed.designPreset ? `Style: ${parsed.designPreset}. ` : "";
+  const templateHint = parsed.sectionTemplate ? `Structure: ${parsed.sectionTemplate}. ` : "";
+  const viewportHint =
+    parsed.viewport === "mobile"
+      ? "MOBILE: no sidebar; top bar only; full-width stacked sections."
+      : parsed.viewport === "tablet"
+        ? "TABLET: optional narrow sidebar; 2-column content where appropriate."
+        : "DESKTOP: sidebar + topbar + main content grid when appropriate.";
 
-  return `USER REQUEST:
+  return `USER REQUEST (implement this literally — match app purpose, labels, and screens):
 """
 ${parsed.raw}
 """
-Frame: 1440x900. ${themeHint}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}${realTextRule}${structureRule}
 
-Generate a complete layout. Return ONLY the JSON object, no markdown.`;
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
+RULES: Valid JSON only; every node needs id, type, x, y, width, height. Icons use props.iconName (Lucide). Real text tied to the request — no Lorem ipsum. ${viewportHint}
+
+Frame: ${dims.width}x${dims.height}. ${parsed.style} look. ${themeHintPalette}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}
+
+Return ONLY the JSON layout object.`;
 }
 
 function ensureIds(el: AIUIElement, prefix: string, idx: number): AIUIElement {
@@ -310,59 +289,59 @@ function buildImageHint(userPrompt: string, images?: string[]): string {
 
 export async function generateLayoutFromPrompt(
   prompt: string,
-<<<<<<< HEAD
-  options?: { apiKey?: string; model?: string; viewport?: ViewportType; theme?: DesignTheme }
-): Promise<AIUILayout> {
-  const parsed = parsePrompt(prompt);
-  if (options?.viewport) parsed.viewport = options.viewport;
-  const userPrompt = buildUserPrompt(parsed, options?.theme);
-
-  const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const hasAnyKey = apiKey || process.env.ANTHROPIC_API_KEY;
-
-  if (!hasAnyKey) {
-    return getFallbackLayout(parsed);
-  }
-
-  try {
-    const { content } = await callLLM({
-      apiKey,
-      model: options?.model ?? "gpt-4o",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Example 1 (dashboard with KPI cards):\n${DRIBBBLE_EXAMPLE_1}` },
-        { role: "assistant", content: "Understood." },
-        { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
-        { role: "assistant", content: "Understood." },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.25,
-      maxTokens: 4096,
-      jsonMode: true,
-    });
-
-    if (!content) return getFallbackLayout(parsed);
-
-    const layout = parseLayoutResponse(content);
-    if (!layout) return getFallbackLayout(parsed);
-
-    layout.frame = validateAndFixFrame(layout.frame);
-    layout.metadata = { ...layout.metadata, prompt };
-    return layout;
-=======
   options?: LayoutGeneratorOptions
 ): Promise<AIUILayout> {
-  const parsed = parsePromptWithOptions(prompt, { theme: options?.style });
-  const userPrompt = buildUserPrompt(parsed, {
-    runtimeTarget: options?.runtimeTarget,
-    languageTarget: options?.languageTarget,
+  const parsed = parsePromptWithOptions(prompt, {
+    theme: options?.style,
+    viewport: options?.viewport,
   });
+  const userPrompt = buildUserPrompt(
+    parsed,
+    {
+      runtimeTarget: options?.runtimeTarget,
+      languageTarget: options?.languageTarget,
+    },
+    options?.designTheme
+  );
   const imageHint = buildImageHint(userPrompt, options?.images);
-  const model = options?.model;
 
-  const fullPrompt = `${SYSTEM_PROMPT}
+  const userContent = `${userPrompt}${imageHint}
 
-Full example to follow (dashboard with sidebar, topbar, 3 cards):
+Reference example (structure + richness — adapt to the USER REQUEST):
+${DRIBBBLE_EXAMPLE_1}`;
+
+  const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
+  const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
+
+  try {
+    if (hasCloudKey) {
+      const { content } = await callLLM({
+        apiKey,
+        model: options?.model ?? "gpt-4o",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
+          { role: "assistant", content: "Understood." },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.25,
+        maxTokens: 8192,
+        jsonMode: true,
+      });
+
+      if (content) {
+        const layout = parseLayoutResponse(content);
+        if (layout && !isLayoutMinimal(layout)) {
+          layout.frame = validateAndFixFrame(layout.frame);
+          layout.metadata = { ...layout.metadata, prompt };
+          return layout;
+        }
+      }
+    }
+
+    const fullPrompt = `${SYSTEM_PROMPT}
+
+Full example (dashboard):
 ${DRIBBBLE_EXAMPLE_1}
 
 ---
@@ -370,19 +349,20 @@ ${userPrompt}${imageHint}
 
 Return ONLY valid JSON. No markdown, no explanation.`;
 
-  try {
     let output = await generateFromOllama(fullPrompt, {
-      model,
+      model: options?.model,
       temperature: 0.2,
     });
 
     let parsedLayout: AIUILayout | null = parseLayoutResponse(output);
 
     if (!parsedLayout) {
-      const retryPrompt = `Extract the JSON layout. Return ONLY valid JSON, no other text:
+      const retry = await generateFromOllama(
+        `Extract the JSON layout from this text. Return ONLY valid JSON:
 
-${output}`;
-      const retry = await generateFromOllama(retryPrompt, { model, temperature: 0.1 });
+${output}`,
+        { model: options?.model, temperature: 0.1 }
+      );
       parsedLayout = parseLayoutResponse(retry);
     }
 
@@ -393,20 +373,12 @@ ${output}`;
     parsedLayout.frame = validateAndFixFrame(parsedLayout.frame);
     parsedLayout.metadata = { ...parsedLayout.metadata, prompt };
     return parsedLayout;
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   } catch (err) {
-    console.error("Layout generation error (Ollama):", err);
+    console.error("Layout generation error:", err);
     return getFallbackLayout(parsed);
   }
 }
 
-<<<<<<< HEAD
-function getFallbackLayout(parsed: ReturnType<typeof parsePrompt>): AIUILayout {
-  const dims = getViewportDims(parsed.viewport);
-  const isMobile = parsed.viewport === "mobile";
-  const isTablet = parsed.viewport === "tablet";
-  const hasSidebar = !isMobile && parsed.components.includes("sidebar");
-=======
 type ThemeColors = {
   bg: string;
   card: string;
@@ -416,8 +388,8 @@ type ThemeColors = {
   muted: string;
 };
 
-function getThemeColors(theme: "light" | "dark"): ThemeColors {
-  return theme === "dark"
+function getThemeColors(th: "light" | "dark"): ThemeColors {
+  return th === "dark"
     ? {
         bg: "#0d0f12",
         card: "#1a1b23",
@@ -437,10 +409,12 @@ function getThemeColors(theme: "light" | "dark"): ThemeColors {
 }
 
 function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): AIUILayout {
+  const dims = getViewportDims(parsed.viewport);
+  const isMobile = parsed.viewport === "mobile";
+  const isTablet = parsed.viewport === "tablet";
   const theme = parsed.theme ?? "dark";
   const colors = getThemeColors(theme);
-  const hasSidebar = parsed.components.includes("sidebar");
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
+  const hasSidebar = !isMobile && parsed.components.includes("sidebar");
   const hasTopbar =
     parsed.components.includes("topbar") || parsed.components.includes("navbar");
   const sidebarWidth = hasSidebar ? (isTablet ? 200 : 260) : 0;
@@ -493,13 +467,8 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): A
       x: 0,
       y: 0,
       width: sidebarWidth,
-<<<<<<< HEAD
       height: dims.height,
-      backgroundColor: "#0f172a",
-=======
-      height: 900,
       backgroundColor: colors.sidebar,
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       children: sidebarChildren,
     });
   }
@@ -540,8 +509,6 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): A
 
   const hasCards = parsed.components.includes("card");
   const hasHero = parsed.components.includes("hero");
-<<<<<<< HEAD
-=======
   const hasForm = parsed.components.includes("form");
   const hasTable = parsed.components.includes("table");
   const hasPricing = parsed.components.includes("pricing");
@@ -550,9 +517,6 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): A
   const hasGallery = parsed.components.includes("gallery");
   const hasSettings = parsed.components.includes("settings");
 
-  const cardW = 320;
-  const cardH = 180;
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   const gap = 24;
   const cardW = isMobile ? contentW - 32 : isTablet ? Math.min(340, (contentW - 36 - gap) / 2) : 320;
   const cardH = isMobile ? 120 : 180;
@@ -836,15 +800,9 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): A
 
   return {
     frame: validateAndFixFrame({
-<<<<<<< HEAD
       width: dims.width,
       height: dims.height,
-      background: "#f8fafc",
-=======
-      width: DEFAULT_WIDTH,
-      height: 900,
       background: colors.bg,
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       children,
     }),
     metadata: {

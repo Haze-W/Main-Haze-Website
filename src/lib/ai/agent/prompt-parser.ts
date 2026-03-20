@@ -41,12 +41,12 @@ const STYLE_KEYWORDS: Record<string, string[]> = {
   minimal: ["minimal", "minimalist", "simple"],
 };
 
-<<<<<<< HEAD
 const VIEWPORT_KEYWORDS: Record<ViewportType, string[]> = {
   mobile: ["mobile", "phone", "smartphone", "ios", "android", "small screen"],
   tablet: ["tablet", "ipad", "medium screen"],
   desktop: ["desktop", "web", "large screen", "wide"],
-=======
+};
+
 /** Design presets — inject into prompt for style guidance */
 export const DESIGN_PRESETS: Record<string, string> = {
   stripe: "Stripe-style SaaS — clean gradients, purple accents, trust-building layout, conversion-focused",
@@ -68,13 +68,20 @@ const PRESET_KEYWORDS: Record<string, string[]> = {
 
 /** Section templates — required structure by page type */
 export const SECTION_TEMPLATES: Record<string, string> = {
-  landing: "MUST include: Hero (headline + subheadline + CTA), Features grid (3-4 features with icons), CTA section, Footer (links, copyright)",
-  dashboard: "MUST include: Sidebar (nav with icons), Topbar (logo, search, user), Stats cards (3-4 KPI cards), Main content area (charts/tables/lists)",
+  landing:
+    "MUST include: Hero (headline + subheadline + CTA), Features grid (3-4 features with icons), CTA section, Footer (links, copyright)",
+  dashboard:
+    "MUST include: Sidebar (nav with icons), Topbar (logo, search, user), Stats cards (3-4 KPI cards), Main content area (charts/tables/lists)",
   login: "MUST include: Centered card, Title, Email + Password inputs, Remember me, Sign in button, Sign up link",
-  settings: "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
-  pricing: "MUST include: Section title, 3 pricing cards (Starter/Pro/Enterprise), Feature lists, CTA buttons",
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
+  settings:
+    "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
+  pricing:
+    "MUST include: Section title, 3 pricing cards (Starter/Pro/Enterprise), Feature lists, CTA buttons",
 };
+
+function has(text: string, ...keywords: string[]): boolean {
+  return keywords.some((k) => text.includes(k));
+}
 
 export function parsePrompt(prompt: string): ParsedPrompt {
   const lower = prompt.toLowerCase().trim();
@@ -98,30 +105,27 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   );
   const domain = domainMatch?.[1] ?? undefined;
 
-<<<<<<< HEAD
   let viewport: ViewportType | undefined;
   for (const [vp, keywords] of Object.entries(VIEWPORT_KEYWORDS)) {
     if (keywords.some((k) => lower.includes(k))) {
       viewport = vp as ViewportType;
-=======
-  const hasDark = lower.includes("dark") || lower.includes("dark mode") || lower.includes("dark theme");
-  const hasLight = lower.includes("light") || lower.includes("light mode");
-  const theme = hasDark ? "dark" : hasLight ? "light" : "dark";
-
-  // Detect design preset from prompt
-  let designPreset: string | undefined;
-  for (const [key, desc] of Object.entries(DESIGN_PRESETS)) {
-    const keywords = PRESET_KEYWORDS[key] ?? [];
-    if (keywords.some((k) => lower.includes(k))) {
-      designPreset = desc;
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       break;
     }
   }
 
-<<<<<<< HEAD
-=======
-  // Detect page type for section template and infer components
+  const hasDark = lower.includes("dark") || lower.includes("dark mode") || lower.includes("dark theme");
+  const hasLight = lower.includes("light") || lower.includes("light mode");
+  let theme: "light" | "dark" = hasDark ? "dark" : hasLight ? "light" : "dark";
+
+  let designPreset: string | undefined;
+  for (const [key, desc] of Object.entries(DESIGN_PRESETS)) {
+    const kws = PRESET_KEYWORDS[key] ?? [];
+    if (kws.some((k) => lower.includes(k))) {
+      designPreset = desc;
+      break;
+    }
+  }
+
   let sectionTemplate: string | undefined;
   const inferred: string[] = [];
   if (has(lower, "landing", "homepage", "marketing")) {
@@ -140,12 +144,16 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     sectionTemplate = SECTION_TEMPLATES.pricing;
     inferred.push("pricing", "card");
   }
-  const allComponents = [...new Set([...components, ...inferred])];
 
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
+  const merged = [...new Set([...components, ...inferred])];
+  let finalComponents = merged.length > 0 ? merged : components;
+  if (finalComponents.length === 0) {
+    finalComponents = ["sidebar", "topbar", "card"];
+  }
+
   return {
     intent: lower,
-    components: allComponents.length > 0 ? allComponents : components,
+    components: finalComponents,
     style: styles.length > 0 ? styles[0] : "modern",
     theme,
     domain,
@@ -156,18 +164,13 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   };
 }
 
-function has(text: string, ...keywords: string[]): boolean {
-  return keywords.some((k) => text.includes(k));
-}
-
-/** Parse with optional theme override (from UI) */
+/** Parse with optional theme / viewport override (from UI or API) */
 export function parsePromptWithOptions(
   prompt: string,
-  options?: { theme?: "light" | "dark" }
+  options?: { theme?: "light" | "dark"; viewport?: ViewportType }
 ): ParsedPrompt {
   const parsed = parsePrompt(prompt);
-  if (options?.theme) {
-    parsed.theme = options.theme;
-  }
+  if (options?.theme) parsed.theme = options.theme;
+  if (options?.viewport) parsed.viewport = options.viewport;
   return parsed;
 }

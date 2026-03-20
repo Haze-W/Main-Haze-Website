@@ -1071,9 +1071,4 @@
   flex-direction: column;
 }
 
-/* ── Responsive: hide on small screens ─────────────────────────── */
-@media (max-width: 1340px) {
-  .shell {
-    display: none;
-  }
-}
+/* Editor must remain visible below 1340px — hiding .shell caused a blank page on typical laptop/split widths. */

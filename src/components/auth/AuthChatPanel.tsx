@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, ChevronDown, Mic, ArrowUp } from "lucide-react";
 import styles from "./AuthChatPanel.module.css";
+import { useToast } from "@/components/Toast";
 
 const MODELS = [
   { id: "Coral 1.0", comingSoon: false },
@@ -11,6 +12,7 @@ const MODELS = [
 ] as const;
 
 export function AuthChatPanel() {
+  const { show } = useToast();
   const [input, setInput] = useState("");
   const [model, setModel] = useState("Coral 1.0");
   const [modelOpen, setModelOpen] = useState(false);
@@ -81,7 +83,12 @@ export function AuthChatPanel() {
             autoComplete="off"
           />
           <div className={styles.inputToolbar}>
-            <button type="button" className={styles.addBtn} title="Add">
+            <button
+              type="button"
+              className={styles.addBtn}
+              title="Attachments (coming soon)"
+              onClick={() => show("Attachments are not available on the sign-in chat yet.", "info")}
+            >
               <Plus size={20} strokeWidth={2} />
             </button>
             <div className={styles.toolbarSpacer} />
@@ -116,7 +123,12 @@ export function AuthChatPanel() {
               )}
             </div>
             <div className={styles.divider} aria-hidden />
-            <button type="button" className={styles.micBtn} title="Voice input">
+            <button
+              type="button"
+              className={styles.micBtn}
+              title="Voice input (coming soon)"
+              onClick={() => show("Voice input is coming soon.", "info")}
+            >
               <Mic size={20} strokeWidth={2} />
             </button>
             <button

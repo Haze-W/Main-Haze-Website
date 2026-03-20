@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Plus, ChevronDown, Mic, ChevronRight } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
+import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./BottomAIPrompt.module.css";
 
@@ -12,17 +13,19 @@ type BottomAIPromptProps = {
 };
 
 export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
+  const { show } = useToast();
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
+  const colorMode = useEditorStore((s) => s.theme);
 
-  const addNodesToCanvas = useCallback((nodes: SceneNode[]) => {
+  const applyGeneratedLayout = useCallback((newNodes: SceneNode[]) => {
     const s = useEditorStore.getState();
-    const offset = nodes.map((n) => ({ ...n, x: n.x + s.viewport.panX * -1, y: n.y }));
-    s.setNodes([...s.nodes, ...offset]);
+    s.setNodes(newNodes);
     s.pushHistory();
+    s.setMode("preview");
   }, []);
 
   useEffect(() => {
@@ -65,7 +68,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
           nodes: s.nodes,
           projectName: "Untitled",
           mode: "ui",
-          style: "dark",
+          style: colorMode,
         }),
       });
 
@@ -83,7 +86,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
     } finally {
       setLoading(false);
     }
-  }, [prompt, loading, addNodesToCanvas]);
+  }, [prompt, loading, applyGeneratedLayout, colorMode]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -99,7 +102,14 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       }
     >
       <div className={styles.promptBox}>
-        <button type="button" className={styles.actionBtn} title="Add">
+        <button
+          type="button"
+          className={styles.actionBtn}
+          title="Attachments (coming soon)"
+          onClick={() =>
+            show("File attachments in the prompt bar are coming soon. Use Assets → Screenshot in the editor.", "info")
+          }
+        >
           <Plus size={18} strokeWidth={2} />
         </button>
 
@@ -139,9 +149,14 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
             )}
           </div>
 
-        <button type="button" className={styles.micBtn} title="Voice input">
-            <Mic size={18} strokeWidth={2} />
-          </button>
+        <button
+          type="button"
+          className={styles.micBtn}
+          title="Voice input (coming soon)"
+          onClick={() => show("Voice input is coming soon.", "info")}
+        >
+          <Mic size={18} strokeWidth={2} />
+        </button>
 
         <button
           type="button"

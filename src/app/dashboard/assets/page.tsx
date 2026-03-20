@@ -19,6 +19,7 @@ import {
   Copy,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useToast } from "@/components/Toast";
 import styles from "../dashboard.module.css";
 
 const UI_ASSETS = [
@@ -40,6 +41,7 @@ const UI_ASSETS = [
 ];
 
 export default function AssetsPage() {
+  const { show } = useToast();
   const [selectedAsset, setSelectedAsset] = useState<typeof UI_ASSETS[0] | null>(null);
 
   return (
@@ -86,11 +88,35 @@ export default function AssetsPage() {
                   Use this asset in your project. Copy the component or drag it into the canvas.
                 </p>
                 <div className={styles.assetModalActions}>
-                  <button type="button" className={styles.assetModalBtn}>
+                  <button
+                    type="button"
+                    className={styles.assetModalBtn}
+                    onClick={() => {
+                      const line = `${selectedAsset.name} (${selectedAsset.id}) — ${selectedAsset.category}`;
+                      void navigator.clipboard?.writeText?.(line).then(
+                        () => show("Asset details copied.", "success"),
+                        () => show("Copy failed.", "error")
+                      );
+                    }}
+                  >
                     <Copy size={16} strokeWidth={2} />
                     Copy
                   </button>
-                  <button type="button" className={styles.assetModalBtn}>
+                  <button
+                    type="button"
+                    className={styles.assetModalBtn}
+                    onClick={() => {
+                      const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="${selectedAsset.name}"><rect width="64" height="64" rx="12" fill="%236366f1" opacity="0.15"/><text x="32" y="38" text-anchor="middle" font-size="10" fill="%23cbd5e1" font-family="system-ui,sans-serif">${selectedAsset.id}</text></svg>`;
+                      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+                      const blobUrl = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = blobUrl;
+                      a.download = `${selectedAsset.id}.svg`;
+                      a.click();
+                      URL.revokeObjectURL(blobUrl);
+                      show("Downloaded placeholder SVG for this asset.", "success");
+                    }}
+                  >
                     <Download size={16} strokeWidth={2} />
                     Download SVG
                   </button>

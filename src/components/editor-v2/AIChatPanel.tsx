@@ -17,7 +17,7 @@ interface ChatMessage {
   content: string;
 }
 
-export function AIChatPanel({ nodes, onApplyNodes }: AIChatPanelProps) {
+export function AIChatPanel({ nodes, onApplyNodes, embedded }: AIChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,13 +40,29 @@ export function AIChatPanel({ nodes, onApplyNodes }: AIChatPanelProps) {
         body: JSON.stringify({ nodes, message: text }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: data.error || `Request failed (${res.status})` },
+        ]);
+        return;
+      }
       if (data.nodes?.length) {
         onApplyNodes(data.nodes);
-        setMessages((m) => [...m, { role: "assistant", content: `Applied: ${text}` }]);
+        const note =
+          typeof data.response === "string"
+            ? data.response
+            : typeof data.suggestion === "string"
+              ? data.suggestion
+              : `Updated layout: ${text}`;
+        setMessages((m) => [...m, { role: "assistant", content: note }]);
       } else if (data.suggestion) {
         setMessages((m) => [...m, { role: "assistant", content: data.suggestion }]);
       } else {
-        setMessages((m) => [...m, { role: "assistant", content: data.error || "No response" }]);
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: data.error || "No changes returned. Try a more specific instruction." },
+        ]);
       }
     } catch (err) {
       setMessages((m) => [...m, { role: "assistant", content: err instanceof Error ? err.message : "Request failed" }]);

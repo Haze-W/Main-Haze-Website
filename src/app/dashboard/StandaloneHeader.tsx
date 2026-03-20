@@ -8,6 +8,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import styles from "./dashboard.module.css";
 import { SettingsModal } from "./SettingsModal";
 import { useAuth } from "@/lib/auth-context";
+import { DISCORD_COMMUNITY_URL } from "@/lib/site-links";
 
 export function StandaloneHeader() {
   const router = useRouter();
@@ -108,7 +109,13 @@ export function StandaloneHeader() {
                   <Gem size={18} strokeWidth={1.5} />
                   Subscription
                 </Link>
-                <a href="#" className={styles.profileDropdownItem} onClick={() => setProfileOpen(false)}>
+                <a
+                  href={DISCORD_COMMUNITY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.profileDropdownItem}
+                  onClick={() => setProfileOpen(false)}
+                >
                   <MessageCircle size={18} strokeWidth={1.5} />
                   Join Discord
                 </a>

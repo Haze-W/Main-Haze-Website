@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Search, Sparkles, Wand2, Loader2, ImageIcon, Upload, Monitor, Tablet, Smartphone } from "lucide-react";
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
+import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
@@ -64,6 +65,7 @@ type AIMode = "prompt" | "screenshot";
 type ViewportType = "desktop" | "tablet" | "mobile";
 
 export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate }: ComponentsPanelProps) {
+  const editorColorMode = useEditorStore((s) => s.theme);
   const [search, setSearch] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiMode, setAiMode] = useState<AIMode>("prompt");
@@ -92,7 +94,12 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: aiPrompt.trim(), viewport, theme }),
+        body: JSON.stringify({
+          prompt: aiPrompt.trim(),
+          viewport,
+          theme,
+          style: editorColorMode,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");

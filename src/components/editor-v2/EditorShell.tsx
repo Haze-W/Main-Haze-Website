@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ComponentType } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ComponentType } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DndContext,
@@ -45,6 +45,7 @@ import { AIChatPanel } from "./AIChatPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
+import { useToast } from "@/components/Toast";
 import styles from "./EditorShell.module.css";
 
 type LucideIcon = ComponentType<{
@@ -233,6 +234,7 @@ function LayerItem({
 }
 
 export function EditorShell() {
+  const { show } = useToast();
   const [exportOpen, setExportOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -248,6 +250,7 @@ export function EditorShell() {
   const [searchQuery, setSearchQuery] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   const theme = useEditorStore((s) => s.theme);
 
@@ -507,6 +510,36 @@ export function EditorShell() {
     }
   }, [editingName]);
 
+  useLayoutEffect(() => {
+    // #region agent log
+    const el = shellRef.current;
+    const cs = el ? getComputedStyle(el) : null;
+    const box = el?.getBoundingClientRect();
+    fetch("http://127.0.0.1:7414/ingest/06c84fbc-4d5d-429d-95c7-09038428f9b6", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a51597" },
+      body: JSON.stringify({
+        sessionId: "a51597",
+        runId: "post-fix",
+        hypothesisId: "A",
+        location: "EditorShell.tsx:useLayoutEffect",
+        message: "EditorShell root computed layout",
+        data: {
+          innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
+          shellDisplay: cs?.display,
+          shellVisibility: cs?.visibility,
+          shellOpacity: cs?.opacity,
+          shellW: box?.width,
+          shellH: box?.height,
+          likelyHiddenBy1340Rule:
+            typeof window !== "undefined" && window.innerWidth <= 1340,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  });
+
   const filteredNodes = searchQuery
     ? nodes.filter((n) =>
         n.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -516,6 +549,7 @@ export function EditorShell() {
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
       <div
+        ref={shellRef}
         className={styles.shell}
         data-editor-theme={theme}
         data-sidebar-left-hidden={!sidebarLeftVisible}
@@ -643,8 +677,11 @@ export function EditorShell() {
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
                 onAIGenerate={(newNodes) => {
-                  useEditorStore.getState().setNodes(newNodes);
-                  useEditorStore.getState().pushHistory();
+                  const s = useEditorStore.getState();
+                  s.setNodes(newNodes);
+                  s.pushHistory();
+                  s.setMode("preview");
+                  setRightTab("design");
                 }}
               />
             </div>
@@ -675,7 +712,18 @@ export function EditorShell() {
             >
               Export
             </button>
-            <button type="button" className={styles.shareBtn}>
+            <button
+              type="button"
+              className={styles.shareBtn}
+              title="Copy editor link"
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                const url = window.location.href;
+                void navigator.clipboard?.writeText?.(url).catch(() => {
+                  window.prompt("Copy this link:", url);
+                });
+              }}
+            >
               Share
             </button>
           </div>
@@ -733,7 +781,14 @@ export function EditorShell() {
             >
               <Hand size={20} strokeWidth={2} />
             </button>
-            <button type="button" className={`${styles.toolbarIconBtn} ${styles.commentsBtn}`} title="Comments">
+            <button
+              type="button"
+              className={`${styles.toolbarIconBtn} ${styles.commentsBtn}`}
+              title="Comments (coming soon)"
+              onClick={() =>
+                show("Comments and real-time collaboration are coming soon.", "info")
+              }
+            >
               <MessageSquare size={20} strokeWidth={2} />
             </button>
             <button
@@ -841,8 +896,11 @@ export function EditorShell() {
                 embedded
                 nodes={nodes}
                 onApplyNodes={(newNodes) => {
-                  useEditorStore.getState().setNodes(newNodes);
-                  useEditorStore.getState().pushHistory();
+                  const s = useEditorStore.getState();
+                  s.setNodes(newNodes);
+                  s.pushHistory();
+                  s.setMode("preview");
+                  setRightTab("design");
                 }}
               />
             </div>

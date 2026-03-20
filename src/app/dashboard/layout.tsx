@@ -40,6 +40,7 @@ import { StandaloneHeader } from "./StandaloneHeader";
 import { getFolders, saveFolders, type FolderItem } from "@/lib/folders";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
+import { DISCORD_COMMUNITY_URL } from "@/lib/site-links";
 
 const STANDALONE_PATHS = [
   "/dashboard/pricing",
@@ -224,7 +225,16 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                     <button
                       type="button"
                       className={`${styles.item} ${pathname.startsWith(item.path) ? styles.itemActive : ""}`}
-                      onClick={() => setTemplatesExpanded((v) => !v)}
+                      onClick={() => {
+                        if (!templatesExpanded) {
+                          setTemplatesExpanded(true);
+                          if (!pathname.startsWith("/dashboard/templates")) {
+                            router.push("/dashboard/templates/marketplace");
+                          }
+                        } else {
+                          setTemplatesExpanded(false);
+                        }
+                      }}
                     >
                       <item.icon className={styles.icon} size={20} strokeWidth={2} />
                       <span className={styles.itemLabel}>{item.name}</span>
@@ -341,7 +351,18 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
               <button type="button" className={styles.iconBtn} onClick={() => setSidebarOpen(!sidebarOpen)}>
                 {sidebarOpen ? <ArrowLeft size={20} strokeWidth={2} /> : <Menu size={20} strokeWidth={2} />}
               </button>
-              <button type="button" className={styles.iconBtn} disabled>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                title="Forward"
+                onClick={() => {
+                  try {
+                    window.history.forward();
+                  } catch {
+                    /* noop */
+                  }
+                }}
+              >
                 <ArrowRight size={20} strokeWidth={2} />
               </button>
               <div className={styles.searchBar}>
@@ -426,7 +447,13 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                       <Gem size={18} strokeWidth={1.5} />
                       Subscription
                     </Link>
-                    <a href="#" className={styles.profileDropdownItem} onClick={() => setProfileOpen(false)}>
+                    <a
+                      href={DISCORD_COMMUNITY_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.profileDropdownItem}
+                      onClick={() => setProfileOpen(false)}
+                    >
                       <MessageCircle size={18} strokeWidth={1.5} />
                       Join Discord
                     </a>

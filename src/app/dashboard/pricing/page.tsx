@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/Toast";
+import { CONTACT_EMAIL } from "@/lib/site-links";
 import styles from "./pricing.module.css";
 
 const PLANS = [
@@ -137,6 +139,7 @@ export default function PricingPage() {
                   <button
                     type="button"
                     className={`${styles.cta} ${styles[`cta${plan.ctaStyle.charAt(0).toUpperCase() + plan.ctaStyle.slice(1)}`]}`}
+                    onClick={() => handlePlanCta(plan)}
                   >
                     {plan.cta}
                   </button>

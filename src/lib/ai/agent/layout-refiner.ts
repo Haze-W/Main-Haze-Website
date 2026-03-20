@@ -6,6 +6,7 @@
 import type { AIUILayout, AIUIFrame } from "../schema/ui-schema";
 import { validateAndFixFrame } from "./rules-engine";
 import { callLLM } from "../providers";
+import { generateLayoutFromPrompt } from "./layout-generator";
 
 const REFINE_SYSTEM_PROMPT = `You are a UI design assistant. The user will send you:
 1. Their current layout as JSON (frame with children)
@@ -41,7 +42,22 @@ export async function refineLayout(
 ): Promise<{ layout: AIUILayout; response: string } | { suggestion: string }> {
   const hasKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
   if (!hasKey) {
-    return { suggestion: "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY to use AI refinement." };
+    try {
+      const layout = await generateLayoutFromPrompt(
+        `Apply this change to the UI (preserve dashboard structure when relevant): ${userMessage}`,
+        { style: "dark" }
+      );
+      return {
+        layout,
+        response:
+          "Generated a new layout from your message (no cloud API key — using local/Ollama or rules). Add OPENAI_API_KEY for edit-in-place refinement.",
+      };
+    } catch {
+      return {
+        suggestion:
+          "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY, or start Ollama for local generation.",
+      };
+    }
   }
 
   const userContent = `Current layout:\n\`\`\`json\n${currentLayoutJson}\n\`\`\`\n\nUser request: ${userMessage}\n\nReturn ONLY the modified JSON layout (the frame object with children). No explanation.`;

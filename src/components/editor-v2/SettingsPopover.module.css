@@ -32,6 +32,8 @@
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .menuItem:hover:not(:disabled) {

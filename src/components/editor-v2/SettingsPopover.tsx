@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { useEditorStore } from "@/lib/editor/store";
+import { useToast } from "@/components/Toast";
 import { Moon, Sun, LayoutDashboard, Keyboard, Save, Copy } from "lucide-react";
 import styles from "./SettingsPopover.module.css";
 
@@ -73,20 +74,54 @@ export function SettingsPopover({ anchorRef, isOpen, onClose, onExport, onSave, 
           Export...
           <kbd className={styles.shortcutBadge}>⇧⌘E</kbd>
         </button>
-        <button type="button" className={styles.menuItem} onClick={onClose}>
+        <Link href="/dashboard" className={styles.menuItem} onClick={onClose}>
           Create new project...
           <kbd className={styles.shortcutBadge}>⌘N</kbd>
-        </button>
-        <button type="button" className={styles.menuItem} onClick={onClose}>
+        </Link>
+        <button
+          type="button"
+          className={styles.menuItem}
+          onClick={() => {
+            show("Duplicate project is coming soon. Save a copy from the dashboard.", "info");
+            onClose();
+          }}
+        >
           Duplicate
           <kbd className={styles.shortcutBadge}>⌘D</kbd>
         </button>
       </div>
       <div className={styles.menuDivider} />
       <div className={styles.menuSection}>
-        <button type="button" className={styles.menuItem} onClick={onClose}>Rename</button>
-        <button type="button" className={styles.menuItem} onClick={onClose}>Move to folder...</button>
-        <button type="button" className={styles.menuItem} onClick={onClose}>Delete</button>
+        <button
+          type="button"
+          className={styles.menuItem}
+          onClick={() => {
+            show("Rename from the dashboard project list (coming soon in-editor).", "info");
+            onClose();
+          }}
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          className={styles.menuItem}
+          onClick={() => {
+            show("Moving projects between folders from the editor is coming soon.", "info");
+            onClose();
+          }}
+        >
+          Move to folder...
+        </button>
+        <button
+          type="button"
+          className={styles.menuItem}
+          onClick={() => {
+            show("Delete project from the dashboard. In-editor delete is coming soon.", "info");
+            onClose();
+          }}
+        >
+          Delete
+        </button>
       </div>
       <div className={styles.menuDivider} />
       <div className={styles.menuSection}>

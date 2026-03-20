@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { LayoutGrid, MapPin, Link2, Share2 } from "lucide-react";
 import { listProjects } from "@/lib/projects";
+import { useToast } from "@/components/Toast";
 import styles from "./profile.module.css";
 
 const SETTINGS_KEY = "haze-settings";
@@ -48,6 +49,7 @@ function loadProfile(): ProfileData {
 }
 
 export default function ProfilePage() {
+  const { show } = useToast();
   const [profile, setProfile] = useState<ProfileData>(loadProfile);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
@@ -123,7 +125,19 @@ export default function ProfilePage() {
               </a>
             )}
           </div>
-          <button type="button" className={styles.shareBtn}>
+          <button
+            type="button"
+            className={styles.shareBtn}
+            onClick={async () => {
+              const url = typeof window !== "undefined" ? window.location.href : "";
+              try {
+                await navigator.clipboard.writeText(url);
+                show("Profile link copied to clipboard.", "success");
+              } catch {
+                window.prompt("Copy this link:", url);
+              }
+            }}
+          >
             <Share2 size={16} strokeWidth={2} />
             Share
           </button>
