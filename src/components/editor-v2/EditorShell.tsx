@@ -240,7 +240,8 @@ export function EditorShell() {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
-  const [leftTab, setLeftTab] = useState<"layers" | "components" | "chat">("layers");
+  const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
+  const [aiChatOpen, setAiChatOpen] = useState(false);
   const [rightTab, setRightTab] = useState<"design" | "code">("design");
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
