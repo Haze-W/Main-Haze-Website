@@ -6,6 +6,7 @@ import { useEditorStore } from "@/lib/editor/store";
 import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
 import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
+import { shouldUseRefineForBottomBar } from "@/lib/ai/agent/generate-intent";
 import styles from "./BottomAIPrompt.module.css";
 
 type BottomAIPromptProps = {
@@ -21,6 +22,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
   const colorMode = useEditorStore((s) => s.theme);
+  const canvasNodes = useEditorStore((s) => s.nodes);
 
   const applyGeneratedLayout = useCallback((newNodes: SceneNode[]) => {
     const s = useEditorStore.getState();
@@ -61,27 +63,53 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
     setPrompt("");
 
     try {
-      pushAiBuildStatus("Contacting AI layout service…");
-      const res = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: text,
-          style: colorMode,
-        }),
-      });
+      const useRefine = shouldUseRefineForBottomBar(text, canvasNodes.length > 0);
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-      }
-
-      if ((data as { nodes?: SceneNode[] }).nodes?.length) {
-        pushAiBuildStatus("Applying generated UI to the canvas…");
-        applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
-        pushAiBuildStatus("Done — preview is open. Tweak in Design mode if needed.");
+      if (useRefine) {
+        pushAiBuildStatus("Refining current canvas (partial update)…");
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, nodes: canvasNodes }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying refined layout…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — changes merged into your UI.");
+        } else {
+          const hint =
+            typeof (data as { suggestion?: string }).suggestion === "string"
+              ? (data as { suggestion: string }).suggestion
+              : "No changes returned. Try a more specific edit, or say “build a …” for a fresh layout.";
+          throw new Error(hint);
+        }
       } else {
-        throw new Error((data as { error?: string }).error || "No layout was returned");
+        pushAiBuildStatus("Generating new layout from your prompt…");
+        const res = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: text,
+            style: colorMode,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying generated UI to the canvas…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — preview is open. Tweak in Design mode if needed.");
+        } else {
+          throw new Error((data as { error?: string }).error || "No layout was returned");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -91,7 +119,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       setLoading(false);
       endAiBuildTicker(stopTicker);
     }
-  }, [prompt, loading, applyGeneratedLayout, colorMode, show]);
+  }, [prompt, loading, applyGeneratedLayout, colorMode, canvasNodes, show]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

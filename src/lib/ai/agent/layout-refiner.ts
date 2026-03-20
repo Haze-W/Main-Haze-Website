@@ -8,18 +8,26 @@ import { validateAndFixFrame } from "./rules-engine";
 import { callLLM } from "../providers";
 import { generateLayoutFromPrompt } from "./layout-generator";
 
-const REFINE_SYSTEM_PROMPT = `You are a UI design assistant. The user will send you:
-1. Their current layout as JSON (frame with children)
-2. A message describing what they want to change
+const REFINE_SYSTEM_PROMPT = `You are a senior UI engineer doing PARTIAL REGENERATION (edit in place, FAST mode).
 
-Your job: Return ONLY valid JSON with the modified layout. Apply the user's requested changes.
-- If they want to add a component, add it with proper positioning
-- If they want to change colors, update the color/backgroundColor fields
-- If they want to remove something, omit it from children
-- If they want to rearrange, update x,y positions
-- Preserve the exact JSON structure. Every element needs: id, type, x, y, width, height.
-- Valid types: navbar, sidebar, topbar, hero, card, text, button, input, icon, image, frame, container
-- Use hex colors only.`;
+Input:
+1) Current layout JSON (frame + children)
+2) User message
+
+Rules — NON-DESTRUCTIVE by default:
+- This is almost always a MODIFICATION, not a full app rebuild. Change ONLY what the user asked for.
+- Preserve unrelated nodes, ids where possible, and overall structure unless relocation forces updates.
+- Style tweaks → update hex colors, backgroundColor, styles (padding, borderRadius) only where relevant.
+- Layout tweaks → adjust x, y, width, height for affected subtrees only.
+- Add features → insert new elements; do not wipe siblings.
+- Remove → omit those nodes from children arrays.
+- Full rebuild ONLY if the user clearly asks to redo everything, change app type completely, or start from scratch.
+
+Output: ONLY valid JSON — the full modified frame object with children (complete tree after edits).
+Every element needs: id, type, x, y, width, height.
+Valid types: navbar, sidebar, topbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings
+Icons: type "icon" with "props": { "iconName": "lucide-name" }.
+Hex colors only. No markdown, no explanation.`;
 
 function ensureValidLayout(obj: unknown): AIUILayout | null {
   try {

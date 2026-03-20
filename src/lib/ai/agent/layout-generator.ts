@@ -168,16 +168,118 @@ const DRIBBBLE_EXAMPLE_2 = `{
   }
 }`;
 
-const SYSTEM_PROMPT = `You are a product UI generator. Output ONE JSON object: { "frame": { "width", "height", "background", "children": [...] } }.
+const SYSTEM_PROMPT = `You are an elite product UI generator (FAST mode: think through intent → spec → layout internally; output only JSON).
 
-Rules:
-- The USER MESSAGE is the source of truth for screens, labels, metrics, and app type. If they ask for a music app, todo list, CRM, or login — build THAT, not a generic finance dashboard.
-- Every element needs: id (unique), type, x, y, width, height.
-- Use types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table.
-- Icons: type "icon" with "props": { "iconName": "lucide-name" } (e.g. layout-dashboard, music, list-todo, settings).
-- Use hex colors. Nested x,y are relative to parent.
-- Include enough real UI (nav items, headings, fields, cards) to match the request — never an empty frame.
-- Output ONLY valid JSON. No markdown, no commentary.`;
+Output ONE JSON object: { "frame": { "width", "height", "background", "children": [...] } }.
+
+Core:
+- USER / PRIORITY block is the only source of truth for app type, copy, and features. Never substitute a stock analytics dashboard unless they asked for metrics/SaaS KPIs.
+- Internally classify archetype (chatbot, dashboard, landing, ecommerce, portfolio, CRM, admin, social, finance, booking, messaging, productivity) and include the regions that archetype implies — always complete, never hollow shells.
+- Short prompts expand into real products (e.g. "make a chatbot" → history sidebar, thread, bubbles, composer, new chat).
+- Anti-repetition: vary layout structure, palette family, radius, and density vs previous generic SaaS templates. Do not reuse the same sidebar+three-metric-cards pattern unless the request is analytics.
+
+Technical:
+- Every element: id (unique), type, x, y, width, height.
+- Types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings.
+- Icons: "icon" + "props": { "iconName": "lucide-kebab-name" }.
+- Hex colors only; nested x,y relative to parent.
+- Premium, production-ready density: enough labels, nav, fields, cards, or chat rows to feel real — no Lorem ipsum.
+
+Output ONLY valid JSON. No markdown, no commentary.`;
+
+const ARCHETYPE_SPECS: { id: string; patterns: RegExp; spec: string }[] = [
+  {
+    id: "ai_chatbot",
+    patterns: /\b(ai\s*chat|chatbot|gpt|llm|assistant|copilot|conversational\s+ai)\b/i,
+    spec: 'Archetype AI_CHATBOT: Left sidebar = chat history list + "New chat" control; main = scrollable thread with distinct user vs assistant message blocks (use cards or grouped text); bottom = composer (input + send). Optional empty/loading line in thread.',
+  },
+  {
+    id: "messaging_app",
+    patterns: /\b(slack|teams|messaging|dm|direct message|channel)\b/i,
+    spec: "Archetype MESSAGING: Channel list sidebar; message timeline; composer with attachments hint; unread badges in list.",
+  },
+  {
+    id: "booking_app",
+    patterns: /\b(booking|reservation|calendar|schedule appointment|reserve)\b/i,
+    spec: "Archetype BOOKING: Calendar or slot grid, summary card, confirm CTA, time/location fields.",
+  },
+  {
+    id: "ecommerce",
+    patterns: /\b(shop|store|e-?commerce|cart|checkout|product catalog|sku)\b/i,
+    spec: "Archetype ECOMMERCE: Product grid or detail, cart/checkout affordances, pricing text, primary CTA.",
+  },
+  {
+    id: "portfolio",
+    patterns: /\b(portfolio|case study|creative\s+work|showcase)\b/i,
+    spec: "Archetype PORTFOLIO: Hero + project grid; about/contact strip; strong typography hierarchy.",
+  },
+  {
+    id: "crm",
+    patterns: /\b(crm|sales pipeline|leads?|deals?|opportunities)\b/i,
+    spec: "Archetype CRM: Pipeline or table of leads; activity sidebar; search/filter cues.",
+  },
+  {
+    id: "admin_panel",
+    patterns: /\b(admin|moderation|user management|roles|permissions)\b/i,
+    spec: "Archetype ADMIN: Data table + row actions; filter bar; sidebar for sections.",
+  },
+  {
+    id: "social_app",
+    patterns: /\b(social|feed|followers|following|timeline|posts?)\b/i,
+    spec: "Archetype SOCIAL: Feed column; composer or story strip; engagement icons on items.",
+  },
+  {
+    id: "finance_dashboard",
+    patterns: /\b(finance|trading|portfolio|stocks|crypto|market)\b/i,
+    spec: "Archetype FINANCE: Positions or watchlist, chart card, buy/sell or summary metrics tied to finance copy.",
+  },
+  {
+    id: "landing_page",
+    patterns: /\b(landing|marketing page|hero\s+cta|waitlist|signup page)\b/i,
+    spec: "Archetype LANDING: Bold hero, value props row, CTA buttons, optional pricing strip — not a dense app chrome unless asked.",
+  },
+  {
+    id: "productivity_tool",
+    patterns: /\b(todo|tasks?|notes|kanban|habit|planner)\b/i,
+    spec: "Archetype PRODUCTIVITY: Lists/boards, quick-add, priorities or columns matching the request.",
+  },
+  {
+    id: "saas_dashboard",
+    patterns: /\b(dashboard|analytics|metrics|kpi|reporting|insights)\b/i,
+    spec: "Archetype SAAS_DASHBOARD: Sidebar + topbar + KPI cards permitted when user asks for metrics; labels must match their domain words.",
+  },
+];
+
+const STYLE_VARIATIONS = [
+  "Visual direction A: crisp high-contrast, 8px radius, 8px grid rhythm, strong type scale.",
+  "Visual direction B: soft elevated cards, 14–16px radius, generous whitespace, subtle borders.",
+  "Visual direction C: editorial / minimal chrome, one bold accent, lots of negative space.",
+  "Visual direction D: dense productivity UI, compact rows, 6–10px radius, muted surfaces.",
+  "Visual direction E: deep sidebar + airy content, glassy / layered surfaces, one neon accent max.",
+  "Visual direction F: founder-style dark slate + warm accent (not default indigo/purple), asymmetric content block.",
+] as const;
+
+function hashPrompt(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function archetypeHintForPrompt(raw: string): string {
+  const t = raw.trim();
+  for (const a of ARCHETYPE_SPECS) {
+    if (a.patterns.test(t)) return a.spec;
+  }
+  return "Archetype: Infer from PRIORITY text. Include typical regions for that product (nav, primary work area, actions). Avoid generic KPI cards unless the user asked for analytics or business metrics.";
+}
+
+function styleRotationHint(raw: string): string {
+  const idx = hashPrompt(raw) % STYLE_VARIATIONS.length;
+  return `${STYLE_VARIATIONS[idx]} Pick a different palette family than cliché blue-purple SaaS unless the prompt dictates it.`;
+}
 
 function getViewportDims(viewport?: ViewportType): { width: number; height: number } {
   return viewport ? VIEWPORT_DIMENSIONS[viewport] : { width: 1440, height: 900 };
@@ -213,11 +315,18 @@ function buildUserPrompt(
         ? "TABLET: optional narrow sidebar; 2-column content where appropriate."
         : "DESKTOP: sidebar + topbar + main content grid when appropriate.";
 
+  const arch = archetypeHintForPrompt(parsed.raw);
+  const styleV = styleRotationHint(parsed.raw);
+
   return `=== PRIORITY: BUILD EXACTLY THIS (titles, nav, widgets must reflect these words) ===
 """
 ${parsed.raw}
 """
 === END PRIORITY ===
+
+PRODUCT SHAPING: ${arch}
+
+STYLE / UNIQUENESS: ${styleV}
 
 RULES: Valid JSON only; every node needs id, type, x, y, width, height. Icons use props.iconName (Lucide). Invent realistic labels FROM THE PRIORITY BLOCK — no generic "Total Revenue" unless the user asked for analytics. No Lorem ipsum. ${viewportHint}
 
@@ -308,7 +417,7 @@ ${schemaSnippet}`;
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
         ],
-        temperature: 0.35,
+        temperature: 0.42,
         maxTokens: 6144,
         jsonMode: true,
       });
