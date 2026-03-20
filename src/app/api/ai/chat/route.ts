@@ -10,7 +10,14 @@ import { aiLayoutToSceneNodes, sceneNodesToAILayout } from "@/lib/ai/schema/adap
 import type { SceneNode } from "@/lib/editor/types";
 import { coralGenerate } from "@/lib/ai/coral-engine";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
-import { chatFromOllama } from "@/lib/ai/ollama";
+import { chatFromOllama, chatStreamFromOllama } from "@/lib/ai/ollama";
+import { callLLM, getOpenAIDefaultModel } from "@/lib/ai/providers";
+import {
+  CHAT_SSE_HEADERS,
+  fetchOpenAIChatStream,
+  ollamaNDJSONToNormalizedStream,
+  openAISSEToNormalizedStream,
+} from "@/lib/ai/providers/stream";
 
 export async function POST(req: Request) {
   try {
@@ -54,14 +61,17 @@ export async function POST(req: Request) {
     }
 
     // ── Multi-message builder (BottomAIPrompt, etc.) ────────────────
-    const { messages, nodes, projectName, mode, images, style } = body as {
+    const { messages, nodes, projectName, mode, images, style, stream } = body as {
       messages: { role: string; content: string }[];
       nodes: unknown[];
       projectName: string;
       mode: "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
       images?: { dataUrl: string }[];
       style?: "light" | "dark";
+      stream?: boolean;
     };
+
+    const wantAskPlanStream = stream === true && (mode === "ask" || mode === "plan");
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
@@ -74,19 +84,72 @@ export async function POST(req: Request) {
 
     const prompt = (lastUserMessage.content?.trim?.() || String(lastUserMessage.content || "")).trim();
 
+    const askSystem =
+      "You are a helpful assistant for the Haze design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.";
+    const planSystem =
+      "You are a UI/UX planning assistant. Create clear, numbered step-by-step plans. Format with **bold** for step titles. Keep plans concise (5-10 steps). End with a brief 'Ready to generate?' if the plan is for UI.";
+
     if (mode === "ask" && prompt) {
+      if (wantAskPlanStream) {
+        try {
+          if (process.env.OPENAI_API_KEY) {
+            const upstream = await fetchOpenAIChatStream({
+              apiKey: process.env.OPENAI_API_KEY,
+              messages: [
+                { role: "system", content: askSystem },
+                { role: "user", content: prompt },
+              ],
+              model: getOpenAIDefaultModel(),
+              temperature: 0.6,
+              maxTokens: 4096,
+            });
+            if (!upstream.ok) {
+              const t = await upstream.text().catch(() => "");
+              return NextResponse.json(
+                { error: t || "OpenAI stream failed" },
+                { status: upstream.status }
+              );
+            }
+            return new Response(openAISSEToNormalizedStream(upstream.body), {
+              headers: CHAT_SSE_HEADERS,
+            });
+          }
+          const ol = await chatStreamFromOllama(
+            [
+              { role: "system", content: askSystem },
+              { role: "user", content: prompt },
+            ],
+            { temperature: 0.6 }
+          );
+          return new Response(ollamaNDJSONToNormalizedStream(ol.body), {
+            headers: CHAT_SSE_HEADERS,
+          });
+        } catch (err) {
+          console.error("Ask stream error:", err);
+        }
+      }
       try {
-        const content = await chatFromOllama(
-          [
-            {
-              role: "system",
-              content:
-                "You are a helpful assistant for the Haze design tool (Figma-style editor for building desktop apps with Tauri). Answer questions about UI/UX, layouts, Tauri, React, and app design. Be concise and practical.",
-            },
-            { role: "user", content: prompt },
-          ],
-          { temperature: 0.6 }
-        );
+        let content: string;
+        if (process.env.OPENAI_API_KEY) {
+          const { content: c } = await callLLM({
+            messages: [
+              { role: "system", content: askSystem },
+              { role: "user", content: prompt },
+            ],
+            model: getOpenAIDefaultModel(),
+            temperature: 0.6,
+            maxTokens: 4096,
+          });
+          content = c;
+        } else {
+          content = await chatFromOllama(
+            [
+              { role: "system", content: askSystem },
+              { role: "user", content: prompt },
+            ],
+            { temperature: 0.6 }
+          );
+        }
         if (content) {
           return NextResponse.json({ action: "ANSWER", text: content });
         }
@@ -96,18 +159,66 @@ export async function POST(req: Request) {
     }
 
     if (mode === "plan" && prompt) {
+      if (wantAskPlanStream) {
+        try {
+          if (process.env.OPENAI_API_KEY) {
+            const upstream = await fetchOpenAIChatStream({
+              apiKey: process.env.OPENAI_API_KEY,
+              messages: [
+                { role: "system", content: planSystem },
+                { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+              ],
+              model: getOpenAIDefaultModel(),
+              temperature: 0.5,
+              maxTokens: 4096,
+            });
+            if (!upstream.ok) {
+              const t = await upstream.text().catch(() => "");
+              return NextResponse.json(
+                { error: t || "OpenAI stream failed" },
+                { status: upstream.status }
+              );
+            }
+            return new Response(openAISSEToNormalizedStream(upstream.body), {
+              headers: CHAT_SSE_HEADERS,
+            });
+          }
+          const ol = await chatStreamFromOllama(
+            [
+              { role: "system", content: planSystem },
+              { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+            ],
+            { temperature: 0.5 }
+          );
+          return new Response(ollamaNDJSONToNormalizedStream(ol.body), {
+            headers: CHAT_SSE_HEADERS,
+          });
+        } catch (err) {
+          console.error("Plan stream error:", err);
+        }
+      }
       try {
-        const content = await chatFromOllama(
-          [
-            {
-              role: "system",
-              content:
-                "You are a UI/UX planning assistant. Create clear, numbered step-by-step plans. Format with **bold** for step titles. Keep plans concise (5-10 steps). End with a brief 'Ready to generate?' if the plan is for UI.",
-            },
-            { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
-          ],
-          { temperature: 0.5 }
-        );
+        let content: string;
+        if (process.env.OPENAI_API_KEY) {
+          const { content: c } = await callLLM({
+            messages: [
+              { role: "system", content: planSystem },
+              { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+            ],
+            model: getOpenAIDefaultModel(),
+            temperature: 0.5,
+            maxTokens: 4096,
+          });
+          content = c;
+        } else {
+          content = await chatFromOllama(
+            [
+              { role: "system", content: planSystem },
+              { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+            ],
+            { temperature: 0.5 }
+          );
+        }
         if (content) {
           return NextResponse.json({ action: "ANSWER", text: content });
         }
@@ -120,7 +231,7 @@ export async function POST(req: Request) {
       const imageUrls = images?.map((i) => i.dataUrl).filter(Boolean) ?? [];
       try {
         const layout = await generateLayoutFromPrompt(prompt || "Create a layout using the attached image(s).", {
-          model: "llama3",
+          ...(process.env.OPENAI_API_KEY ? {} : { model: process.env.OLLAMA_MODEL ?? "llama3" }),
           style: style ?? "dark",
           images: imageUrls.length > 0 ? imageUrls : undefined,
         });

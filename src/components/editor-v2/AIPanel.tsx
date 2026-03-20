@@ -31,6 +31,7 @@ import {
 import { nanoid } from "nanoid";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
+import { consumeNormalizedChatSSE } from "@/lib/ai/sse-client";
 import styles from "./AIPanel.module.css";
 
 type SlashMode = "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
@@ -44,6 +45,8 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Model reasoning trace (streaming / reasoning models) */
+  reasoning?: string;
   images?: AttachedImage[];
   action?: "GENERATE_UI" | "GENERATE_CODE" | "ANSWER" | "FIX";
   nodes?: SceneNode[];
@@ -386,6 +389,12 @@ export function AIPanel() {
 
     return (
       <div className={styles.assistantCard}>
+        {msg.reasoning && (
+          <details className={styles.reasoningBlock}>
+            <summary className={styles.reasoningSummary}>Reasoning</summary>
+            <pre className={styles.reasoningPre}>{msg.reasoning}</pre>
+          </details>
+        )}
         {msg.content && <p dangerouslySetInnerHTML={{ __html: mdToHtml(msg.content) }} />}
 
         {msg.action === "GENERATE_UI" && msg.addedToCanvas && (

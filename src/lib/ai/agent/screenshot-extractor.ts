@@ -3,6 +3,7 @@
  * Produces structured JSON matching our UI schema for seamless editor integration
  */
 
+import { getOpenAIChatCompletionsUrl, getOpenAIDefaultModel } from "../providers";
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
 import { validateAndFixFrame } from "./rules-engine";
 import { DEFAULT_WIDTH, MIN_WIDTH, MAX_WIDTH } from "../schema/ui-schema";
@@ -128,7 +129,7 @@ export async function extractLayoutFromScreenshot(
   options?: { apiKey?: string; model?: string }
 ): Promise<AIUILayout> {
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const model = options?.model ?? "gpt-4o";
+  const model = options?.model ?? getOpenAIDefaultModel();
 
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is required for screenshot extraction");
@@ -136,7 +137,7 @@ export async function extractLayoutFromScreenshot(
 
   const imageUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/png;base64,${imageBase64}`;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(getOpenAIChatCompletionsUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -165,7 +166,9 @@ export async function extractLayoutFromScreenshot(
       ],
       temperature: 0.1,
       max_tokens: 8192,
-      response_format: { type: "json_object" },
+      ...(process.env.OPENAI_SKIP_JSON_RESPONSE_FORMAT === "1"
+        ? {}
+        : { response_format: { type: "json_object" } }),
     }),
   });
 

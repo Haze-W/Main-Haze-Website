@@ -834,9 +834,72 @@ ${framesHtml}
           if (el.getAttribute('data-chat-msg-ai')) hist.push({role:'assistant',content:el.textContent||''});
         });
         hist.push({role:'user',content:text});
-        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist }) })
-          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-          .then(function(res){ aiDiv.textContent = res.ok && res.data.content ? res.data.content : (res.data.error || 'Error: ' + (res.ok ? 'No response' : 'Request failed')); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); messagesEl.scrollTop = messagesEl.scrollHeight; })
+        fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist, stream: true }) })
+          .then(function(r){
+            var ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+            if (r.ok && ct.indexOf('text/event-stream') !== -1 && r.body && r.body.getReader) {
+              var reader = r.body.getReader();
+              var dec = new TextDecoder();
+              var buf = '';
+              var out = '';
+              var think = '';
+              function pump() {
+                return reader.read().then(function(res){
+                  if (res.done) {
+                    aiDiv.innerHTML = '';
+                    if (think) {
+                      var det = document.createElement('details');
+                      det.style.cssText = 'margin-bottom:8px;font-size:12px;color:#6e7681;';
+                      var sum = document.createElement('summary');
+                      sum.textContent = 'Reasoning';
+                      det.appendChild(sum);
+                      var pre = document.createElement('pre');
+                      pre.style.cssText = 'white-space:pre-wrap;margin:6px 0 0;padding-left:8px;border-left:2px solid #30363d;font-size:12px;color:#8b949e;';
+                      pre.textContent = think;
+                      det.appendChild(pre);
+                      aiDiv.appendChild(det);
+                    }
+                    var p = document.createElement('div');
+                    p.style.cssText = 'line-height:1.5;color:#8b949e;';
+                    p.textContent = out;
+                    aiDiv.appendChild(p);
+                    aiDiv.setAttribute('data-chat-msg-ai','');
+                    userDiv.setAttribute('data-chat-msg-user','');
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                    return;
+                  }
+                  buf += dec.decode(res.value, { stream: true });
+                  var lines = buf.split(String.fromCharCode(10));
+                  buf = lines.pop() || '';
+                  for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (line.indexOf('data:') !== 0) continue;
+                    var data = line.slice(5).trim();
+                    var j;
+                    try { j = JSON.parse(data); } catch (e) { continue; }
+                    if (j.error) { throw new Error(j.error); }
+                    if (j.done) continue;
+                    if (j.content) out += j.content;
+                    if (j.reasoning) think += j.reasoning;
+                  }
+                  aiDiv.textContent = (think ? '[Reasoning…] ' : '') + out;
+                  messagesEl.scrollTop = messagesEl.scrollHeight;
+                  return pump();
+                });
+              }
+              return pump();
+            }
+            return r.json().then(function(d){ return { ok: r.ok, data: d }; });
+          })
+          .then(function(res){
+            if (!res) return;
+            if (res.ok !== undefined && res.data) {
+              aiDiv.textContent = res.ok && res.data.content ? res.data.content : (res.data.error || 'Error: ' + (res.ok ? 'No response' : 'Request failed'));
+              aiDiv.setAttribute('data-chat-msg-ai','');
+              userDiv.setAttribute('data-chat-msg-user','');
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+          })
           .catch(function(e){ aiDiv.textContent = 'Error: ' + (e && e.message ? e.message : 'Network error'); aiDiv.setAttribute('data-chat-msg-ai',''); userDiv.setAttribute('data-chat-msg-user',''); });
       }
       sendBtn.addEventListener('click', send);

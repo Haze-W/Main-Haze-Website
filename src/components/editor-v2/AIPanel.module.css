@@ -246,6 +246,28 @@
   margin-bottom: 0;
 }
 
+.reasoningBlock {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.reasoningSummary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.reasoningPre {
+  margin: 6px 0 0;
+  padding: 0 0 0 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .assistantCard strong {
   font-weight: 600;
   color: #fff;

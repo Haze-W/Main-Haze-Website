@@ -5,7 +5,7 @@
 
 import type { AIUILayout, AIUIFrame } from "../schema/ui-schema";
 import { validateAndFixFrame } from "./rules-engine";
-import { callLLM } from "../providers";
+import { callLLM, getOpenAIDefaultModel } from "../providers";
 import { generateLayoutFromPrompt } from "./layout-generator";
 
 const REFINE_SYSTEM_PROMPT = `You are a senior UI engineer doing PARTIAL REGENERATION (edit in place, FAST mode).
@@ -73,7 +73,7 @@ export async function refineLayout(
   try {
     const { content } = await callLLM({
       apiKey: options?.apiKey,
-      model: options?.model ?? "gpt-4o",
+      model: options?.model ?? getOpenAIDefaultModel(),
       systemPrompt: REFINE_SYSTEM_PROMPT,
       userMessage: userContent,
       temperature: 0.2,

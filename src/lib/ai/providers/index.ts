@@ -1,8 +1,23 @@
 /**
- * AI Provider abstraction - OpenAI primary, Anthropic fallback
+ * AI Provider abstraction — OpenAI Chat Completions API first (official api.openai.com),
+ * optional Anthropic fallback. OPENAI_BASE_URL is for proxies or enterprise gateways only.
  */
 
 export type AIProvider = "openai" | "anthropic";
+
+/** Base URL without trailing slash (default: https://api.openai.com/v1) */
+export function getOpenAIBaseUrl(): string {
+  return (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
+}
+
+export function getOpenAIChatCompletionsUrl(): string {
+  return `${getOpenAIBaseUrl()}/chat/completions`;
+}
+
+/** Default model when the request omits `model` (env OPENAI_MODEL or gpt-4o). */
+export function getOpenAIDefaultModel(): string {
+  return process.env.OPENAI_MODEL?.trim() || "gpt-4o";
+}
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -38,7 +53,7 @@ function buildMessages(options: LLMOptions): Array<{ role: string; content: stri
 async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY required");
-  const model = options.model ?? "gpt-4o";
+  const model = options.model ?? getOpenAIDefaultModel();
   const messages = buildMessages(options);
   if (!messages.length) throw new Error("No messages provided");
   const body: Record<string, unknown> = {
@@ -47,9 +62,12 @@ async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
     temperature: options.temperature ?? 0.25,
     max_tokens: options.maxTokens ?? 4096,
   };
-  if (options.jsonMode) body.response_format = { type: "json_object" };
+  // Some proxies reject response_format; set OPENAI_SKIP_JSON_RESPONSE_FORMAT=1 to omit.
+  if (options.jsonMode && process.env.OPENAI_SKIP_JSON_RESPONSE_FORMAT !== "1") {
+    body.response_format = { type: "json_object" };
+  }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(getOpenAIChatCompletionsUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -57,7 +75,10 @@ async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`OpenAI: ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`OpenAI-compatible API: ${res.status} ${errText.slice(0, 200)}`);
+  }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = data.choices?.[0]?.message?.content?.trim() ?? "";
   return { content, provider: "openai" };

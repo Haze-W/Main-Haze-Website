@@ -104,3 +104,35 @@ export async function chatFromOllama(
   const data = (await res.json()) as { message?: { content?: string } };
   return (data.message?.content ?? "").trim();
 }
+
+/**
+ * Streaming chat — returns the raw fetch Response (body is NDJSON line stream).
+ */
+export async function chatStreamFromOllama(
+  messages: Array<{ role: string; content: string }>,
+  options?: OllamaOptions
+): Promise<Response> {
+  const model = options?.model ?? DEFAULT_MODEL;
+  const res = await fetchWithTimeout(
+    `${OLLAMA_BASE}/api/chat`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        stream: true,
+        options: {
+          temperature: options?.temperature ?? 0.6,
+          num_predict: 1536,
+        },
+      }),
+    },
+    OLLAMA_TIMEOUT_MS
+  );
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Ollama chat failed: ${err}`);
+  }
+  return res;
+}

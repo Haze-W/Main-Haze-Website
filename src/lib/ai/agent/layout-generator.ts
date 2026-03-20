@@ -12,7 +12,7 @@ import {
 import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import type { DesignTheme } from "./theme-generator";
-import { callLLM } from "../providers";
+import { callLLM, getOpenAIDefaultModel } from "../providers";
 import { generateFromOllama } from "../ollama";
 
 export interface LayoutGeneratorOptions {
@@ -325,7 +325,7 @@ ${ABSTRACT_JSON_SHAPE_GUIDE}`;
     if (hasCloudKey) {
       const { content } = await callLLM({
         apiKey,
-        model: options?.model ?? "gpt-4o",
+        model: options?.model ?? getOpenAIDefaultModel(),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },

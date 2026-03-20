@@ -106,7 +106,7 @@ function parseThemeResponse(content: string): DesignTheme | null {
   }
 }
 
-import { callLLM } from "../providers";
+import { callLLM, getOpenAIDefaultModel } from "../providers";
 
 export async function generateThemeFromPrompt(
   prompt: string,
@@ -118,7 +118,7 @@ export async function generateThemeFromPrompt(
   try {
     const { content } = await callLLM({
       apiKey: options?.apiKey,
-      model: options?.model ?? "gpt-4o",
+      model: options?.model ?? getOpenAIDefaultModel(),
       systemPrompt: THEME_SYSTEM_PROMPT,
       userMessage: `Generate a theme for: ${prompt}. Return ONLY the JSON object.`,
       temperature: 0.3,
