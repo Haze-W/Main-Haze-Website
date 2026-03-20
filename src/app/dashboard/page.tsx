@@ -69,7 +69,7 @@ export default function DashboardPage() {
           </span>
           <span>Create New Project</span>
         </button>
-        {displayProjects.map((project) => (
+        {projects.map((project) => (
           <Link
             key={project.id}
             href={`/editor?project=${project.id}`}
