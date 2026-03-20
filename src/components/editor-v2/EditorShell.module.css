@@ -955,6 +955,122 @@
   overflow-y: auto;
 }
 
+/* ── Bottom dock: AI Chat button + inline Brainwave prompt ─────── */
+.bottomDockCluster {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--spacing) * 3);
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
+}
+
+.bottomDockCluster > * {
+  pointer-events: auto;
+}
+
+.aiChatDockBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--shade-09);
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-01);
+  border-radius: 1rem;
+  box-shadow: var(--box-shadow-prompt-input);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.aiChatDockBtn:hover {
+  background: var(--surface-03);
+}
+
+.aiChatDockBtnActive {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(255, 100, 80, 0.35),
+    var(--box-shadow-prompt-input);
+}
+
+.aiChatBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.aiChatSheet {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Above bottom dock (button + prompt) */
+  bottom: calc(var(--spacing) * 3 + 100px);
+  z-index: 11;
+  width: min(440px, 94vw);
+  height: min(400px, 42vh);
+  max-height: min(400px, 42vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-s-01);
+  border-radius: 1rem;
+  background: var(--sidebar-bg);
+  box-shadow: var(--box-shadow-popover);
+  overflow: hidden;
+}
+
+.aiChatSheetBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-s-01);
+  flex-shrink: 0;
+}
+
+.aiChatSheetTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--shade-09);
+}
+
+.aiChatSheetClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.aiChatSheetClose:hover {
+  background: var(--shade-07_05);
+  color: var(--shade-09);
+}
+
+.aiChatSheetBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Responsive: hide on small screens ─────────────────────────── */
 @media (max-width: 1340px) {
   .shell {

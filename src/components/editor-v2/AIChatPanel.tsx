@@ -8,6 +8,8 @@ import styles from "./AIChatPanel.module.css";
 interface AIChatPanelProps {
   nodes: SceneNode[];
   onApplyNodes: (nodes: SceneNode[]) => void;
+  /** Omit title + hint when used inside EditorShell bottom sheet (chrome is in the shell). */
+  embedded?: boolean;
 }
 
 interface ChatMessage {
@@ -54,14 +56,19 @@ export function AIChatPanel({ nodes, onApplyNodes }: AIChatPanelProps) {
   };
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.header}>
-        <MessageCircle size={14} />
-        <span>AI Refine</span>
-      </div>
-      <p className={styles.hint}>
-        Describe changes to apply to your layout. e.g. &quot;Make the sidebar darker&quot;, &quot;Add a footer&quot;
-      </p>
+    <div className={`${styles.panel} ${embedded ? styles.panelEmbedded : ""}`}>
+      {!embedded && (
+        <>
+          <div className={styles.header}>
+            <MessageCircle size={14} />
+            <span>AI Refine</span>
+          </div>
+          <p className={styles.hint}>
+            Describe changes to apply to your layout. e.g. &quot;Make the sidebar darker&quot;, &quot;Add a
+            footer&quot;
+          </p>
+        </>
+      )}
       <div className={styles.messages} ref={scrollRef}>
         {messages.length === 0 && (
           <div className={styles.empty}>No messages yet. Describe the changes you want.</div>

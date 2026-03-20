@@ -16,6 +16,17 @@
   border-radius: 1rem;
 }
 
+/* Sits in EditorShell bottom row next to AI Chat — not independently centered */
+.wrapperInline {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 /* Main prompt box - Brainwave style */
 .promptBox {
   display: flex;

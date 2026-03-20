@@ -6,7 +6,12 @@ import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./BottomAIPrompt.module.css";
 
-export function BottomAIPrompt() {
+type BottomAIPromptProps = {
+  /** Use `inline` when nested in a fixed bottom row (e.g. next to AI Chat). Default keeps centered fixed positioning. */
+  layout?: "fixed" | "inline";
+};
+
+export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
@@ -88,7 +93,11 @@ export function BottomAIPrompt() {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div
+      className={
+        layout === "inline" ? `${styles.wrapper} ${styles.wrapperInline}` : styles.wrapper
+      }
+    >
       <div className={styles.promptBox}>
         <button type="button" className={styles.actionBtn} title="Add">
           <Plus size={18} strokeWidth={2} />

@@ -28,6 +28,7 @@ import {
   Settings,
   PanelLeft,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
@@ -594,13 +595,6 @@ export function EditorShell() {
               >
                 Assets
               </button>
-              <button
-                type="button"
-                className={`${styles.tabBtn} ${leftTab === "chat" ? styles.tabBtnActive : ""}`}
-                onClick={() => setLeftTab("chat")}
-              >
-                AI Chat
-              </button>
             </div>
           </div>
 
@@ -655,15 +649,6 @@ export function EditorShell() {
             </div>
           )}
 
-          {leftTab === "chat" && (
-            <AIChatPanel
-              nodes={nodes}
-              onApplyNodes={(newNodes) => {
-                useEditorStore.getState().setNodes(newNodes);
-                useEditorStore.getState().pushHistory();
-              }}
-            />
-          )}
         </aside>
         )}
 
@@ -824,8 +809,57 @@ export function EditorShell() {
           onSaveAs={() => setSaveAsOpen(true)}
         />
 
-        {/* ── Bottom AI Prompt (1:1 Brainwave) ────────────────────── */}
-        <BottomAIPrompt />
+        {/* ── Bottom: AI Chat + prompt (dock) ─────────────────────── */}
+        {aiChatOpen && (
+          <div
+            className={styles.aiChatBackdrop}
+            aria-hidden
+            onClick={() => setAiChatOpen(false)}
+          />
+        )}
+        {aiChatOpen && (
+          <div
+            id="editor-ai-chat-sheet"
+            className={styles.aiChatSheet}
+            role="dialog"
+            aria-label="AI chat refine"
+          >
+            <div className={styles.aiChatSheetBar}>
+              <span className={styles.aiChatSheetTitle}>AI refine</span>
+              <button
+                type="button"
+                className={styles.aiChatSheetClose}
+                onClick={() => setAiChatOpen(false)}
+                aria-label="Close AI chat"
+              >
+                <X size={18} strokeWidth={2} />
+              </button>
+            </div>
+            <div className={styles.aiChatSheetBody}>
+              <AIChatPanel
+                embedded
+                nodes={nodes}
+                onApplyNodes={(newNodes) => {
+                  useEditorStore.getState().setNodes(newNodes);
+                  useEditorStore.getState().pushHistory();
+                }}
+              />
+            </div>
+          </div>
+        )}
+        <div className={styles.bottomDockCluster}>
+          <button
+            type="button"
+            className={`${styles.aiChatDockBtn} ${aiChatOpen ? styles.aiChatDockBtnActive : ""}`}
+            onClick={() => setAiChatOpen((v) => !v)}
+            aria-expanded={aiChatOpen}
+            aria-controls="editor-ai-chat-sheet"
+          >
+            <MessageSquare size={18} strokeWidth={2} />
+            AI Chat
+          </button>
+          <BottomAIPrompt layout="inline" />
+        </div>
       </div>
 
       <IconPickerModal

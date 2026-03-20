@@ -5,6 +5,10 @@
   padding: var(--space-3);
 }
 
+.panelEmbedded {
+  padding-top: var(--space-2);
+}
+
 .header {
   display: flex;
   align-items: center;
