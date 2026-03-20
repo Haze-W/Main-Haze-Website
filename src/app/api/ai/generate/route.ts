@@ -59,6 +59,11 @@ export async function POST(req: Request) {
       designTheme: theme,
     });
     const nodes = aiLayoutToSceneNodes(layout);
+    if (process.env.NODE_ENV === "development") {
+      const root = nodes[0];
+      // eslint-disable-next-line no-console
+      console.debug("[Haze AI] /generate → root.props", root?.props, "child types", root?.children?.map((c) => c.type));
+    }
 
     return NextResponse.json({
       nodes,

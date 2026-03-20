@@ -60,6 +60,8 @@ export interface AIStyleProps {
   gap?: number;
   borderColor?: string;
   borderWidth?: number;
+  /** CSS box-shadow string, e.g. "0 4px 24px rgba(0,0,0,0.25)" */
+  boxShadow?: string;
 }
 
 export interface AIUIElement {

@@ -475,7 +475,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
       const inputType = (props.type as string) === "password" ? "password" : "text";
-      const inputStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.9);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;`;
+      const inBg = (props.backgroundColor as string) || "rgba(20,20,24,0.9)";
+      const inFg = (props.color as string) || "rgba(255,255,255,0.9)";
+      const inRadius = (props.borderRadius as number) ?? 6;
+      const bCol = (props.borderColor as string) || "rgba(255,255,255,0.1)";
+      const bW = (props.borderWidth as number) ?? 1;
+      const inputStyle = `${styleStr};background:${inBg};color:${inFg};font-size:14px;padding:0 12px;border:${bW}px solid ${bCol};border-radius:${inRadius}px;display:flex;align-items:center;`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
@@ -537,13 +542,42 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">◆</div>`;
     }
 
+    // FRAME (non-Figma) — must paint background; otherwise preview looks like a flat white sheet
+    if (node.type === "FRAME") {
+      const bg = (props.backgroundColor as string) || "transparent";
+      const radius = (props.borderRadius as number) ?? 0;
+      const boxShadow = (props.boxShadow as string) || "";
+      const bW = props.borderWidth as number | undefined;
+      const bCol = props.borderColor as string | undefined;
+      const border =
+        bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:none;";
+      const padT = (props.paddingTop as number) ?? (props.padding as number) ?? 0;
+      const padR = (props.paddingRight as number) ?? (props.padding as number) ?? 0;
+      const padB = (props.paddingBottom as number) ?? (props.padding as number) ?? 0;
+      const padL = (props.paddingLeft as number) ?? (props.padding as number) ?? 0;
+      const padCss =
+        padT || padR || padB || padL ? `padding:${padT}px ${padR}px ${padB}px ${padL}px;` : "";
+      const frameStyle = `${styleStr};background:${bg};${radius ? `border-radius:${radius}px;` : ""}${boxShadow ? `box-shadow:${boxShadow};` : ""}${border}${padCss}overflow:hidden;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(frameStyle)}">\n${childHtml || ""}\n${pad}</div>`;
+    }
+
     // CONTAINER / PANEL / generic — render background + children
     const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
     const radius = (props.borderRadius as number) ?? 6;
     const boxShadow = (props.boxShadow as string) || "";
     const isChatMessages = (props._previewBehavior as string) === "chat-messages";
     const overflow = isChatMessages ? "overflow-y:auto;overflow-x:hidden;" : "";
-    const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;border:1px solid rgba(255,255,255,0.06);${boxShadow ? `box-shadow:${boxShadow};` : ""}${overflow}`;
+    const padT = (props.paddingTop as number) ?? (props.padding as number) ?? 0;
+    const padR = (props.paddingRight as number) ?? (props.padding as number) ?? 0;
+    const padB = (props.paddingBottom as number) ?? (props.padding as number) ?? 0;
+    const padL = (props.paddingLeft as number) ?? (props.padding as number) ?? 0;
+    const padCss =
+      padT || padR || padB || padL ? `padding:${padT}px ${padR}px ${padB}px ${padL}px;` : "";
+    const bW = props.borderWidth as number | undefined;
+    const bCol = props.borderColor as string | undefined;
+    const borderExtra =
+      bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid rgba(255,255,255,0.06);";
+    const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;${borderExtra}${boxShadow ? `box-shadow:${boxShadow};` : ""}${padCss}${overflow}`;
     return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
   }
 

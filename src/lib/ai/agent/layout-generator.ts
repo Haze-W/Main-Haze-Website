@@ -30,10 +30,10 @@ export interface LayoutGeneratorOptions {
 
 /** No concrete example UI JSON — avoids the model copying the same dashboard labels every time. */
 const ABSTRACT_JSON_SHAPE_GUIDE = `
-Output shape: { "frame": { "width", "height", "background" (hex), "children": [ ... ] } }
-Each child: "id", "type", "x", "y", "width", "height", optional "backgroundColor", "color", "text", "styles": { "padding", "borderRadius" }, "props": { "iconName": "lucide-kebab-name" }, "children": [ nested ] }.
+Output shape: { "frame": { "width", "height", "background" (hex — full canvas), "children": [ ... ] } }
+Each child: "id", "type", "x", "y", "width", "height", "backgroundColor" (hex), "color" (hex for text/button), "text", "layoutMode" ("VERTICAL"|"HORIZONTAL"), "styles": { "fontSize", "fontWeight", "padding", "gap", "borderRadius", "boxShadow", "borderColor", "borderWidth" }, "props": { "iconName": "lucide-kebab-name" }, "children": [ nested ] }.
 Types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings.
-Coordinates are relative to parent. Vary structure to match the user's app (chat thread, player, login, landing, etc.) — do NOT default to sidebar + three KPI metric cards unless they asked for analytics.
+Coordinates are relative to parent. Every major surface needs explicit hex colors so the UI is not plain white. Vary structure for the app type.
 `.trim();
 const SYSTEM_PROMPT = `You are an elite product UI generator (FAST mode: think through intent → spec → layout internally; output only JSON).
 
@@ -51,6 +51,13 @@ Technical:
 - Icons: "icon" + "props": { "iconName": "lucide-kebab-name" }.
 - Hex colors only; nested x,y relative to parent.
 - Premium, production-ready density: enough labels, nav, fields, cards, or chat rows to feel real — no Lorem ipsum.
+
+VISUAL (required — the renderer uses these fields; omitting them causes a flat default look):
+- Root "frame" MUST set "background" (hex) for the app canvas.
+- Every sidebar, topbar, card, hero, main area, and nested "frame" MUST set "backgroundColor" (hex) and/or "styles": { "backgroundColor", "borderRadius", "padding", "gap", "boxShadow" }.
+- Every "text" node MUST set "color" (hex) and usually "styles": { "fontSize", "fontWeight" } (vary sizes for headings vs body).
+- "button" and "input" MUST set "backgroundColor" and "color" (and "styles.borderRadius" where relevant). Use contrasting palettes per app (fintech dark+navy, kids app bright multicolor, chatbot neon accents, etc.).
+- Optional "layoutMode": "VERTICAL" | "HORIZONTAL" on containers that stack children; optional "styles.gap" for spacing between stacked items.
 
 Output ONLY valid JSON. No markdown, no commentary.`;
 
@@ -241,6 +248,29 @@ function isLayoutMinimal(layout: AIUILayout): boolean {
   return true;
 }
 
+function logDevRawModelResponse(label: string, raw: string) {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && raw) {
+    // eslint-disable-next-line no-console
+    console.debug(`[Haze AI] raw ${label} (truncated):`, raw.slice(0, 700));
+  }
+}
+
+function logDevParsedLayout(where: string, layout: AIUILayout) {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+    const summary = JSON.stringify({
+      frameBg: layout.frame.background,
+      roots: (layout.frame.children ?? []).slice(0, 5).map((c) => ({
+        type: c.type,
+        bg: c.backgroundColor ?? c.styles?.backgroundColor,
+        color: c.color ?? c.styles?.color,
+        fontSize: c.styles?.fontSize,
+      })),
+    });
+    // eslint-disable-next-line no-console
+    console.debug(`[Haze AI] parsed JSON (${where}):`, summary);
+  }
+}
+
 function parseLayoutResponse(content: string): AIUILayout | null {
   const cleaned = content
     .replace(/^```(?:json)?\s*/i, "")
@@ -306,10 +336,12 @@ ${ABSTRACT_JSON_SHAPE_GUIDE}`;
       });
 
       if (content) {
+        logDevRawModelResponse("cloud", content);
         const layout = parseLayoutResponse(content);
         if (layout && !isLayoutMinimal(layout)) {
           layout.frame = validateAndFixFrame(layout.frame);
           layout.metadata = { ...layout.metadata, prompt };
+          logDevParsedLayout("cloud", layout);
           return layout;
         }
       }
@@ -342,11 +374,14 @@ ${output.slice(0, 12000)}`,
     }
 
     if (!parsedLayout || isLayoutMinimal(parsedLayout)) {
-      return getFallbackLayout(parsed);
+      const fb = getFallbackLayout(parsed);
+      logDevParsedLayout("fallback", fb);
+      return fb;
     }
 
     parsedLayout.frame = validateAndFixFrame(parsedLayout.frame);
     parsedLayout.metadata = { ...parsedLayout.metadata, prompt };
+    logDevParsedLayout("ollama", parsedLayout);
     return parsedLayout;
   } catch (err) {
     console.error("Layout generation error:", err);

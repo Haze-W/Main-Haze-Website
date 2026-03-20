@@ -369,11 +369,20 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
       const bg = (props.backgroundColor as string) || undefined;
       const radius = (props.borderRadius as number) ?? 6;
       const shadow = (props.boxShadow as string) || undefined;
+      const p = props.padding as number | undefined;
+      const pad =
+        p != null || props.paddingTop != null
+          ? `${(props.paddingTop as number) ?? p ?? 0}px ${(props.paddingRight as number) ?? p ?? 0}px ${(props.paddingBottom as number) ?? p ?? 0}px ${(props.paddingLeft as number) ?? p ?? 0}px`
+          : undefined;
       const containerStyle: React.CSSProperties = {
         ...merged,
         ...(bg && { backgroundColor: bg }),
         borderRadius: radius,
         ...(shadow && { boxShadow: shadow }),
+        ...(pad ? { padding: pad } : {}),
+        ...(props.borderColor != null && props.borderWidth != null
+          ? { border: `${props.borderWidth}px solid ${props.borderColor}` }
+          : {}),
       };
       return (
         <div className={styles.genericNode} style={containerStyle} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>

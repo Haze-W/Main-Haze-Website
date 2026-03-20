@@ -78,7 +78,8 @@ export function validateAndFixFrame(frame: AIUIFrame): AIUIFrame {
   const minW = frame.width < 500 ? 320 : frame.width < 900 ? 600 : MIN_WIDTH;
   const width = Math.max(minW, Math.min(MAX_WIDTH, frame.width));
   const height = Math.max(400, Math.min(2000, frame.height));
-  const background = frame.background || "#ffffff";
+  /** Dark slate default when model omits — avoids "plain white app" in pipeline. */
+  const background = frame.background?.trim() || "#0f172a";
 
   let children = frame.children.map((c) => validateAndFixElement(c, width, height));
   children = fixOverlappingSiblings(children);
