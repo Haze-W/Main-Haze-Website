@@ -5,6 +5,7 @@ import { Plus, ChevronDown, Mic, ChevronRight } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
+import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
 import styles from "./BottomAIPrompt.module.css";
 
 type BottomAIPromptProps = {
@@ -55,38 +56,42 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
     const text = prompt.trim();
     if (!text || loading) return;
 
+    const stopTicker = startAiBuildTicker(text);
     setLoading(true);
     setPrompt("");
 
     try {
-      const s = useEditorStore.getState();
-      const res = await fetch("/api/ai/chat", {
+      pushAiBuildStatus("Contacting AI layout service…");
+      const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: text }],
-          nodes: s.nodes,
-          projectName: "Untitled",
-          mode: "ui",
+          prompt: text,
           style: colorMode,
         }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const e = await res.json().catch(() => ({ error: "Request failed" }));
-        throw new Error(e.error || `HTTP ${res.status}`);
+        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      if (data.action === "GENERATE_UI" && data.nodes?.length) {
-        addNodesToCanvas(data.nodes);
+      if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+        pushAiBuildStatus("Applying generated UI to the canvas…");
+        applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+        pushAiBuildStatus("Done — preview is open. Tweak in Design mode if needed.");
+      } else {
+        throw new Error((data as { error?: string }).error || "No layout was returned");
       }
     } catch (err) {
       console.error(err);
+      show(err instanceof Error ? err.message : "Generation failed", "error");
+      pushAiBuildStatus(`Error: ${err instanceof Error ? err.message : "failed"}`);
     } finally {
       setLoading(false);
+      endAiBuildTicker(stopTicker);
     }
-  }, [prompt, loading, applyGeneratedLayout, colorMode]);
+  }, [prompt, loading, applyGeneratedLayout, colorMode, show]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

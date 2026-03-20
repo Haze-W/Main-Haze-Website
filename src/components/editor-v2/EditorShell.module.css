@@ -764,6 +764,84 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* stacking context for AI overlay */
+  isolation: isolate;
+}
+
+/* ── AI build progress (on canvas) ─────────────────────────────── */
+.aiBuildOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(16px, 2vh) 16px 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.aiBuildCard {
+  pointer-events: auto;
+  width: min(440px, 94vw);
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--color-s-02);
+  background: var(--surface-01);
+  box-shadow: var(--box-shadow-popover);
+}
+
+.aiBuildSpinner {
+  animation: aiSpin 0.85s linear infinite;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+@keyframes aiSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.aiBuildTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--shade-09);
+  margin-bottom: 4px;
+}
+
+.aiBuildHint {
+  font-size: 0.75rem;
+  color: var(--shade-06);
+  margin: 0 0 12px;
+  line-height: 1.35;
+}
+
+.aiBuildLog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(220px, 32vh);
+  overflow-y: auto;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--shade-08);
+}
+
+.aiBuildLog li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-s-01);
+  opacity: 0.72;
+}
+
+.aiBuildLog li:last-child {
+  border-bottom: none;
+}
+
+.aiBuildLogActive {
+  opacity: 1 !important;
+  font-weight: 600;
+  color: var(--shade-09);
 }
 
 [data-sidebar-left-hidden="true"] .canvasArea {

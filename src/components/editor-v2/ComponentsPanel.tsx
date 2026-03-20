@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { Search, Sparkles, Wand2, Loader2, ImageIcon, Upload, Monitor, Tablet, Smartphone } from "lucide-react";
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { useEditorStore } from "@/lib/editor/store";
+import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
@@ -115,9 +116,11 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
 
   const handleScreenshotExtract = async () => {
     if (!screenshotPreview || !onAIGenerate) return;
+    const stopTicker = startAiBuildTicker("Extract layout from screenshot");
     setAiLoading(true);
     setAiError(null);
     try {
+      pushAiBuildStatus("Extracting UI structure from image…");
       const res = await fetch("/api/ai/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,15 +129,19 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Extraction failed");
       if (data.nodes?.length) {
+        pushAiBuildStatus("Applying extracted layout…");
         onAIGenerate(data.nodes);
         setScreenshotPreview(null);
+        pushAiBuildStatus("Screenshot layout applied.");
       } else {
         throw new Error("No layout could be extracted from the image");
       }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Failed to extract layout");
+      pushAiBuildStatus(err instanceof Error ? err.message : "Extract failed");
     } finally {
       setAiLoading(false);
+      endAiBuildTicker(stopTicker);
     }
   };
 

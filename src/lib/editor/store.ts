@@ -79,6 +79,8 @@ interface EditorState {
   enteredFrameId: string | null;
   // Last mouse position in canvas coords (for paste/drop placement)
   lastCanvasPoint: { x: number; y: number } | null;
+  /** Multi-line status while AI builds layout (shown on canvas) */
+  aiBuild: { lines: string[] } | null;
 }
 
 type EditorActions = {
@@ -112,6 +114,9 @@ type EditorActions = {
   enterFrame: (id: string) => void;
   exitFrame: () => void;
   setLastCanvasPoint: (pt: { x: number; y: number } | null) => void;
+  setAiBuild: (v: { lines: string[] } | null) => void;
+  appendAiBuildLine: (line: string) => void;
+  clearAiBuild: () => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -210,6 +215,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   snapLines: [],
   enteredFrameId: null,
   lastCanvasPoint: null,
+  aiBuild: null,
 
   setNodes: (nodes) => set({ nodes }),
   addNode: (partial, parentId) => {
@@ -380,6 +386,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   enterFrame: (id) => set({ enteredFrameId: id }),
   exitFrame: () => set({ enteredFrameId: null }),
   setLastCanvasPoint: (pt) => set({ lastCanvasPoint: pt }),
+  setAiBuild: (v) => set({ aiBuild: v }),
+  appendAiBuildLine: (line) =>
+    set((s) => {
+      if (!s.aiBuild) return { aiBuild: { lines: [line] } };
+      return { aiBuild: { lines: [...s.aiBuild.lines, line] } };
+    }),
+  clearAiBuild: () => set({ aiBuild: null }),
   pushHistory: () => {
     set((s) => {
       const next = { nodes: serializeNodesForHistory(s.nodes) };

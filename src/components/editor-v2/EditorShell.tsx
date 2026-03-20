@@ -29,6 +29,7 @@ import {
   PanelLeft,
   MessageSquare,
   X,
+  Loader2,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
@@ -253,6 +254,7 @@ export function EditorShell() {
   const shellRef = useRef<HTMLDivElement>(null);
 
   const theme = useEditorStore((s) => s.theme);
+  const aiBuild = useEditorStore((s) => s.aiBuild);
 
   const {
     nodes,
@@ -843,6 +845,25 @@ export function EditorShell() {
 
         {/* ── Canvas Area ────────────────────────────────────────── */}
         <main className={styles.canvasArea}>
+          {aiBuild && (
+            <div className={styles.aiBuildOverlay} role="status" aria-live="polite">
+              <div className={styles.aiBuildCard}>
+                <Loader2 className={styles.aiBuildSpinner} size={22} aria-hidden />
+                <div className={styles.aiBuildTitle}>AI is building your screen</div>
+                <p className={styles.aiBuildHint}>Watch the log — this mirrors layout generation on the canvas.</p>
+                <ul className={styles.aiBuildLog}>
+                  {aiBuild.lines.map((line, i) => (
+                    <li
+                      key={`${i}-${line.slice(0, 24)}`}
+                      className={i === aiBuild.lines.length - 1 ? styles.aiBuildLogActive : undefined}
+                    >
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}

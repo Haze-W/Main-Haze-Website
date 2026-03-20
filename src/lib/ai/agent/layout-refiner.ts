@@ -69,7 +69,7 @@ export async function refineLayout(
       systemPrompt: REFINE_SYSTEM_PROMPT,
       userMessage: userContent,
       temperature: 0.2,
-      maxTokens: 8192,
+      maxTokens: 4096,
       jsonMode: true,
     });
 

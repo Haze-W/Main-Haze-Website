@@ -168,34 +168,16 @@ const DRIBBBLE_EXAMPLE_2 = `{
   }
 }`;
 
-const SYSTEM_PROMPT = `You are an elite UI/UX designer. Generate RICH, DETAILED UI layouts as JSON.
+const SYSTEM_PROMPT = `You are a product UI generator. Output ONE JSON object: { "frame": { "width", "height", "background", "children": [...] } }.
 
-⚠️ CRITICAL - NEVER output a single rectangle or empty layout. Every layout MUST have:
-- At least 3 major sections (e.g. sidebar + topbar + content area, or hero + cards + footer)
-- Sidebar (260px) with nav items: icon + text per item. Types: layout-dashboard, bar-chart-2, settings, folder
-- Topbar (64px) with logo icon + text
-- At least 3 CARDS in the content area. Each card MUST have children: icon, title text, value text
-- Real content: "Total Revenue", "$45,231", "Active Users", "2,350" — never empty or placeholder
-
-FORMAT - copy this structure exactly:
-{
-  "frame": { "width": 1440, "height": 900, "background": "#0d0f12", "children": [
-    { "id": "sidebar_1", "type": "sidebar", "x": 0, "y": 0, "width": 260, "height": 900, "backgroundColor": "#151620", "children": [
-      { "id": "nav_icon_1", "type": "icon", "x": 24, "y": 28, "width": 24, "height": 24, "props": { "iconName": "layout-dashboard" }, "color": "#ffffff" },
-      { "id": "nav_1", "type": "text", "x": 56, "y": 32, "width": 180, "height": 24, "text": "Dashboard", "color": "#ffffff" }
-    ]},
-    { "id": "topbar_1", "type": "topbar", "x": 260, "y": 0, "width": 1180, "height": 64, "backgroundColor": "#0d0f12", "children": [
-      { "id": "logo", "type": "text", "x": 32, "y": 18, "width": 140, "height": 28, "text": "App", "color": "#e6edf3" }
-    ]},
-    { "id": "card_1", "type": "card", "x": 296, "y": 96, "width": 320, "height": 180, "backgroundColor": "#1a1b23", "styles": { "padding": 24, "borderRadius": 12 }, "children": [
-      { "id": "c1_icon", "type": "icon", "x": 24, "y": 24, "width": 24, "height": 24, "props": { "iconName": "dollar-sign" }, "color": "#8b949e" },
-      { "id": "c1_title", "type": "text", "x": 56, "y": 24, "width": 240, "height": 20, "text": "Total Revenue", "color": "#8b949e" },
-      { "id": "c1_val", "type": "text", "x": 24, "y": 56, "width": 272, "height": 36, "text": "$45,231", "color": "#e6edf3" }
-    ]}
-  ]}
-}
-
-Follow the USER MESSAGE for viewport, theme, and exact features. Output ONLY valid JSON (one object with a "frame" key).`;
+Rules:
+- The USER MESSAGE is the source of truth for screens, labels, metrics, and app type. If they ask for a music app, todo list, CRM, or login — build THAT, not a generic finance dashboard.
+- Every element needs: id (unique), type, x, y, width, height.
+- Use types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table.
+- Icons: type "icon" with "props": { "iconName": "lucide-name" } (e.g. layout-dashboard, music, list-todo, settings).
+- Use hex colors. Nested x,y are relative to parent.
+- Include enough real UI (nav items, headings, fields, cards) to match the request — never an empty frame.
+- Output ONLY valid JSON. No markdown, no commentary.`;
 
 function getViewportDims(viewport?: ViewportType): { width: number; height: number } {
   return viewport ? VIEWPORT_DIMENSIONS[viewport] : { width: 1440, height: 900 };
@@ -231,12 +213,13 @@ function buildUserPrompt(
         ? "TABLET: optional narrow sidebar; 2-column content where appropriate."
         : "DESKTOP: sidebar + topbar + main content grid when appropriate.";
 
-  return `USER REQUEST (implement this literally — match app purpose, labels, and screens):
+  return `=== PRIORITY: BUILD EXACTLY THIS (titles, nav, widgets must reflect these words) ===
 """
 ${parsed.raw}
 """
+=== END PRIORITY ===
 
-RULES: Valid JSON only; every node needs id, type, x, y, width, height. Icons use props.iconName (Lucide). Real text tied to the request — no Lorem ipsum. ${viewportHint}
+RULES: Valid JSON only; every node needs id, type, x, y, width, height. Icons use props.iconName (Lucide). Invent realistic labels FROM THE PRIORITY BLOCK — no generic "Total Revenue" unless the user asked for analytics. No Lorem ipsum. ${viewportHint}
 
 Frame: ${dims.width}x${dims.height}. ${parsed.style} look. ${themeHintPalette}${targetHint}${languageHint}${compHint}${domainHint}${presetHint}${templateHint}
 
@@ -257,10 +240,12 @@ function countContentElements(el: AIUIElement): number {
 }
 
 function isLayoutMinimal(layout: AIUILayout): boolean {
-  const children = layout.frame.children ?? [];
-  if (children.length < 2) return true;
-  const contentCount = children.reduce((sum, c) => sum + countContentElements(c), 0);
-  return contentCount < 4; // Need at least 4 text/icon/button elements
+  const roots = layout.frame.children ?? [];
+  if (roots.length === 0) return true;
+  let total = 0;
+  for (const c of roots) total += countContentElements(c);
+  /** Do not require 2+ root nodes — one main frame/container may hold the full tree. */
+  return total < 5;
 }
 
 function parseLayoutResponse(content: string): AIUILayout | null {
@@ -305,10 +290,11 @@ export async function generateLayoutFromPrompt(
   );
   const imageHint = buildImageHint(userPrompt, options?.images);
 
+  const schemaSnippet = DRIBBBLE_EXAMPLE_1.slice(0, 3200);
   const userContent = `${userPrompt}${imageHint}
 
-Reference example (structure + richness — adapt to the USER REQUEST):
-${DRIBBBLE_EXAMPLE_1}`;
+JSON SHAPE REFERENCE ONLY — replace every label, metric, and section with content from the PRIORITY block above (do not copy placeholder business metrics unless relevant):
+${schemaSnippet}`;
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
   const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
@@ -320,12 +306,10 @@ ${DRIBBBLE_EXAMPLE_1}`;
         model: options?.model ?? "gpt-4o",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Example 2 (dashboard with hero):\n${DRIBBBLE_EXAMPLE_2}` },
-          { role: "assistant", content: "Understood." },
           { role: "user", content: userContent },
         ],
-        temperature: 0.25,
-        maxTokens: 8192,
+        temperature: 0.35,
+        maxTokens: 6144,
         jsonMode: true,
       });
 
@@ -341,27 +325,26 @@ ${DRIBBBLE_EXAMPLE_1}`;
 
     const fullPrompt = `${SYSTEM_PROMPT}
 
-Full example (dashboard):
-${DRIBBBLE_EXAMPLE_1}
-
----
+=== USER BUILD REQUEST (obey this; do not default to a stock dashboard) ===
 ${userPrompt}${imageHint}
 
-Return ONLY valid JSON. No markdown, no explanation.`;
+=== SHAPE REFERENCE: same nesting ideas, NEW content from user request ===
+${schemaSnippet}
+
+Return ONLY the JSON object. No markdown.`;
 
     let output = await generateFromOllama(fullPrompt, {
       model: options?.model,
-      temperature: 0.2,
+      temperature: 0.28,
     });
 
     let parsedLayout: AIUILayout | null = parseLayoutResponse(output);
 
     if (!parsedLayout) {
       const retry = await generateFromOllama(
-        `Extract the JSON layout from this text. Return ONLY valid JSON:
-
-${output}`,
-        { model: options?.model, temperature: 0.1 }
+        `Return ONLY valid JSON for a UI frame. Extract or fix from:
+${output.slice(0, 12000)}`,
+        { model: options?.model, temperature: 0.05 }
       );
       parsedLayout = parseLayoutResponse(retry);
     }
@@ -377,6 +360,51 @@ ${output}`,
     console.error("Layout generation error:", err);
     return getFallbackLayout(parsed);
   }
+}
+
+function titleFromUserPrompt(raw: string): string {
+  const line = raw.trim().split(/[\n.!?]/)[0]?.trim() ?? raw.trim();
+  if (!line) return "App";
+  return line.length > 32 ? `${line.slice(0, 29)}…` : line;
+}
+
+/** Fallback KPI rows loosely derived from user words (not identical every time). */
+function inferFallbackCards(raw: string): { icon: string; label: string; value: string }[] {
+  const lower = raw.toLowerCase();
+  const out: { icon: string; label: string; value: string }[] = [];
+  const add = (row: { icon: string; label: string; value: string }) => {
+    if (out.length >= 4) return;
+    if (!out.some((x) => x.label === row.label)) out.push(row);
+  };
+  if (/todo|task|checklist|habit/.test(lower)) {
+    add({ icon: "list-todo", label: "Open tasks", value: "12" });
+    add({ icon: "check-circle", label: "Done today", value: "5" });
+  }
+  if (/music|playlist|spotify|audio|player/.test(lower)) {
+    add({ icon: "music", label: "Library", value: "128 tracks" });
+    add({ icon: "radio", label: "Stations", value: "8" });
+  }
+  if (/chat|message|inbox|mail/.test(lower)) {
+    add({ icon: "message-circle", label: "Unread", value: "3" });
+  }
+  if (/analytics|metric|revenue|sales|kpi|finance/.test(lower)) {
+    add({ icon: "dollar-sign", label: "Revenue", value: "$24k" });
+    add({ icon: "users", label: "Active users", value: "1.2k" });
+  }
+  if (/food|recipe|restaurant|order/.test(lower)) {
+    add({ icon: "utensils", label: "Orders", value: "42" });
+  }
+  const seed = titleFromUserPrompt(raw);
+  let i = 0;
+  while (out.length < 4) {
+    add({
+      icon: (["activity", "sparkles", "layers", "gauge"] as const)[i % 4],
+      label: i === 0 ? seed.slice(0, 22) || "Overview" : `Item ${i + 1}`,
+      value: (["128", "84%", "Live", "+12%"] as const)[i % 4],
+    });
+    i += 1;
+  }
+  return out.slice(0, 4);
 }
 
 type ThemeColors = {
@@ -524,12 +552,7 @@ function getFallbackLayout(parsed: ReturnType<typeof parsePromptWithOptions>): A
   const startY = contentY + 32;
   const cardsPerRow = isMobile ? 1 : isTablet ? 2 : 2;
 
-  const cardData = [
-    { icon: "dollar-sign", label: "Total Revenue", value: "$45,231" },
-    { icon: "users", label: "Active Users", value: "2,350" },
-    { icon: "shopping-cart", label: "Orders", value: "342" },
-    { icon: "trending-up", label: "Growth", value: "+12.5%" },
-  ];
+  const cardData = inferFallbackCards(parsed.raw);
 
   if (hasCards) {
     const cardCount = isMobile ? 4 : 4;

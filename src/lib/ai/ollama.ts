@@ -53,7 +53,7 @@ export async function generateFromOllama(
         stream: false,
         options: {
           temperature: options?.temperature ?? 0.25,
-          num_predict: 4096,
+          num_predict: 2300,
         },
       }),
     },
@@ -89,7 +89,7 @@ export async function chatFromOllama(
         stream: false,
         options: {
           temperature: options?.temperature ?? 0.6,
-          num_predict: 2048,
+          num_predict: 1536,
         },
       }),
     },
