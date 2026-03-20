@@ -91,5 +91,6 @@ export interface AIUILayout {
     prompt?: string;
     generatedAt?: string;
     version?: string;
+    source?: string;
   };
 }

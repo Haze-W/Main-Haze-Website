@@ -17,6 +17,7 @@ async function getAuthHandler() {
     return null;
   }
   const { auth } = await import("@/lib/auth");
+  if (!auth) return null;
   return toNextJsHandler(auth);
 }
 

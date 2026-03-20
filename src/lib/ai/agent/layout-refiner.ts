@@ -22,8 +22,8 @@ Your job: Return ONLY valid JSON with the modified layout. Apply the user's requ
 
 function ensureValidLayout(obj: unknown): AIUILayout | null {
   try {
-    const parsed = obj as { frame?: AIUIFrame } | AIUIFrame;
-    const frame = parsed?.frame ?? (parsed as AIUIFrame);
+    const parsed = obj as Record<string, unknown>;
+    const frame = (parsed?.frame as AIUIFrame | undefined) ?? (parsed as unknown as AIUIFrame);
     if (!frame?.children) return null;
     return {
       frame: validateAndFixFrame(frame),

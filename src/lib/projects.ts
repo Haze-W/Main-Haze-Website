@@ -7,6 +7,7 @@
 export interface Project {
   id: string;
   name: string;
+  folderId?: string;
   createdAt: string;
   updatedAt: string;
   nodes?: unknown[];   // serialized SceneNode[]
@@ -30,9 +31,22 @@ function saveAll(map: Record<string, Project>) {
   localStorage.setItem(PROJECTS_KEY, JSON.stringify(map));
 }
 
-export function listProjects(): Project[] {
+export function listProjects(folderId?: string): Project[] {
   const map = getAll();
-  return Object.values(map).sort(
+  let list = Object.values(map) as Project[];
+  if (folderId) {
+    list = list.filter((p) => (p.folderId ?? "") === folderId);
+  } else {
+    list = [];
+  }
+  return list.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+}
+
+export function listAllProjects(): Project[] {
+  const map = getAll();
+  return (Object.values(map) as Project[]).sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
 }
@@ -44,7 +58,7 @@ export function getProject(id: string): Project | null {
 export function createProject(
   name: string,
   template?: string,
-  options?: { runtimeTarget?: string; languageTarget?: string }
+  options?: { folderId: string; runtimeTarget?: string; languageTarget?: string }
 ): Project {
   const map = getAll();
   const id = `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -52,6 +66,7 @@ export function createProject(
   const project: Project = {
     id,
     name,
+    folderId: options?.folderId,
     template,
     createdAt: now,
     updatedAt: now,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, hasDatabase } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import {
   isLanguageOption,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/onboarding";
 
 async function getSessionUserId(): Promise<string | null> {
+  if (!hasDatabase || !auth) return null;
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -20,6 +21,12 @@ async function getSessionUserId(): Promise<string | null> {
 
 export async function GET() {
   try {
+    if (!hasDatabase || !db) {
+      return NextResponse.json(
+        { error: "Database not configured. Use demo mode to explore the app." },
+        { status: 503 }
+      );
+    }
     const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,6 +62,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!hasDatabase || !db) {
+      return NextResponse.json(
+        { error: "Database not configured. Use demo mode to explore the app." },
+        { status: 503 }
+      );
+    }
     const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

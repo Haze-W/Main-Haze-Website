@@ -1,64 +1,19 @@
-<<<<<<< HEAD
 /**
- * AI Chat / Refine API
+ * AI Chat API
  * POST /api/ai/chat
- * Body: { layout?: string, nodes?: SceneNode[], message: string }
- * Returns: { layout?: AIUILayout, nodes?: SceneNode[], suggestion?: string }
+ * Body: { messages, nodes, projectName, mode, images?, style? }
+ * Returns: { action, text?, nodes? }
  */
 
-import { NextResponse } from "next/server";
-import { refineLayout } from "@/lib/ai/agent/layout-refiner";
-import { aiLayoutToSceneNodes, sceneNodesToAILayout } from "@/lib/ai/schema/adapter";
-import type { SceneNode } from "@/lib/editor/types";
-=======
 import { NextResponse } from "next/server";
 import { coralGenerate } from "@/lib/ai/coral-engine";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
 import { aiLayoutToSceneNodes } from "@/lib/ai/schema/adapter";
 import { chatFromOllama } from "@/lib/ai/ollama";
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-<<<<<<< HEAD
-    let layoutStr: string;
-    if (body.nodes && Array.isArray(body.nodes) && body.nodes.length > 0) {
-      const layout = sceneNodesToAILayout(body.nodes as SceneNode[]);
-      layoutStr = JSON.stringify(layout);
-    } else {
-      layoutStr = typeof body.layout === "string" ? body.layout : JSON.stringify(body.layout ?? { frame: { width: 1440, height: 900, background: "#f8fafc", children: [] } });
-    }
-    const message = typeof body.message === "string" ? body.message.trim() : "";
-    const model = typeof body.model === "string" ? body.model : undefined;
-
-    if (!message) {
-      return NextResponse.json(
-        { error: "Missing message" },
-        { status: 400 }
-      );
-    }
-
-    const result = await refineLayout(layoutStr, message, { model });
-
-    if ("layout" in result) {
-      const nodes = aiLayoutToSceneNodes(result.layout);
-      return NextResponse.json({
-        layout: result.layout,
-        nodes,
-        response: result.response,
-      });
-    }
-    return NextResponse.json({ suggestion: result.suggestion });
-  } catch (err) {
-    console.error("AI chat error:", err);
-    return NextResponse.json(
-      { error: "Failed to refine layout" },
-      { status: 500 }
-    );
-  }
-}
-=======
     const { messages, nodes, projectName, mode, images, style } = body as {
       messages: { role: string; content: string }[];
       nodes: unknown[];
@@ -156,5 +111,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2

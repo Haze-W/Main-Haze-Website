@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import {
   LayoutTemplate,
   Box,
@@ -35,9 +35,9 @@ import * as Dialog from "@radix-ui/react-dialog";
 import styles from "./dashboard.module.css";
 import { SettingsModal } from "./SettingsModal";
 import { CreateProjectModal } from "./CreateProjectModal";
-import { CreateModalProvider } from "./CreateModalContext";
+import { CreateModalProvider, useOpenCreateModal } from "./CreateModalContext";
 import { StandaloneHeader } from "./StandaloneHeader";
-import { getFolders, saveFolders, type FolderItem } from "@/lib/folders";
+import { getFolders, saveFolders, createFolder, type FolderItem } from "@/lib/folders";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 
@@ -79,12 +79,17 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardFullLayout>{children}</DashboardFullLayout>
+    <Suspense fallback={<div className={styles.container} style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>Loading...</div>}>
+      <DashboardFullLayout>{children}</DashboardFullLayout>
+    </Suspense>
   );
 }
 
 function DashboardFullLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentFolderId = searchParams.get("folder");
+  const openCreate = useOpenCreateModal();
   const { logout } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -154,13 +159,12 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleNewFolder = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && newFolderName.trim()) {
-      const id = `f-${Date.now()}`;
-      const next = [{ id, name: newFolderName.trim(), path: `/dashboard?folder=${id}` }, ...folders];
-      setFolders(next);
-      saveFolders(next);
+    if (e.key === "Enter") {
+      const item = createFolder(newFolderName.trim() || undefined);
+      setFolders([item, ...folders]);
       setNewFolderName("");
       setNewFolderOpen(false);
+      router.push(`/dashboard?folder=${item.id}`);
     } else if (e.key === "Escape") {
       setNewFolderOpen(false);
       setNewFolderName("");
@@ -206,7 +210,11 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
   }, [folderContext, folders]);
 
   return (
-    <CreateModalProvider openCreate={() => setCreateProjectOpen(true)}>
+    <CreateModalProvider
+      openCreate={setCreateProjectOpen}
+      createOpen={createProjectOpen}
+      onCreateOpenChange={setCreateProjectOpen}
+    >
       <div className={styles.container}>
         <aside className={`${styles.sidebar} ${!sidebarOpen ? styles.sidebarHidden : ""}`}>
           <Link href="/dashboard" className={styles.logo}>
@@ -276,11 +284,7 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
           <div className={styles.divider} />
 
           <div className={styles.section}>
-            <div className={styles.sectionTitle}>My projects</div>
-            <Link href="/dashboard" className={`${styles.item} ${pathname === "/dashboard" ? styles.itemActive : ""}`}>
-              <FolderOpen className={styles.icon} size={20} strokeWidth={2} />
-              <span className={styles.itemLabel}>My Projects</span>
-            </Link>
+            <div className={styles.sectionTitle}>Folders</div>
             <button type="button" className={styles.item} onClick={() => setNewFolderOpen(true)}>
               <FolderPlus className={styles.icon} size={20} strokeWidth={2} />
               <span className={styles.itemLabel}>New Folder</span>
@@ -389,7 +393,13 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
 
-              <button type="button" className={styles.createBtn} onClick={() => setCreateProjectOpen(true)}>
+              <button
+                type="button"
+                className={styles.createBtn}
+                onClick={() => currentFolderId && openCreate(currentFolderId)}
+                disabled={!currentFolderId}
+                title={!currentFolderId ? "Select a folder first" : "Create project"}
+              >
                 <Plus size={16} strokeWidth={2} />
                 Create
               </button>
@@ -467,7 +477,7 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
           <SettingsModal onClose={() => setSettingsOpen(false)} />
         </Dialog.Root>
 
-        <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+        <CreateProjectModal />
       </div>
     </CreateModalProvider>
   );

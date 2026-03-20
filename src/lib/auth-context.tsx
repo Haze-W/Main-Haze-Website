@@ -7,7 +7,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 export interface AuthUser {
   id: string;
@@ -18,6 +18,16 @@ export interface AuthUser {
   preferredRuntime?: string | null;
   preferredLanguage?: string | null;
 }
+
+const GUEST_USER: AuthUser = {
+  id: "guest",
+  email: "",
+  name: "Guest",
+  image: null,
+  onboardingCompleted: true,
+  preferredRuntime: "tauri",
+  preferredLanguage: "typescript",
+};
 
 interface AuthState {
   user: AuthUser | null;
@@ -43,54 +53,21 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
 
-  const user: AuthUser | null = useMemo(() => {
-    if (!session?.user) return null;
-    const u = session.user as AuthUser;
-    return {
-      id: u.id,
-      email: u.email ?? "",
-      name: u.name ?? null,
-      image: u.image ?? null,
-      onboardingCompleted: u.onboardingCompleted ?? false,
-      preferredRuntime: u.preferredRuntime ?? null,
-      preferredLanguage: u.preferredLanguage ?? null,
-    };
-  }, [session?.user]);
-
-  const isAuthenticated = !!session?.user;
+  const user: AuthUser | null = GUEST_USER;
+  const isAuthenticated = true;
+  const isLoading = false;
 
   const login = useCallback(
-    async (email: string, password: string): Promise<{ error?: { message: string } }> => {
-      const result = await authClient.signIn.email({
-        email,
-        password,
-        callbackURL: "/dashboard",
-      });
-      if (result.error) {
-        return { error: { message: result.error.message ?? "Sign in failed" } };
-      }
+    async (_email: string, _password: string): Promise<{ error?: { message: string } }> => {
       return {};
     },
     []
   );
 
   const signup = useCallback(
-    async (
-      email: string,
-      name?: string,
-      password?: string
-    ): Promise<{ error?: { message: string } }> => {
-      const result = await authClient.signUp.email({
-        email,
-        password: password ?? "",
-        name: name ?? "",
-        callbackURL: "/onboarding",
-      });
-      if (result.error) {
-        return { error: { message: result.error.message ?? "Sign up failed" } };
-      }
+    async (_email: string, _name?: string, _password?: string): Promise<{ error?: { message: string } }> => {
       return {};
     },
     []
@@ -98,48 +75,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(
     async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
-      const result = await authClient.signIn.social({
-        provider: "google",
-        callbackURL,
-      });
-      if (result.error) {
-        return { error: { message: result.error.message ?? "Google sign in failed" } };
-      }
+      router.push(callbackURL);
       return {};
     },
-    []
+    [router]
   );
 
   const signInWithGithub = useCallback(
     async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
-      const result = await authClient.signIn.social({
-        provider: "github",
-        callbackURL,
-      });
-      if (result.error) {
-        return { error: { message: result.error.message ?? "GitHub sign in failed" } };
-      }
+      router.push(callbackURL);
       return {};
     },
-    []
+    [router]
   );
 
   const logout = useCallback(async () => {
-    await authClient.signOut();
-  }, []);
+    router.push("/login");
+  }, [router]);
 
   const value: AuthContextValue = useMemo(
     () => ({
       user,
       isAuthenticated,
-      isLoading: isPending,
+      isLoading,
       login,
       signup,
       signInWithGoogle,
       signInWithGithub,
       logout,
     }),
-    [user, isAuthenticated, isPending, login, signup, signInWithGoogle, signInWithGithub, logout]
+    [user, isAuthenticated, isLoading, login, signup, signInWithGoogle, signInWithGithub, logout]
   );
 
   return (

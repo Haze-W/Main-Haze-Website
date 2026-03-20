@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus, FilePlus, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { listProjects, createProject, saveProject } from "@/lib/projects";
-import { getFolders, saveFolders, type FolderItem } from "@/lib/folders";
+import { listAllProjects, createProject, saveProject } from "@/lib/projects";
+import { getFolders, createFolder, type FolderItem } from "@/lib/folders";
 import styles from "./SaveAsModal.module.css";
 
 interface SaveAsModalProps {
@@ -28,13 +28,16 @@ export function SaveAsModal({
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [newProjectName, setNewProjectName] = useState(currentProjectName || "Untitled");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [mode, setMode] = useState<"choose" | "new-project" | "new-folder">("choose");
 
   useEffect(() => {
     if (isOpen) {
-      setProjects(listProjects().map((p) => ({ id: p.id, name: p.name })));
-      setFolders(getFolders());
+      const allFolders = getFolders();
+      setProjects(listAllProjects().map((p) => ({ id: p.id, name: p.name })));
+      setFolders(allFolders);
       setNewProjectName(currentProjectName || "Untitled");
+      setSelectedFolderId(allFolders[0]?.id ?? null);
       setMode("choose");
     }
   }, [isOpen, currentProjectName]);
@@ -46,7 +49,10 @@ export function SaveAsModal({
   };
 
   const handleCreateNewProject = () => {
+    const folderId = selectedFolderId ?? folders[0]?.id;
+    if (!folderId) return;
     const project = createProject(newProjectName.trim() || "Untitled", undefined, {
+      folderId,
       runtimeTarget: "tauri",
     });
     saveProject(project.id, { nodes: currentNodes });
@@ -56,15 +62,9 @@ export function SaveAsModal({
 
   const handleCreateNewFolder = () => {
     if (!newFolderName.trim()) return;
-    const id = `f-${Date.now()}`;
-    const newFolder: FolderItem = {
-      id,
-      name: newFolderName.trim(),
-      path: `/dashboard?folder=${id}`,
-    };
-    const next = [newFolder, ...folders];
-    setFolders(next);
-    saveFolders(next);
+    const item = createFolder(newFolderName.trim());
+    setFolders([item, ...folders]);
+    setSelectedFolderId(item.id);
     setNewFolderName("");
     setMode("choose");
   };
@@ -129,6 +129,19 @@ export function SaveAsModal({
 
           {mode === "new-project" && (
             <div className={styles.content}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Folder</label>
+                <select
+                  className={styles.input}
+                  value={selectedFolderId ?? ""}
+                  onChange={(e) => setSelectedFolderId(e.target.value || null)}
+                >
+                  <option value="">Select folder</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Project name</label>
                 <input

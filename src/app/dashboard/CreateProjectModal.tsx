@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CloudUpload, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createProject } from "@/lib/projects";
+import { useCreateModalContext } from "./CreateModalContext";
 import styles from "./CreateProjectModal.module.css";
 
 const FRAMEWORKS = [
@@ -14,14 +15,12 @@ const FRAMEWORKS = [
   { value: "imgui", label: "Imgui", disabled: true },
 ];
 
-export function CreateProjectModal({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function CreateProjectModal() {
   const router = useRouter();
+  const ctx = useCreateModalContext();
+  const open = ctx?.isOpen ?? false;
+  const onOpenChange = ctx?.onOpenChange ?? (() => {});
+  const folderId = ctx?.folderId ?? "";
   const [name, setName] = useState("");
   const [framework, setFramework] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -48,8 +47,9 @@ export function CreateProjectModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !folderId) return;
     const project = createProject(name.trim(), undefined, {
+      folderId,
       runtimeTarget: framework || undefined,
     });
     onOpenChange(false);

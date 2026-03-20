@@ -15,7 +15,6 @@ export function AuthFormPanel({ mode }: AuthFormPanelProps) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-
   const { login, signup, signInWithGoogle, signInWithGithub } = useAuth();
   const toast = useToast();
 

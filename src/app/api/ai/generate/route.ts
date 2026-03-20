@@ -30,20 +30,12 @@ function checkRateLimit(): boolean {
 export async function POST(req: Request) {
   let promptText = "";
   try {
-<<<<<<< HEAD
-    const body = await req.json();
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const model = typeof body.model === "string" ? body.model : undefined;
-    const viewport = ["desktop", "tablet", "mobile"].includes(body.viewport) ? body.viewport : undefined;
-    const theme = body.theme && typeof body.theme === "object" ? body.theme : undefined;
-=======
     if (!checkRateLimit()) {
       return NextResponse.json(
         { error: "Too many requests. Please try again in a minute." },
         { status: 429 }
       );
     }
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 
     const body = await req.json();
     promptText = typeof body.prompt === "string" ? body.prompt.trim() : "";
@@ -59,9 +51,6 @@ export async function POST(req: Request) {
       );
     }
 
-<<<<<<< HEAD
-    const layout = await generateLayoutFromPrompt(prompt, { model, viewport, theme });
-=======
     // Coral 1.0 (Ollama) — always try AI layout first
     const layout = await generateLayoutFromPrompt(promptText, {
       model,
@@ -69,7 +58,6 @@ export async function POST(req: Request) {
       runtimeTarget,
       languageTarget,
     });
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
     const nodes = aiLayoutToSceneNodes(layout);
 
     return NextResponse.json({

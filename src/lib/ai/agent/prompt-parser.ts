@@ -41,12 +41,6 @@ const STYLE_KEYWORDS: Record<string, string[]> = {
   minimal: ["minimal", "minimalist", "simple"],
 };
 
-<<<<<<< HEAD
-const VIEWPORT_KEYWORDS: Record<ViewportType, string[]> = {
-  mobile: ["mobile", "phone", "smartphone", "ios", "android", "small screen"],
-  tablet: ["tablet", "ipad", "medium screen"],
-  desktop: ["desktop", "web", "large screen", "wide"],
-=======
 /** Design presets — inject into prompt for style guidance */
 export const DESIGN_PRESETS: Record<string, string> = {
   stripe: "Stripe-style SaaS — clean gradients, purple accents, trust-building layout, conversion-focused",
@@ -73,7 +67,6 @@ export const SECTION_TEMPLATES: Record<string, string> = {
   login: "MUST include: Centered card, Title, Email + Password inputs, Remember me, Sign in button, Sign up link",
   settings: "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
   pricing: "MUST include: Section title, 3 pricing cards (Starter/Pro/Enterprise), Feature lists, CTA buttons",
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
 };
 
 export function parsePrompt(prompt: string): ParsedPrompt {
@@ -98,12 +91,6 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   );
   const domain = domainMatch?.[1] ?? undefined;
 
-<<<<<<< HEAD
-  let viewport: ViewportType | undefined;
-  for (const [vp, keywords] of Object.entries(VIEWPORT_KEYWORDS)) {
-    if (keywords.some((k) => lower.includes(k))) {
-      viewport = vp as ViewportType;
-=======
   const hasDark = lower.includes("dark") || lower.includes("dark mode") || lower.includes("dark theme");
   const hasLight = lower.includes("light") || lower.includes("light mode");
   const theme = hasDark ? "dark" : hasLight ? "light" : "dark";
@@ -114,13 +101,10 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     const keywords = PRESET_KEYWORDS[key] ?? [];
     if (keywords.some((k) => lower.includes(k))) {
       designPreset = desc;
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
       break;
     }
   }
 
-<<<<<<< HEAD
-=======
   // Detect page type for section template and infer components
   let sectionTemplate: string | undefined;
   const inferred: string[] = [];
@@ -142,14 +126,13 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   }
   const allComponents = [...new Set([...components, ...inferred])];
 
->>>>>>> 40654b5c72e1012b95437f52552b8bd9ed7b0ed2
   return {
     intent: lower,
     components: allComponents.length > 0 ? allComponents : components,
     style: styles.length > 0 ? styles[0] : "modern",
     theme,
     domain,
-    viewport,
+    viewport: undefined,
     raw: prompt,
     designPreset,
     sectionTemplate,

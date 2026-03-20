@@ -1,6 +1,9 @@
 /**
  * Folder persistence — localStorage backed.
+ * Each folder is empty by default. Create unique folders to organize projects.
  */
+
+import { nanoid } from "nanoid";
 
 export interface FolderItem {
   id: string;
@@ -10,19 +13,14 @@ export interface FolderItem {
 
 const FOLDERS_KEY = "haze-folders";
 
-const DEFAULT_FOLDERS: FolderItem[] = [
-  { id: "f1", name: "Untitled Folder", path: "/dashboard" },
-  { id: "f2", name: "3D Icons", path: "/dashboard?folder=3d-icons" },
-];
-
 export function getFolders(): FolderItem[] {
   try {
     const raw = localStorage.getItem(FOLDERS_KEY);
-    if (!raw) return [...DEFAULT_FOLDERS];
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as FolderItem[];
-    return Array.isArray(parsed) ? parsed : [...DEFAULT_FOLDERS];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return [...DEFAULT_FOLDERS];
+    return [];
   }
 }
 
@@ -32,4 +30,29 @@ export function saveFolders(folders: FolderItem[]) {
   } catch {
     // ignore
   }
+}
+
+/** Generate a unique folder name (e.g. "New Folder", "New Folder (1)") */
+export function getUniqueFolderName(): string {
+  const folders = getFolders();
+  const base = "New Folder";
+  const used = new Set(folders.map((f) => f.name));
+  if (!used.has(base)) return base;
+  let i = 1;
+  while (used.has(`${base} (${i})`)) i++;
+  return `${base} (${i})`;
+}
+
+export function createFolder(name?: string): FolderItem {
+  const folders = getFolders();
+  const finalName = name?.trim() || getUniqueFolderName();
+  const id = `f-${nanoid(10)}`;
+  const item: FolderItem = {
+    id,
+    name: finalName,
+    path: `/dashboard?folder=${id}`,
+  };
+  const next = [item, ...folders];
+  saveFolders(next);
+  return item;
 }

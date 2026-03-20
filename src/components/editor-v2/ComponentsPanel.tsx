@@ -154,7 +154,7 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.currentTarget.style.borderColor = "";
+    (e.currentTarget as HTMLElement).style.borderColor = "";
     const file = e.dataTransfer?.files?.[0];
     if (file?.type.startsWith("image/")) processFile(file);
   };
@@ -298,8 +298,8 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
                   type="button"
                   className={styles.aiUploadZone}
                   onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
-                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = ""; }}
+                  onDragOver={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)"; }}
+                  onDragLeave={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = ""; }}
                   onDrop={handleDrop}
                   disabled={aiLoading}
                 >

@@ -2,11 +2,12 @@ import { betterAuth } from "better-auth";
 import { createAuthMiddleware, APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db, hasDatabase } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email";
 
-export const auth = betterAuth({
+export const auth = hasDatabase
+  ? betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -46,7 +47,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: !!process.env.RESEND_API_KEY,
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
@@ -62,4 +63,5 @@ export const auth = betterAuth({
   },
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-});
+})
+  : null;
