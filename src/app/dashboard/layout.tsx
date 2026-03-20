@@ -289,6 +289,8 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
               <div className={styles.item}>
                 <FolderInput className={styles.icon} size={20} strokeWidth={2} />
                 <input
+                  id="dashboard-new-folder-name"
+                  name="new_folder_name"
                   autoFocus
                   type="text"
                   value={newFolderName}
@@ -297,6 +299,7 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                   onBlur={() => setNewFolderOpen(false)}
                   placeholder="Folder name..."
                   className={styles.folderInput}
+                  autoComplete="off"
                 />
               </div>
             )}
@@ -305,6 +308,8 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                 <div key={f.id} className={styles.item}>
                   <FolderInput className={styles.icon} size={20} strokeWidth={2} />
                   <input
+                    id={`dashboard-folder-rename-${folderRenameId ?? "current"}`}
+                    name="folder_rename"
                     autoFocus
                     type="text"
                     value={folderRenameValue}
@@ -312,6 +317,7 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
                     onKeyDown={applyFolderRename}
                     onBlur={() => setFolderRenameId(null)}
                     className={styles.folderInput}
+                    autoComplete="off"
                   />
                 </div>
               ) : (
@@ -340,7 +346,15 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
               </button>
               <div className={styles.searchBar}>
                 <Search className={styles.searchIcon} size={16} strokeWidth={2} />
-                <input type="text" placeholder="Search files..." className={styles.searchInput} />
+                <input
+                  id="dashboard-header-search"
+                  name="q"
+                  type="search"
+                  placeholder="Search files..."
+                  className={styles.searchInput}
+                  autoComplete="off"
+                  aria-label="Search files"
+                />
                 <span className={styles.shortcut}>⌘ K</span>
               </div>
             </div>

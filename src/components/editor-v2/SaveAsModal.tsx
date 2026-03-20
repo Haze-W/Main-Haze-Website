@@ -130,14 +130,17 @@ export function SaveAsModal({
           {mode === "new-project" && (
             <div className={styles.content}>
               <div className={styles.formGroup}>
-                <label className={styles.label}>Project name</label>
+                <label htmlFor="save-as-project-name" className={styles.label}>Project name</label>
                 <input
+                  id="save-as-project-name"
+                  name="save_as_project_name"
                   type="text"
                   className={styles.input}
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Untitled"
                   autoFocus
+                  autoComplete="off"
                 />
               </div>
               <div className={styles.footer}>
@@ -158,14 +161,17 @@ export function SaveAsModal({
           {mode === "new-folder" && (
             <div className={styles.content}>
               <div className={styles.formGroup}>
-                <label className={styles.label}>Folder name</label>
+                <label htmlFor="save-as-folder-name" className={styles.label}>Folder name</label>
                 <input
+                  id="save-as-folder-name"
+                  name="save_as_folder_name"
                   type="text"
                   className={styles.input}
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   placeholder="New folder"
                   autoFocus
+                  autoComplete="off"
                 />
               </div>
               <div className={styles.footer}>

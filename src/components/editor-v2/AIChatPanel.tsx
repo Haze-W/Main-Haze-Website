@@ -80,6 +80,8 @@ export function AIChatPanel({ nodes, onApplyNodes }: AIChatPanelProps) {
       </div>
       <div className={styles.inputRow}>
         <input
+          id="editor-ai-chat-message"
+          name="ai_refine_message"
           type="text"
           className={styles.input}
           placeholder="Describe changes..."
@@ -87,6 +89,8 @@ export function AIChatPanel({ nodes, onApplyNodes }: AIChatPanelProps) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           disabled={loading}
+          autoComplete="off"
+          aria-label="Describe layout changes"
         />
         <button
           type="button"

@@ -150,6 +150,8 @@ function LayerItem({
         </div>
         {renaming ? (
           <input
+            id={`editor-layer-rename-${node.id}`}
+            name="layer_name"
             autoFocus
             className={styles.layerRenameInput}
             value={nameValue}
@@ -164,6 +166,8 @@ function LayerItem({
               e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
+            autoComplete="off"
+            aria-label="Rename layer"
           />
         ) : (
           <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>
@@ -547,7 +551,10 @@ export function EditorShell() {
             </div>
             {editingName ? (
               <input
+                id="editor-project-name"
+                name="project_name"
                 ref={nameInputRef}
+                type="text"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 onBlur={() => setEditingName(false)}
@@ -555,6 +562,8 @@ export function EditorShell() {
                   if (e.key === "Enter" || e.key === "Escape") setEditingName(false);
                 }}
                 className={styles.projectNameInput}
+                autoComplete="off"
+                aria-label="Project name"
               />
             ) : (
               <button
@@ -617,11 +626,15 @@ export function EditorShell() {
                 <form className={styles.searchForm}>
                   <Search size={16} className={styles.searchIcon} />
                   <input
-                    type="text"
+                    id="editor-layers-search"
+                    name="layer_search"
+                    type="search"
                     className={styles.searchInput}
                     placeholder="Search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    autoComplete="off"
+                    aria-label="Search layers"
                   />
                   <span className={styles.key}>⌘ K</span>
                 </form>

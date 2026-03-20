@@ -29,11 +29,15 @@ export default function FigmaMarketPage() {
         <div className={styles.searchBar}>
           <Search size={20} strokeWidth={2} />
           <input
-            type="text"
+            id="figma-market-search"
+            name="q"
+            type="search"
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
+            autoComplete="off"
+            aria-label="Search Figma templates"
           />
         </div>
       </section>

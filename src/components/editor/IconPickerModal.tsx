@@ -162,13 +162,17 @@ export function IconPickerModal({ isOpen, onClose, onSelect }: IconPickerModalPr
           <div className={styles.searchWrap}>
             <Search size={15} className={styles.searchIcon} />
             <input
+              id="icon-picker-search"
+              name="icon_search"
               ref={searchRef}
-              type="text"
+              type="search"
               placeholder="Search icons..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={styles.searchInput}
               spellCheck={false}
+              autoComplete="off"
+              aria-label="Search icons"
             />
           </div>
 

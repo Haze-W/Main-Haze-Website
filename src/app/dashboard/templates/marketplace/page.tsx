@@ -62,11 +62,15 @@ export default function MarketplacePage() {
         <div className={styles.searchBar}>
           <Search size={20} strokeWidth={2} />
           <input
-            type="text"
+            id="marketplace-search"
+            name="q"
+            type="search"
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
+            autoComplete="off"
+            aria-label="Search marketplace"
           />
         </div>
       </section>

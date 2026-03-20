@@ -69,6 +69,8 @@ export function AuthChatPanel() {
       <div className={styles.chatArea}>
         <div className={styles.inputBar}>
           <textarea
+            id="auth-chat-prompt"
+            name="auth_chat_prompt"
             ref={taRef}
             className={styles.textarea}
             placeholder="Describe what you'd like to build..."
@@ -76,6 +78,7 @@ export function AuthChatPanel() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
+            autoComplete="off"
           />
           <div className={styles.inputToolbar}>
             <button type="button" className={styles.addBtn} title="Add">

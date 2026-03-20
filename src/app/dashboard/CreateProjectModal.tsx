@@ -91,23 +91,28 @@ export function CreateProjectModal({
 
             <div className={styles.grid}>
               <div className={styles.field}>
-                <label className={styles.label}>
+                <label htmlFor="create-project-name" className={styles.label}>
                   Project name <span className={styles.required}>*</span>
                 </label>
                 <input
+                  id="create-project-name"
+                  name="project_name"
                   type="text"
                   className={styles.input}
                   placeholder="Type here"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  autoComplete="off"
                 />
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>
+                <label htmlFor="create-project-framework" className={styles.label}>
                   Framework
                 </label>
                 <select
+                  id="create-project-framework"
+                  name="framework"
                   className={styles.select}
                   value={framework}
                   onChange={(e) => setFramework(e.target.value)}
@@ -137,6 +142,7 @@ export function CreateProjectModal({
               >
                 <input
                   id="file-input"
+                  name="project_attachment"
                   type="file"
                   accept="image/*"
                   className={styles.fileInput}

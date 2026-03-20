@@ -95,6 +95,8 @@ export function BottomAIPrompt() {
         </button>
 
         <textarea
+          id="editor-bottom-ai-prompt"
+          name="bottom_ai_prompt"
           ref={taRef}
           className={styles.textarea}
           placeholder="What would you like to build?"
@@ -102,6 +104,8 @@ export function BottomAIPrompt() {
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
+          autoComplete="off"
+          aria-label="What would you like to build"
         />
 
         <div className={styles.dropdownWrap} ref={agentRef}>

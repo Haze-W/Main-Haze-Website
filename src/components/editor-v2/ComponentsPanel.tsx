@@ -173,12 +173,16 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
       <div className={styles.searchContainer}>
         <Search size={14} className={styles.searchIcon} />
         <input
+          id="components-panel-filter"
+          name="component_filter"
           type="search"
           placeholder="Filter components..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className={styles.search}
           spellCheck={false}
+          autoComplete="off"
+          aria-label="Filter components"
         />
       </div>
 
@@ -234,8 +238,10 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
                   <Smartphone size={14} />
                 </button>
               </div>
-              <label className={styles.themeCheckbox}>
+              <label className={styles.themeCheckbox} htmlFor="ai-generate-use-theme">
                 <input
+                  id="ai-generate-use-theme"
+                  name="ai_use_theme"
                   type="checkbox"
                   checked={useTheme}
                   onChange={(e) => setUseTheme(e.target.checked)}
@@ -244,12 +250,16 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
                 <span>Generate design system theme</span>
               </label>
               <textarea
+                id="ai-generate-prompt"
+                name="ai_prompt"
                 className={styles.aiInput}
                 placeholder="e.g. Modern SaaS dashboard with sidebar and KPI cards"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 rows={2}
                 disabled={aiLoading}
+                autoComplete="off"
+                aria-label="AI layout prompt"
               />
               <button
                 type="button"
@@ -264,6 +274,8 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
           ) : (
             <>
               <input
+                id="ai-screenshot-upload"
+                name="screenshot"
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"

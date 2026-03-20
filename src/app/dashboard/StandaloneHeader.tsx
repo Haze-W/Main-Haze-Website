@@ -58,7 +58,15 @@ export function StandaloneHeader() {
         <div className={styles.standaloneRight}>
           <div className={styles.searchBar}>
             <Search className={styles.searchIcon} size={16} strokeWidth={2} />
-            <input type="text" placeholder="Search files..." className={styles.searchInput} />
+            <input
+              id="standalone-header-search"
+              name="q"
+              type="search"
+              placeholder="Search files..."
+              className={styles.searchInput}
+              autoComplete="off"
+              aria-label="Search files"
+            />
             <span className={styles.shortcut}>⌘ K</span>
           </div>
           <div ref={notifRef} className={styles.notifWrap}>

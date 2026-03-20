@@ -122,6 +122,7 @@ export function AuthFormPanel({ mode }: AuthFormPanelProps) {
               </label>
               <input
                 id="name"
+                name="name"
                 type="text"
                 className={styles.input}
                 placeholder="Your name"
@@ -159,6 +160,7 @@ export function AuthFormPanel({ mode }: AuthFormPanelProps) {
             </div>
             <input
               id="password"
+              name="password"
               type="password"
               className={styles.input}
               placeholder="Enter password"
