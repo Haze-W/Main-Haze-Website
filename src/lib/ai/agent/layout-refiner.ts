@@ -6,7 +6,6 @@
 import type { AIUILayout, AIUIFrame } from "../schema/ui-schema";
 import { validateAndFixFrame } from "./rules-engine";
 import { callLLM, getOpenAIDefaultModel } from "../providers";
-import { generateLayoutFromPrompt } from "./layout-generator";
 
 const REFINE_SYSTEM_PROMPT = `You are a senior UI engineer doing PARTIAL REGENERATION (edit in place, FAST mode).
 
@@ -50,22 +49,10 @@ export async function refineLayout(
 ): Promise<{ layout: AIUILayout; response: string } | { suggestion: string }> {
   const hasKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
   if (!hasKey) {
-    try {
-      const layout = await generateLayoutFromPrompt(
-        `Apply this change to the UI (preserve dashboard structure when relevant): ${userMessage}`,
-        { style: "dark" }
-      );
-      return {
-        layout,
-        response:
-          "Generated a new layout from your message (no cloud API key — using local/Ollama or rules). Add OPENAI_API_KEY for edit-in-place refinement.",
-      };
-    } catch {
-      return {
-        suggestion:
-          "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY, or start Ollama for local generation.",
-      };
-    }
+    return {
+      suggestion:
+        "Set OPENAI_API_KEY or ANTHROPIC_API_KEY in your server environment to refine layouts with AI.",
+    };
   }
 
   const userContent = `Current layout:\n\`\`\`json\n${currentLayoutJson}\n\`\`\`\n\nUser request: ${userMessage}\n\nReturn ONLY the modified JSON layout (the frame object with children). No explanation.`;

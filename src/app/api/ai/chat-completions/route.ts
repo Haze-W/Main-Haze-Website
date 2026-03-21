@@ -1,22 +1,23 @@
 /**
- * Chat completions — OpenAI Chat Completions API when OPENAI_API_KEY is set, else Ollama.
+ * Chat completions — OpenAI Chat Completions API (or Anthropic via callLLM).
  * POST /api/ai/chat-completions
  * Body: { messages: { role, content }[], model?: string, stream?: boolean }
  *
- * Non-stream: JSON { content, role }.
- * stream: true: text/event-stream (normalized SSE: content + reasoning deltas).
+ * Requires OPENAI_API_KEY for streaming. Requires OPENAI_API_KEY or ANTHROPIC_API_KEY for AI responses.
  */
 
 import { NextResponse } from "next/server";
-import { chatFromOllama, chatStreamFromOllama } from "@/lib/ai/ollama";
 import { callLLM, getOpenAIDefaultModel } from "@/lib/ai/providers";
 import type { ChatMessage } from "@/lib/ai/providers";
 import {
   CHAT_SSE_HEADERS,
   fetchOpenAIChatStream,
-  ollamaNDJSONToNormalizedStream,
   openAISSEToNormalizedStream,
 } from "@/lib/ai/providers/stream";
+
+function hasCloudAi(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+}
 
 function toChatMessages(
   raw: Array<{ role: string; content: string }>
@@ -45,67 +46,55 @@ export async function POST(req: Request) {
     const resolvedModel =
       typeof model === "string" && model.trim() ? model.trim() : getOpenAIDefaultModel();
 
-    if (streamRequested) {
-      if (process.env.OPENAI_API_KEY) {
-        const upstream = await fetchOpenAIChatStream({
-          apiKey: process.env.OPENAI_API_KEY,
-          messages: toChatMessages(messages),
-          model: resolvedModel,
-          temperature: 0.7,
-          maxTokens: 4096,
-        });
-        if (!upstream.ok) {
-          const errText = await upstream.text().catch(() => "");
-          return NextResponse.json(
-            { error: errText || upstream.statusText || "OpenAI stream failed" },
-            { status: upstream.status }
-          );
-        }
-        return new Response(openAISSEToNormalizedStream(upstream.body), {
-          headers: CHAT_SSE_HEADERS,
-        });
-      }
-
-      const ol = await chatStreamFromOllama(
-        messages.map((m) => ({ role: m.role, content: m.content })),
-        { model: resolvedModel, temperature: 0.7 }
+    if (!hasCloudAi()) {
+      return NextResponse.json(
+        {
+          error:
+            "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for chat completions.",
+        },
+        { status: 503 }
       );
-      return new Response(ollamaNDJSONToNormalizedStream(ol.body), {
+    }
+
+    if (streamRequested) {
+      if (!process.env.OPENAI_API_KEY) {
+        return NextResponse.json(
+          {
+            error:
+              "Streaming chat completions requires OPENAI_API_KEY. Use non-stream requests with Anthropic, or add OPENAI_API_KEY.",
+          },
+          { status: 503 }
+        );
+      }
+      const upstream = await fetchOpenAIChatStream({
+        apiKey: process.env.OPENAI_API_KEY,
+        messages: toChatMessages(messages),
+        model: resolvedModel,
+        temperature: 0.7,
+        maxTokens: 2048,
+      });
+      if (!upstream.ok) {
+        const errText = await upstream.text().catch(() => "");
+        return NextResponse.json(
+          { error: errText || upstream.statusText || "OpenAI stream failed" },
+          { status: upstream.status }
+        );
+      }
+      return new Response(openAISSEToNormalizedStream(upstream.body), {
         headers: CHAT_SSE_HEADERS,
       });
     }
 
-    if (process.env.OPENAI_API_KEY) {
-      const { content } = await callLLM({
-        messages: toChatMessages(messages),
-        model: resolvedModel,
-        temperature: 0.7,
-        maxTokens: 4096,
-      });
-      return NextResponse.json({ content, role: "assistant" });
-    }
-
-    const content = await chatFromOllama(
-      messages.map((m) => ({ role: m.role, content: m.content })),
-      { model: resolvedModel, temperature: 0.7 }
-    );
-
+    const { content } = await callLLM({
+      messages: toChatMessages(messages),
+      model: resolvedModel,
+      temperature: 0.7,
+      maxTokens: 2048,
+    });
     return NextResponse.json({ content, role: "assistant" });
   } catch (err) {
     console.error("Chat completions error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    const isLocal =
-      message.includes("fetch") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("Ollama");
-    return NextResponse.json(
-      {
-        error:
-          !process.env.OPENAI_API_KEY && isLocal
-            ? "Ollama is not running. Start it with: ollama run llama3"
-            : message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

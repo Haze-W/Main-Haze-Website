@@ -805,7 +805,7 @@ ${framesHtml}
         target.style.display = 'block';
       }
     }
-    // ── Chat input + Send wire-up (Coral 1.0 / Ollama — no API key) ──
+    // ── Chat input + Send wire-up → /api/ai/chat-completions (OpenAI when server key is set) ──
     function _wireChat() {
       var inputWrap = document.querySelector('[data-chat-role="chat-input"]');
       var sendBtn = document.querySelector('[data-chat-role="chat-send"]');

@@ -1,6 +1,6 @@
 /**
  * Layout Generator - Creates UI component tree from parsed prompt
- * Uses Ollama (local AI) - Coral 1.0. No API keys. Returns structured JSON for Haze.
+ * Uses OpenAI (or Anthropic via callLLM) — no local Ollama fallback.
  */
 
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
@@ -13,7 +13,6 @@ import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import type { DesignTheme } from "./theme-generator";
 import { callLLM, getOpenAIDefaultModel } from "../providers";
-import { generateFromOllama } from "../ollama";
 
 export interface LayoutGeneratorOptions {
   apiKey?: string;
@@ -322,67 +321,68 @@ ${ABSTRACT_JSON_SHAPE_GUIDE}`;
   const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
 
   try {
-    if (hasCloudKey) {
-      const { content } = await callLLM({
+    if (!hasCloudKey) {
+      throw new Error(
+        "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for AI layout generation."
+      );
+    }
+
+    const { content } = await callLLM({
+      apiKey,
+      model: options?.model ?? getOpenAIDefaultModel(),
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      temperature: 0.42,
+      maxTokens: 3200,
+      jsonMode: true,
+      timeoutMs: 40_000,
+    });
+
+    if (content) {
+      logDevRawModelResponse("cloud", content);
+      let layout = parseLayoutResponse(content);
+      if (layout && !isLayoutMinimal(layout)) {
+        layout.frame = validateAndFixFrame(layout.frame);
+        layout.metadata = { ...layout.metadata, prompt };
+        logDevParsedLayout("cloud", layout);
+        return layout;
+      }
+
+      // Retry: richer layout if first pass was sparse or invalid JSON
+      const { content: retryContent } = await callLLM({
         apiKey,
         model: options?.model ?? getOpenAIDefaultModel(),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        temperature: 0.42,
-        maxTokens: 6144,
-        jsonMode: true,
-      });
+          {
+            role: "user",
+            content: `${userContent}
 
-      if (content) {
-        logDevRawModelResponse("cloud", content);
-        const layout = parseLayoutResponse(content);
+IMPORTANT: Your previous output was empty, invalid JSON, or too minimal. Return a COMPLETE app JSON with at least 5 meaningful text/button/input elements and multiple regions (sidebar, main, etc.). No markdown — JSON only.`,
+          },
+        ],
+        temperature: 0.35,
+        maxTokens: 3200,
+        jsonMode: true,
+        timeoutMs: 40_000,
+      });
+      if (retryContent) {
+        logDevRawModelResponse("cloud-retry", retryContent);
+        layout = parseLayoutResponse(retryContent);
         if (layout && !isLayoutMinimal(layout)) {
           layout.frame = validateAndFixFrame(layout.frame);
           layout.metadata = { ...layout.metadata, prompt };
-          logDevParsedLayout("cloud", layout);
+          logDevParsedLayout("cloud-retry", layout);
           return layout;
         }
       }
     }
 
-    const fullPrompt = `${SYSTEM_PROMPT}
-
-=== USER BUILD REQUEST (obey this; do not default to a stock dashboard) ===
-${userPrompt}${imageHint}
-
-=== SCHEMA (no example UI to copy — invent structure from the user request) ===
-${ABSTRACT_JSON_SHAPE_GUIDE}
-
-Return ONLY the JSON object. No markdown.`;
-
-    let output = await generateFromOllama(fullPrompt, {
-      model: options?.model,
-      temperature: 0.45,
-    });
-
-    let parsedLayout: AIUILayout | null = parseLayoutResponse(output);
-
-    if (!parsedLayout) {
-      const retry = await generateFromOllama(
-        `Return ONLY valid JSON for a UI frame. Extract or fix from:
-${output.slice(0, 12000)}`,
-        { model: options?.model, temperature: 0.05 }
-      );
-      parsedLayout = parseLayoutResponse(retry);
-    }
-
-    if (!parsedLayout || isLayoutMinimal(parsedLayout)) {
-      const fb = getFallbackLayout(parsed);
-      logDevParsedLayout("fallback", fb);
-      return fb;
-    }
-
-    parsedLayout.frame = validateAndFixFrame(parsedLayout.frame);
-    parsedLayout.metadata = { ...parsedLayout.metadata, prompt };
-    logDevParsedLayout("ollama", parsedLayout);
-    return parsedLayout;
+    const fb = getFallbackLayout(parsed);
+    logDevParsedLayout("fallback", fb);
+    return fb;
   } catch (err) {
     console.error("Layout generation error:", err);
     return getFallbackLayout(parsed);

@@ -78,7 +78,7 @@ const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
   { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
   { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form", "Plan an e-commerce product page"] },
   { mode: "ask", prompts: ["How do I add dark mode?", "What's the best layout for a settings page?", "Explain flexbox vs grid"] },
-  { mode: "backend", prompts: ["Full chatbot with Coral (Ollama)", "System info backend", "File read/write commands"] },
+  { mode: "backend", prompts: ["Full chatbot with OpenAI backend", "System info backend", "File read/write commands"] },
   { mode: "agent", prompts: ["Window events?", "Tauri permissions"] },
   { mode: "fix", prompts: ["Make the chat textbox work", "Fix canvas layout", "Debug Rust command"] },
 ];
@@ -201,15 +201,30 @@ export function AIPanel() {
     const lid = nanoid();
     setMessages((prev) => [...prev, { id: lid, role: "assistant", content: "", loading: true }]);
 
-    // Show thinking steps for UI mode
+    // Show thinking steps (UI: layout pipeline; other modes: connection + generation)
+    const thinkingUiSteps = [
+      "Analyzing your request…",
+      "Designing layout structure…",
+      "Generating UI JSON…",
+      "Applying layout rules…",
+    ];
+    const thinkingChatSteps = [
+      "Connecting to model…",
+      "Thinking through your question…",
+      "Writing the answer…",
+    ];
+    const thinkingCodeSteps = ["Processing…", "Generating response…"];
+
     if (m === "ui") {
-      const steps = ["Reading your request... (first run may take 1–2 min)", "Understanding what you want...", "Designing the layout...", "Generating components...", "Applying layout rules..."];
-      setThinkingSteps([steps[0]]);
+      setThinkingSteps([thinkingUiSteps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
-      steps.slice(1).forEach((step, i) => {
-        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 600));
+      thinkingUiSteps.slice(1).forEach((step, i) => {
+        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 320));
       });
-      const clearThinking = () => { timers.forEach(clearTimeout); setThinkingSteps([]); };
+      const clearThinking = () => {
+        timers.forEach(clearTimeout);
+        setThinkingSteps([]);
+      };
       try {
         const s = useEditorStore.getState();
         const hist = messages.filter((x) => !x.loading && !x.error).map((x) => ({ role: x.role, content: x.content }));
@@ -254,6 +269,19 @@ export function AIPanel() {
         setLoading(false);
       }
     } else {
+      const wantStream = m === "ask" || m === "plan";
+      const steps =
+        wantStream ? thinkingChatSteps : thinkingCodeSteps;
+      setThinkingSteps([steps[0]]);
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      steps.slice(1).forEach((step, i) => {
+        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 320));
+      });
+      const clearThinking = () => {
+        timers.forEach(clearTimeout);
+        setThinkingSteps([]);
+      };
+
       try {
         const s = useEditorStore.getState();
         const hist = messages.filter((x) => !x.loading && !x.error).map((x) => ({ role: x.role, content: x.content }));
@@ -262,25 +290,70 @@ export function AIPanel() {
         const res = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: hist, nodes: s.nodes, projectName: "Untitled", mode: m }),
+          body: JSON.stringify({
+            messages: hist,
+            nodes: s.nodes,
+            projectName: "Untitled",
+            mode: m,
+            stream: wantStream,
+          }),
         });
 
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({ error: "Request failed" }));
-          throw new Error(e.error || `HTTP ${res.status}`);
+        const isSse =
+          res.ok &&
+          wantStream &&
+          (res.headers.get("content-type") ?? "").includes("text/event-stream");
+
+        if (isSse && res.body) {
+          let content = "";
+          let reasoning = "";
+          const sseErr = await consumeNormalizedChatSSE(res.body, (d) => {
+            content += d.content;
+            reasoning += d.reasoning;
+            setMessages((prev) =>
+              prev.map((x) =>
+                x.id === lid
+                  ? { ...x, content, reasoning, loading: true }
+                  : x
+              )
+            );
+          });
+          clearThinking();
+          if (sseErr.error) throw new Error(sseErr.error);
+          setMessages((prev) =>
+            prev.map((x) =>
+              x.id === lid
+                ? {
+                    id: nanoid(),
+                    role: "assistant" as const,
+                    content,
+                    reasoning: reasoning || undefined,
+                    action: "ANSWER",
+                    loading: false,
+                  }
+                : x
+            )
+          );
+        } else {
+          if (!res.ok) {
+            clearThinking();
+            const e = await res.json().catch(() => ({ error: "Request failed" }));
+            throw new Error((e as { error?: string }).error || `HTTP ${res.status}`);
+          }
+          clearThinking();
+          const data = await res.json();
+          let added = false;
+          if (data.action === "GENERATE_UI" && data.nodes?.length) { addNodesToCanvas(data.nodes); added = true; }
+          if (data.action === "FIX" && data.fixes?.length) applyFixes(data.fixes);
+
+          setMessages((prev) => prev.map((x) => x.id === lid ? {
+            id: nanoid(), role: "assistant" as const, content: data.text || "",
+            action: data.action, nodes: data.nodes, rust: data.rust, js: data.js,
+            deps: data.deps, fixes: data.fixes, addedToCanvas: added,
+          } : x));
         }
-
-        const data = await res.json();
-        let added = false;
-        if (data.action === "GENERATE_UI" && data.nodes?.length) { addNodesToCanvas(data.nodes); added = true; }
-        if (data.action === "FIX" && data.fixes?.length) applyFixes(data.fixes);
-
-        setMessages((prev) => prev.map((x) => x.id === lid ? {
-          id: nanoid(), role: "assistant" as const, content: data.text || "",
-          action: data.action, nodes: data.nodes, rust: data.rust, js: data.js,
-          deps: data.deps, fixes: data.fixes, addedToCanvas: added,
-        } : x));
       } catch (err) {
+        clearThinking();
         setMessages((prev) => prev.map((x) => x.id === lid ? {
           id: lid, role: "assistant" as const, content: err instanceof Error ? err.message : "Error", error: true,
         } : x));
@@ -354,6 +427,18 @@ export function AIPanel() {
             ))}
           </ul>
         )}
+        {msg.reasoning ? (
+          <details open className={styles.reasoningBlock}>
+            <summary className={styles.reasoningSummary}>Thinking (model)</summary>
+            <pre className={styles.reasoningPre}>{msg.reasoning}</pre>
+          </details>
+        ) : null}
+        {msg.content ? (
+          <div
+            className={styles.streamingPreview}
+            dangerouslySetInnerHTML={{ __html: mdToHtml(msg.content) }}
+          />
+        ) : null}
       </div>
     );
 

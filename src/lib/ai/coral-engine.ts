@@ -396,22 +396,22 @@ function handleUIMode(prompt: string): CoralResponse {
 function handleBackendMode(prompt: string): CoralResponse {
   const lower = prompt.toLowerCase();
 
-  // Full chatbot — UI + Coral 1.0 (Ollama) wired
+  // Full chatbot — UI + OpenAI-backed /api/ai/chat-completions
   if ((has(lower, "chatbot", "chat app", "full chat") && has(lower, "gpt", "openai", "api key")) || has(lower, "full chatbot with gpt")) {
     return {
       action: "GENERATE_UI",
-      text: "Generated a full chatbot app. Chat uses Coral 1.0 (Ollama) — no API key needed. Run 'ollama run llama3' and start chatting. Export to get a standalone app.",
+      text: "Generated a full chatbot app. Chat calls your server at /api/ai/chat-completions (OpenAI when OPENAI_API_KEY is set). Export and deploy with your API key configured.",
       nodes: buildChatbotApp(true),
     };
   }
 
-  // Chat / AI integration — Coral 1.0 (Ollama)
+  // Chat / AI integration — OpenAI via backend
   if (has(lower, "chat", "textbox", "text box", "input", "send message", "ai chatbot")) {
     return {
       action: "GENERATE_CODE",
-      text: "Your chatbot is wired to Coral 1.0 (Ollama). No API key needed. Run 'ollama run llama3' and chat. Export to get a standalone app. Chat calls /api/ai/chat-completions.",
-      js: `// Chat is wired in the exported app. Uses /api/ai/chat-completions (Coral 1.0 / Ollama).
-// No API key needed. Ensure Ollama is running: ollama run llama3`,
+      text: "Your chatbot calls /api/ai/chat-completions on your deployed app. Set OPENAI_API_KEY (or ANTHROPIC_API_KEY) on the server for AI replies.",
+      js: `// Chat calls /api/ai/chat-completions (OpenAI / Anthropic via Haze backend).
+// Configure OPENAI_API_KEY on the server.`,
       deps: [],
     };
   }
@@ -657,11 +657,11 @@ function handlePlanMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout. Coral 1.0 (Ollama) powers AI plans when running.*`,
+    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout. Cloud AI (OpenAI) powers plans when your server has OPENAI_API_KEY.*`,
   };
 }
 
-// ── Ask mode handler (Coral/Ollama) ─────────────────────────────
+// ── Ask mode handler (Coral fallback) ───────────────────────────
 
 function handleAskMode(prompt: string): CoralResponse {
   return handleAgentMode(prompt);

@@ -14,9 +14,9 @@ export function getOpenAIChatCompletionsUrl(): string {
   return `${getOpenAIBaseUrl()}/chat/completions`;
 }
 
-/** Default model when the request omits `model` (env OPENAI_MODEL or gpt-4o). */
+/** Default model when the request omits `model` (env OPENAI_MODEL or gpt-4o-mini for speed). */
 export function getOpenAIDefaultModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o";
+  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
 }
 
 export interface ChatMessage {
@@ -33,6 +33,8 @@ export interface LLMOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  /** Abort request after this many ms (default 90s). Use ~35s for UI layout generation. */
+  timeoutMs?: number;
 }
 
 export interface LLMResponse {
@@ -67,14 +69,28 @@ async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
     body.response_format = { type: "json_object" };
   }
 
-  const res = await fetch(getOpenAIChatCompletionsUrl(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const timeoutMs = options.timeoutMs ?? 90_000;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(getOpenAIChatCompletionsUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`OpenAI request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     throw new Error(`OpenAI-compatible API: ${res.status} ${errText.slice(0, 200)}`);
@@ -103,15 +119,29 @@ async function callAnthropic(options: LLMOptions): Promise<LLMResponse> {
     temperature: options.temperature ?? 0.25,
   };
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(body),
-  });
+  const timeoutMs = options.timeoutMs ?? 90_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`Anthropic request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`Anthropic: ${res.status}`);
   const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
   const textBlock = data.content?.find((c) => c.type === "text");
