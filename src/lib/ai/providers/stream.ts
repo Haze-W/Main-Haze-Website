@@ -177,16 +177,19 @@ export async function fetchAnthropicChatStream(req: AnthropicStreamRequest): Pro
     content: m.content,
   }));
 
-  const body = {
+  const bodyObj: Record<string, unknown> = {
     model,
     max_tokens: req.maxTokens ?? 4096,
     stream: true,
-    system: systemMsg?.content ?? "",
     messages: anthropicMessages.length
       ? anthropicMessages
       : [{ role: "user" as const, content: req.userMessage ?? "" }],
     temperature: req.temperature ?? 0.25,
   };
+  if (systemMsg?.content?.trim()) {
+    bodyObj.system = systemMsg.content;
+  }
+  const body = bodyObj;
 
   return fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

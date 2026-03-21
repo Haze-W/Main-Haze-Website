@@ -21,7 +21,7 @@ export function getOpenAIDefaultModel(): string {
 
 /** Default Anthropic model when the request omits `model` or passes an OpenAI-style model id. */
 export function getAnthropicDefaultModel(): string {
-  return process.env.ANTHROPIC_MODEL?.trim() || "claude-haiku-4-5-20251001";
+  return process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
 }
 
 function isOpenAIModelName(model: string): boolean {
@@ -167,7 +167,10 @@ async function callAnthropic(options: LLMOptions): Promise<LLMResponse> {
   } finally {
     clearTimeout(timer);
   }
-  if (!res.ok) throw new Error(`Anthropic: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Anthropic: ${res.status} ${errBody.slice(0, 300)}`);
+  }
   const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
   const textBlock = data.content?.find((c) => c.type === "text");
   let content = textBlock?.text?.trim() ?? "";
