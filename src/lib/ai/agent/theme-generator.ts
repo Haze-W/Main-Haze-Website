@@ -1,6 +1,5 @@
 /**
- * Design System & Theme Generator - Creates color palettes and typography from prompts
- * Uses OpenAI to generate cohesive design tokens
+ * Design tokens from prompts — keyword-based presets (no external APIs).
  */
 
 export interface DesignTheme {
@@ -59,76 +58,59 @@ const DEFAULT_THEME: DesignTheme = {
   borderRadius: { sm: 6, md: 10, lg: 16 },
 };
 
-const THEME_SYSTEM_PROMPT = `You are a design system expert. Generate a cohesive UI theme from the user's description.
+function inferThemeFromKeywords(prompt: string): DesignTheme {
+  const lower = prompt.toLowerCase();
+  const t: DesignTheme = {
+    colors: { ...DEFAULT_THEME.colors },
+    typography: { ...DEFAULT_THEME.typography },
+    spacing: { ...DEFAULT_THEME.spacing },
+    borderRadius: { ...DEFAULT_THEME.borderRadius },
+  };
 
-Return ONLY valid JSON (no markdown):
-{
-  "colors": {
-    "primary": "#hex",
-    "secondary": "#hex",
-    "accent": "#hex",
-    "background": "#hex",
-    "surface": "#hex",
-    "sidebar": "#hex",
-    "text": "#hex",
-    "textMuted": "#hex",
-    "border": "#hex"
-  },
-  "typography": {
-    "fontFamily": "Inter|Roboto|Poppins|Space Grotesk|DM Sans|Geist",
-    "headingSize": 24,
-    "subheadingSize": 18,
-    "bodySize": 14,
-    "captionSize": 12
-  },
-  "spacing": { "xs": 4, "sm": 8, "md": 16, "lg": 24, "xl": 32 },
-  "borderRadius": { "sm": 6, "md": 10, "lg": 16 }
-}
-
-Rules: All colors must be valid hex (#RRGGBB). Keep values realistic.`;
-
-function parseThemeResponse(content: string): DesignTheme | null {
-  const cleaned = content
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-  try {
-    const parsed = JSON.parse(cleaned) as Partial<DesignTheme>;
-    if (!parsed?.colors) return null;
-    return {
-      colors: { ...DEFAULT_THEME.colors, ...parsed.colors },
-      typography: { ...DEFAULT_THEME.typography, ...parsed.typography },
-      spacing: { ...DEFAULT_THEME.spacing, ...parsed.spacing },
-      borderRadius: { ...DEFAULT_THEME.borderRadius, ...parsed.borderRadius },
-    };
-  } catch {
-    return null;
+  if (/\b(dark|midnight|night|oled)\b/.test(lower)) {
+    t.colors.background = "#0a0a0c";
+    t.colors.surface = "#18181b";
+    t.colors.sidebar = "#09090b";
+    t.colors.text = "#fafafa";
+    t.colors.textMuted = "#a1a1aa";
+    t.colors.border = "#27272a";
+    t.colors.primary = "#a78bfa";
+    t.colors.accent = "#22d3ee";
   }
-}
 
-import { callLLM, getOpenAIDefaultModel } from "../providers";
+  if (/\b(ocean|blue|azure|water)\b/.test(lower)) {
+    t.colors.primary = "#0ea5e9";
+    t.colors.accent = "#06b6d4";
+    t.colors.background = lower.includes("dark") ? "#0c1222" : "#f0f9ff";
+  }
+
+  if (/\b(forest|green|nature|mint)\b/.test(lower)) {
+    t.colors.primary = "#22c55e";
+    t.colors.accent = "#10b981";
+    if (!lower.includes("dark")) t.colors.background = "#f0fdf4";
+  }
+
+  if (/\b(warm|sunset|amber|orange|coffee)\b/.test(lower)) {
+    t.colors.primary = "#f59e0b";
+    t.colors.accent = "#ea580c";
+    t.colors.secondary = "#78716c";
+  }
+
+  if (/\b(mono|minimal|swiss|editorial)\b/.test(lower)) {
+    t.typography.fontFamily = "DM Sans";
+    t.borderRadius = { sm: 4, md: 6, lg: 8 };
+  }
+
+  if (/\b(rounded|soft|playful)\b/.test(lower)) {
+    t.borderRadius = { sm: 10, md: 16, lg: 24 };
+  }
+
+  return t;
+}
 
 export async function generateThemeFromPrompt(
   prompt: string,
-  options?: { apiKey?: string; model?: string }
+  _options?: { apiKey?: string; model?: string }
 ): Promise<DesignTheme> {
-  const hasKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
-  if (!hasKey) return DEFAULT_THEME;
-
-  try {
-    const { content } = await callLLM({
-      apiKey: options?.apiKey,
-      model: options?.model ?? getOpenAIDefaultModel(),
-      systemPrompt: THEME_SYSTEM_PROMPT,
-      userMessage: `Generate a theme for: ${prompt}. Return ONLY the JSON object.`,
-      temperature: 0.3,
-      maxTokens: 1024,
-      jsonMode: true,
-    });
-    if (!content) return DEFAULT_THEME;
-    const theme = parseThemeResponse(content);
-    return theme ?? DEFAULT_THEME;
-  } catch {
-    return DEFAULT_THEME;
-  }
+  return inferThemeFromKeywords(prompt);
 }

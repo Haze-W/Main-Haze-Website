@@ -22,7 +22,7 @@ export function startAiBuildTicker(userPrompt: string): () => void {
       useEditorStore.getState().appendAiBuildLine(TICKER_LINES[i]);
       i += 1;
     }
-  }, 550);
+  }, 220);
   return () => window.clearInterval(id);
 }
 
@@ -30,7 +30,8 @@ export function pushAiBuildStatus(line: string) {
   useEditorStore.getState().appendAiBuildLine(line);
 }
 
-export function endAiBuildTicker(stopInterval: () => void, holdVisibleMs = 2200) {
+/** Short hold so success/error is readable; local generation finishes fast — don’t block the canvas for seconds. */
+export function endAiBuildTicker(stopInterval: () => void, holdVisibleMs = 420) {
   stopInterval();
   window.setTimeout(() => useEditorStore.getState().clearAiBuild(), holdVisibleMs);
 }

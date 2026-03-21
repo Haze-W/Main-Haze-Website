@@ -70,8 +70,17 @@ function CheckIcon() {
   );
 }
 
+type Plan = (typeof PLANS)[number];
+
 export default function PricingPage() {
   const [yearly, setYearly] = useState(false);
+  const { show } = useToast();
+
+  function handlePlanCta(plan: Plan) {
+    if (plan.ctaStyle === "muted" || plan.ctaStyle === "current") return;
+    show(`Selected ${plan.name}. Contact us at ${CONTACT_EMAIL} to upgrade.`);
+    window.open(`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Upgrade to " + plan.name)}`, "_blank");
+  }
 
   return (
     <div className={styles.wrapper}>

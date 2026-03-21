@@ -18,6 +18,7 @@ interface SettingsPopoverProps {
 
 export function SettingsPopover({ anchorRef, isOpen, onClose, onExport, onSave, onSaveAs }: SettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const { show } = useToast();
   const theme = useEditorStore((s) => s.theme);
   const setTheme = useEditorStore((s) => s.setTheme);
 

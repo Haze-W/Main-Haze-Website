@@ -8,6 +8,7 @@ import type { SceneNode } from "./types";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
+import { getIconSvg } from "@/lib/icon-svg";
 
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
@@ -519,7 +520,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
     // IMAGE
     if (node.type === "IMAGE") {
-      const src = (props.src as string) ?? "";
+      const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
       const rounded = (props.rounded as boolean) ?? false;
       const radius = rounded ? "border-radius:50%;" : "border-radius:6px;";
       const imgStyle = `${styleStr};overflow:hidden;${radius}background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;`;
@@ -535,11 +536,14 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(divStyle)}"></div>`;
     }
 
-    // ICON (render as text emoji fallback)
+    // ICON
     if (node.type === "ICON") {
+      const iconName = ((props.iconName as string) ?? "circle").trim() || "circle";
       const color = (props.color as string) || "#e6edf3";
-      const iconStyle = `${styleStr};display:flex;align-items:center;justify-content:center;color:${color};font-size:${Math.min(node.width, node.height) - 4}px;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">◆</div>`;
+      const size = Math.max(12, Math.min(node.width, node.height) - 4);
+      const iconStyle = `${styleStr};display:flex;align-items:center;justify-content:center;color:${color};`;
+      const iconSvg = getIconSvg(iconName, size, color, 1.8);
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">${iconSvg}</div>`;
     }
 
     // FRAME (non-Figma) — must paint background; otherwise preview looks like a flat white sheet

@@ -103,8 +103,15 @@ export interface FigmaNode {
   children?: FigmaNode[];
 }
 
+/**
+ * Clipboard payload from Figma → Haze plugins.
+ * Plugins may set either `_render` or `_haze` (same meaning); accept both at runtime.
+ */
 export interface RenderPayload {
-  _render: true;
+  /** Legacy / primary marker */
+  _render?: true;
+  /** Alternative marker (Figma To Haze and related plugins) */
+  _haze?: true;
   version: string;
   exportedAt: string;
   pageName: string;
@@ -141,11 +148,16 @@ export function paintToSolidColor(fill: Paint): string | undefined {
   return undefined;
 }
 
-/** Type guard for validating a pasted object as RenderPayload (v2.1) */
+/** True if payload uses either supported clipboard marker (not both required). */
+export function isHazeRenderMarker(d: Record<string, unknown>): boolean {
+  return d._render === true || d._haze === true;
+}
+
+/** Type guard for validating a pasted object as RenderPayload (v2.1+). Minified JSON is fine. */
 export function isRenderPayload(data: unknown): data is RenderPayload {
   if (typeof data !== "object" || data === null) return false;
   const d = data as Record<string, unknown>;
-  if (d._render !== true || !d.frame) return false;
+  if (!isHazeRenderMarker(d) || !d.frame) return false;
   if (typeof d.frame !== "object" || d.frame === null) return false;
   return true;
 }

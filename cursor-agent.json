@@ -1,0 +1,23 @@
+{
+  "project": "haze-website",
+  "version": "1.0.0",
+  "stack": {
+    "frontend": "nextjs",
+    "backend": "tauri",
+    "database": "sqlite"
+  },
+  "agent": {
+    "name": "Haze Design-to-Desktop",
+    "modes": ["design", "code", "agent", "fix"],
+    "cloudAi": "disabled",
+    "notes": "Local pattern engine + deterministic layouts. Credits / cloud providers hook in later."
+  },
+  "features": [
+    "local-ui-generation",
+    "local-refine-rules",
+    "tauri-export",
+    "figma-paste"
+  ],
+  "schema": null,
+  "created": "2025-03-18"
+}

@@ -5,6 +5,7 @@ import { sceneNodesToHtml, sceneExportCss, getFrameDimensions } from "./editor/s
 import type { SceneNode } from "./editor/types";
 import type { CanvasNode, Frame } from "./types";
 import type { ExportSettings } from "./editor/export-settings";
+import { preloadLucideIcons } from "./icon-svg";
 
 const TAURI_CONF = (name: string, frameless = false, width = 1200, height = 800) => JSON.stringify(
   {
@@ -322,6 +323,7 @@ export async function downloadProjectFromSceneNodes(
   name = "tauri-app",
   exportSettings?: Partial<ExportSettings>
 ): Promise<void> {
+  await preloadLucideIcons();
   const zip = new JSZip();
   const appName = exportSettings?.appName ?? name;
   const { width, height } = getFrameDimensions(nodes);

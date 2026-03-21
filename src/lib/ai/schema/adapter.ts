@@ -48,6 +48,20 @@ const TYPE_MAP: Record<UIComponentType, SceneNode["type"]> = {
   icon: "ICON",
 };
 
+function makeImagePlaceholder(seed: string, width: number, height: number): string {
+  const safe = seed || "preview";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="#f4f4f5"/>
+      <rect x="1" y="1" width="${Math.max(0, width - 2)}" height="${Math.max(0, height - 2)}" rx="10" fill="none" stroke="#e4e4e7"/>
+      <circle cx="${Math.round(width * 0.3)}" cy="${Math.round(height * 0.32)}" r="${Math.max(8, Math.round(Math.min(width, height) * 0.08))}" fill="#d4d4d8"/>
+      <path d="M${Math.round(width * 0.12)} ${Math.round(height * 0.82)} L${Math.round(width * 0.38)} ${Math.round(height * 0.54)} L${Math.round(width * 0.56)} ${Math.round(height * 0.7)} L${Math.round(width * 0.74)} ${Math.round(height * 0.46)} L${Math.round(width * 0.9)} ${Math.round(height * 0.82)} Z" fill="#d4d4d8"/>
+      <text x="50%" y="${Math.round(height * 0.9)}" text-anchor="middle" fill="#71717a" font-family="Inter, Arial, sans-serif" font-size="12">${safe}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function mapType(type: UIComponentType, el?: AIUIElement): SceneNode["type"] {
   const base = TYPE_MAP[type] ?? "FRAME";
   if (type === "topbar" && (!el?.children || el.children.length === 0)) {
@@ -215,8 +229,8 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
   if (type === "IMAGE") {
     const w = Math.max(32, Math.round(el.width));
     const h = Math.max(32, Math.round(el.height));
-    const seed = encodeURIComponent((el.id || "img").replace(/[^a-zA-Z0-9]/g, "").slice(0, 32) || "a");
-    const placeholder = `https://picsum.photos/seed/${seed}/${w}/${h}`;
+    const seed = (el.id || "img").replace(/[^a-zA-Z0-9]/g, "").slice(0, 32) || "Preview";
+    const placeholder = makeImagePlaceholder(seed, w, h);
     const src = (el.props?.src as string | undefined)?.trim();
     props = {
       ...props,

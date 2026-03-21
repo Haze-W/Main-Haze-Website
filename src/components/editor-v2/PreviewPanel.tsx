@@ -36,8 +36,10 @@ export function PreviewPanel() {
     setError(null);
     setStatus("Building preview...");
     import("@/lib/editor/scene-export")
-      .then(({ sceneNodesToHtml, sceneExportCss }) => {
+      .then(async ({ sceneNodesToHtml, sceneExportCss }) => {
         try {
+          const { preloadLucideIcons } = await import("@/lib/icon-svg");
+          await preloadLucideIcons();
           const body = sceneNodesToHtml(currentNodes, "Preview", bg);
           const css  = sceneExportCss(bg);
           const inlined = body

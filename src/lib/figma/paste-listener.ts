@@ -14,11 +14,17 @@ function isRenderCopyPayload(data: unknown): data is { _renderCopy: true; nodes:
   return d.nodes.length > 0 && typeof (d.nodes[0] as SceneNode).id === "string";
 }
 
+/** Parse clipboard JSON (minified or pretty; trims BOM/whitespace). */
+function parseClipboardJson(text: string): unknown {
+  const trimmed = text.replace(/^\uFEFF/, "").trim();
+  return JSON.parse(trimmed);
+}
+
 /** Process clipboard text and paste into the scene. Returns true if pasted. */
 export async function tryPasteFromClipboard(text: string): Promise<boolean> {
   let data: unknown;
   try {
-    data = JSON.parse(text);
+    data = parseClipboardJson(text);
   } catch {
     return false;
   }
@@ -117,7 +123,7 @@ export function useFigmaPasteListener() {
 
       let data: unknown;
       try {
-        data = JSON.parse(text);
+        data = parseClipboardJson(text);
       } catch {
         return;
       }

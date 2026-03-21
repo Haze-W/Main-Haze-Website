@@ -331,7 +331,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
   // ── IMAGE ─────────────────────────────────────────────────────────────────
   if (node.type === "IMAGE") {
-    const src = (props.src as string) ?? "";
+    const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
     const rounded = (props.rounded as boolean) ?? false;
     return (
       <div

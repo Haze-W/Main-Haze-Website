@@ -1,86 +1,52 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { EditorShell } from "@/components/editor-v2/EditorShell";
+import dynamic from "next/dynamic";
 import { useEditorStore } from "@/lib/editor/store";
 import "./editor.css";
 
+const EditorShell = dynamic(
+  () => import("@/components/editor-v2/EditorShell").then((m) => ({ default: m.EditorShell })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="editor-page editor-page-loading"
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--editor-bg, #0a0a0c)",
+          color: "var(--shade-09, #e6edf3)",
+          fontSize: 14,
+          letterSpacing: "0.02em",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              border: "2px solid rgba(255,255,255,0.12)",
+              borderTopColor: "rgba(99,102,241,0.9)",
+              borderRadius: "50%",
+              margin: "0 auto 16px",
+              animation: "editor-spin 0.7s linear infinite",
+            }}
+          />
+          <div style={{ opacity: 0.85 }}>Loading editor…</div>
+        </div>
+        <style>{`@keyframes editor-spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    ),
+  }
+);
+
 export default function EditorPage() {
   const theme = useEditorStore((s) => s.theme);
-  const pageRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // #region agent log
-    const el = pageRef.current;
-    const pageBox = el?.getBoundingClientRect();
-    fetch("http://127.0.0.1:7414/ingest/06c84fbc-4d5d-429d-95c7-09038428f9b6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a51597" },
-      body: JSON.stringify({
-        sessionId: "a51597",
-        runId: "post-fix",
-        hypothesisId: "A",
-        location: "editor/page.tsx:mount",
-        message: "EditorPage mounted + viewport",
-        data: {
-          innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
-          innerHeight: typeof window !== "undefined" ? window.innerHeight : null,
-          pageW: pageBox?.width,
-          pageH: pageBox?.height,
-          below1340:
-            typeof window !== "undefined" ? window.innerWidth <= 1340 : null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  }, []);
-
-  useEffect(() => {
-    // #region agent log
-    const onErr = (e: ErrorEvent) => {
-      fetch("http://127.0.0.1:7414/ingest/06c84fbc-4d5d-429d-95c7-09038428f9b6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a51597" },
-        body: JSON.stringify({
-          sessionId: "a51597",
-          runId: "post-fix",
-          hypothesisId: "B",
-          location: "editor/page.tsx:window.error",
-          message: String(e.message || "error"),
-          data: { filename: e.filename, lineno: e.lineno, colno: e.colno },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    };
-    const onRej = (e: PromiseRejectionEvent) => {
-      const reason =
-        e.reason instanceof Error ? e.reason.message : String(e.reason);
-      fetch("http://127.0.0.1:7414/ingest/06c84fbc-4d5d-429d-95c7-09038428f9b6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a51597" },
-        body: JSON.stringify({
-          sessionId: "a51597",
-          runId: "post-fix",
-          hypothesisId: "B",
-          location: "editor/page.tsx:unhandledrejection",
-          message: reason,
-          data: {},
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    };
-    window.addEventListener("error", onErr);
-    window.addEventListener("unhandledrejection", onRej);
-    return () => {
-      window.removeEventListener("error", onErr);
-      window.removeEventListener("unhandledrejection", onRej);
-    };
-    // #endregion
-  }, []);
 
   return (
-    <div ref={pageRef} className="editor-page" data-editor-theme={theme}>
+    <div className="editor-page" data-editor-theme={theme}>
       <EditorShell />
     </div>
   );

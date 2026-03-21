@@ -60,19 +60,15 @@ interface Message {
 }
 
 const SLASH_COMMANDS = [
-  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts" },
-  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Create a step-by-step plan" },
-  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything (Coral-powered)" },
-  { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri backend code" },
-  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Tauri & Haze help" },
-  { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Fix issues" },
+  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts (local)" },
+  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Step-by-step plan (local)" },
+  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask Coral" },
+  { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri / Rust snippets" },
+  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Architecture & Tauri help" },
+  { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Canvas / layout fixes" },
 ];
 
-const AGENTS = [
-  { id: "coral-1", name: "Coral 1.0", active: true },
-  { id: "coral-2", name: "Coral 2.0", active: false },
-  { id: "coral-vision", name: "Coral Vision", active: false },
-];
+const AGENTS = [{ id: "coral-local", name: "Coral (local)", active: true }];
 
 const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
   { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
@@ -112,7 +108,7 @@ export function AIPanel() {
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
   const [slashIdx, setSlashIdx] = useState(0);
-  const [agent, setAgent] = useState("coral-1");
+  const [agent, setAgent] = useState("coral-local");
   const [showAgents, setShowAgents] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
@@ -218,8 +214,9 @@ export function AIPanel() {
     if (m === "ui") {
       setThinkingSteps([thinkingUiSteps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
+      /* Local /ui is fast — don’t stagger fake “thinking” for >1s */
       thinkingUiSteps.slice(1).forEach((step, i) => {
-        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 320));
+        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 90));
       });
       const clearThinking = () => {
         timers.forEach(clearTimeout);
@@ -275,7 +272,7 @@ export function AIPanel() {
       setThinkingSteps([steps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
       steps.slice(1).forEach((step, i) => {
-        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 320));
+        timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 90));
       });
       const clearThinking = () => {
         timers.forEach(clearTimeout);
@@ -591,8 +588,8 @@ export function AIPanel() {
       ) : (
         <div className={styles.empty}>
           <Sparkles size={28} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Coral 1.0</p>
-          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Haze.</p>
+          <p className={styles.emptyTitle}>Coral</p>
+          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Coral.</p>
           <div className={styles.chipGroups}>
             {CHIPS.map((g) => (
               <div key={g.mode} className={styles.chipGroup}>

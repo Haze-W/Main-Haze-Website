@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useRef, type ComponentType } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
   DndContext,
@@ -35,7 +36,6 @@ import { useEditorStore } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
-import { CodePanel } from "@/components/editor/CodePanel";
 import { SettingsPopover } from "./SettingsPopover";
 import { SaveAsModal } from "./SaveAsModal";
 import { ExportModal } from "@/components/editor/ExportModal";
@@ -48,6 +48,20 @@ import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
 import { useToast } from "@/components/Toast";
 import styles from "./EditorShell.module.css";
+
+/** Monaco + file tree load on demand — keeps initial editor bundle smaller & faster. */
+const CodePanel = dynamic(
+  () => import("@/components/editor/CodePanel").then((m) => ({ default: m.CodePanel })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className={styles.codePanelLoading} role="status">
+        <Loader2 className={styles.codePanelLoadingSpinner} size={22} aria-hidden />
+        <span>Loading code workspace…</span>
+      </div>
+    ),
+  }
+);
 
 type LucideIcon = ComponentType<{
   size?: number;

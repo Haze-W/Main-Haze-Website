@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     if (coralResult.action === "GENERATE_UI" && coralResult.nodes && coralResult.nodes.length > 0) {
       return NextResponse.json({
         nodes: coralResult.nodes,
-        metadata: { source: "coral", generatedAt: new Date().toISOString() },
+        metadata: { generatedAt: new Date().toISOString() },
       });
     }
     console.error("AI generate error:", err);

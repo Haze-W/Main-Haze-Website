@@ -4,18 +4,6 @@ import type { ViewportType } from "../schema/ui-schema";
  * Prompt Interpreter - Processes user prompts for UI generation
  */
 
-export interface ParsedPrompt {
-  intent: string;
-  components: string[];
-  style: string;
-  theme: "light" | "dark";
-  domain?: string;
-  viewport?: ViewportType;
-  raw: string;
-  designPreset?: string;
-  sectionTemplate?: string;
-}
-
 const COMPONENT_KEYWORDS: Record<string, string[]> = {
   navbar: ["navbar", "nav", "navigation", "header", "menu bar"],
   sidebar: ["sidebar", "side nav", "left panel", "navigation panel"],
@@ -49,6 +37,9 @@ const VIEWPORT_KEYWORDS: Record<ViewportType, string[]> = {
 
 /** Design presets — inject into prompt for style guidance */
 export const DESIGN_PRESETS: Record<string, string> = {
+  /** Default “pro” baseline — shadcn/ui New York + zinc; aim for Dribbble-tier polish */
+  shadcn:
+    "shadcn/ui (ui.shadcn.com): zinc neutrals, radius-md cards, border + shadow-sm, Inter/system UI font, muted-foreground labels, clear hierarchy, generous whitespace — premium SaaS not flat gray boxes; spacing rhythm, subtle borders, one accent color (Dribbble-level craft)",
   stripe: "Stripe-style SaaS — clean gradients, purple accents, trust-building layout, conversion-focused",
   apple: "Apple minimal — lots of whitespace, SF-style typography, subtle shadows, premium feel",
   landing: "Modern startup landing page — hero, features grid, social proof, strong CTA",
@@ -57,11 +48,40 @@ export const DESIGN_PRESETS: Record<string, string> = {
   notion: "Notion-style — content-first, sidebar nav, clean blocks, collaborative feel",
 };
 
+export type DesignPresetId = keyof typeof DESIGN_PRESETS;
+
+export interface ParsedPrompt {
+  intent: string;
+  components: string[];
+  style: string;
+  theme: "light" | "dark";
+  domain?: string;
+  viewport?: ViewportType;
+  raw: string;
+  designPreset?: string;
+  designPresetId?: DesignPresetId;
+  sectionTemplate?: string;
+}
+
 const PRESET_KEYWORDS: Record<string, string[]> = {
-  stripe: ["stripe", "saas", "payment", "conversion"],
-  apple: ["apple", "minimal", "premium", "sf style"],
-  landing: ["landing", "homepage", "marketing page"],
-  glassmorphism: ["glass", "glassmorphism", "frosted", "blur"],
+  shadcn: [
+    "shadcn",
+    "radix",
+    "new york",
+    "tailwind",
+    "professional",
+    "beautiful ui",
+    "polished",
+    "dribbble",
+    "dashboard",
+    "saas",
+    "app shell",
+    "admin panel",
+  ],
+  stripe: ["stripe", "payment", "checkout"],
+  apple: ["apple", "sf style", "ios style"],
+  landing: ["landing", "homepage", "marketing page", "marketing"],
+  glassmorphism: ["glass", "glassmorphism", "frosted", "blur", "behance", "aesthetic", "showcase"],
   linear: ["linear", "crisp", "keyboard", "fast"],
   notion: ["notion", "blocks", "wiki", "content-first"],
 };
@@ -71,7 +91,7 @@ export const SECTION_TEMPLATES: Record<string, string> = {
   landing:
     "MUST include: Hero (headline + subheadline + CTA), Features grid (3-4 features with icons), CTA section, Footer (links, copyright)",
   dashboard:
-    "MUST include: Sidebar (nav with icons), Topbar (logo, search, user), Stats cards (3-4 KPI cards), Main content area (charts/tables/lists)",
+    "MUST follow shadcn dashboard-01 block structure (ui.shadcn.com/blocks#dashboard-01): inset sidebar (team + grouped nav), site header with breadcrumb + search, SectionCards row (4 KPIs), chart strip, then DataTable — not a sparse 2×2 grid only",
   login: "MUST include: Centered card, Title, Email + Password inputs, Remember me, Sign in button, Sign up link",
   settings:
     "MUST include: Sidebar (section nav), Content area (form inputs), Save/Cancel buttons",
@@ -118,9 +138,11 @@ export function parsePrompt(prompt: string): ParsedPrompt {
   let theme: "light" | "dark" = hasDark ? "dark" : hasLight ? "light" : "dark";
 
   let designPreset: string | undefined;
+  let designPresetId: DesignPresetId | undefined;
   for (const [key, desc] of Object.entries(DESIGN_PRESETS)) {
     const kws = PRESET_KEYWORDS[key] ?? [];
     if (kws.some((k) => lower.includes(k))) {
+      designPresetId = key as DesignPresetId;
       designPreset = desc;
       break;
     }
@@ -133,7 +155,8 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     inferred.push("hero", "card");
   } else if (has(lower, "dashboard", "admin", "analytics", "saas")) {
     sectionTemplate = SECTION_TEMPLATES.dashboard;
-    inferred.push("sidebar", "topbar", "card");
+    /** Match shadcn dashboard-01: SectionCards + chart + DataTable (not cards-only). */
+    inferred.push("sidebar", "topbar", "card", "table", "analytics");
   } else if (has(lower, "login", "sign in", "auth")) {
     sectionTemplate = SECTION_TEMPLATES.login;
     inferred.push("login");
@@ -160,6 +183,7 @@ export function parsePrompt(prompt: string): ParsedPrompt {
     viewport,
     raw: prompt,
     designPreset,
+    designPresetId,
     sectionTemplate,
   };
 }

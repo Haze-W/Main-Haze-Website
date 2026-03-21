@@ -168,7 +168,7 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.currentTarget.style.borderColor = "";
+    (e.currentTarget as HTMLElement).style.borderColor = "";
     const file = e.dataTransfer?.files?.[0];
     if (file?.type.startsWith("image/")) processFile(file);
   };

@@ -1,6 +1,5 @@
 /**
- * Coral 1.0 — Custom local AI engine for Haze
- * No external API calls. Pattern-matching + template generation.
+ * Haze local agent engine — pattern matching + templates (no external APIs).
  */
 
 import type { SceneNode } from "@/lib/editor/types";
@@ -606,7 +605,7 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! While I'm still learning (Coral 1.0), here's what I can help with:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask anything (Coral-powered)\n- **/backend** — Write Tauri 2 Rust commands and TypeScript integration code\n- **/agent** — Answer questions about Tauri, Rust, UI/UX, and app architecture\n- **/fix** — Analyze and fix issues in your canvas or code\n\nTry being more specific, like "How do I handle window close events?" or "Explain Tauri permissions".`,
+    text: `That's a great question! **Coral** runs locally (no cloud). Here's what it can do:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask about UI, Tauri, and app structure\n- **/backend** — Tauri 2 Rust command snippets and TS glue\n- **/agent** — Architecture, Rust, UI/UX\n- **/fix** — Heuristic fixes on your canvas\n\nTry something specific, like "How do I handle window close events?" or "Explain Tauri permissions". **Credits for cloud models** will plug in here later.`,
   };
 }
 

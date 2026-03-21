@@ -768,6 +768,28 @@
   isolation: isolate;
 }
 
+.codePanelLoading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 200px;
+  color: var(--shade-07);
+  font-size: 0.875rem;
+}
+
+.codePanelLoadingSpinner {
+  animation: codePanelSpin 0.7s linear infinite;
+}
+
+@keyframes codePanelSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── AI build progress (on canvas) ─────────────────────────────── */
 .aiBuildOverlay {
   position: absolute;
