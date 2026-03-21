@@ -1,16 +1,16 @@
 /**
- * Chat completions — OpenAI Chat Completions API (or Anthropic via callLLM).
+ * Chat completions — Anthropic-first streaming + callLLM (Anthropic then OpenAI).
  * POST /api/ai/chat-completions
  * Body: { messages: { role, content }[], model?: string, stream?: boolean }
- *
- * Requires OPENAI_API_KEY for streaming. Requires OPENAI_API_KEY or ANTHROPIC_API_KEY for AI responses.
  */
 
 import { NextResponse } from "next/server";
-import { callLLM, getOpenAIDefaultModel } from "@/lib/ai/providers";
+import { callLLM, getAnthropicDefaultModel, getOpenAIDefaultModel } from "@/lib/ai/providers";
 import type { ChatMessage } from "@/lib/ai/providers";
 import {
   CHAT_SSE_HEADERS,
+  anthropicSSEToNormalizedStream,
+  fetchAnthropicChatStream,
   fetchOpenAIChatStream,
   openAISSEToNormalizedStream,
 } from "@/lib/ai/providers/stream";
@@ -50,18 +50,39 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for chat completions.",
+            "ANTHROPIC_API_KEY or OPENAI_API_KEY is required for chat completions.",
         },
         { status: 503 }
       );
     }
 
     if (streamRequested) {
+      if (process.env.ANTHROPIC_API_KEY) {
+        const upstream = await fetchAnthropicChatStream({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          messages: toChatMessages(messages),
+          model: resolvedModel,
+          temperature: 0.7,
+          maxTokens: 2048,
+        });
+        if (upstream.ok) {
+          return new Response(anthropicSSEToNormalizedStream(upstream.body), {
+            headers: CHAT_SSE_HEADERS,
+          });
+        }
+        const errText = await upstream.text().catch(() => "");
+        if (!process.env.OPENAI_API_KEY) {
+          return NextResponse.json(
+            { error: errText || upstream.statusText || "Anthropic stream failed" },
+            { status: upstream.status }
+          );
+        }
+      }
       if (!process.env.OPENAI_API_KEY) {
         return NextResponse.json(
           {
             error:
-              "Streaming chat completions requires OPENAI_API_KEY. Use non-stream requests with Anthropic, or add OPENAI_API_KEY.",
+              "Streaming requires ANTHROPIC_API_KEY or OPENAI_API_KEY (Anthropic is tried first).",
           },
           { status: 503 }
         );

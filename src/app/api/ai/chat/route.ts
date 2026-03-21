@@ -3,7 +3,7 @@
  * - Refine panel: { message, nodes?, model? } → layout refinement
  * - Builder / bottom prompt: { messages, nodes, mode, style?, images? } → Coral + layout generation
  *
- * AI features require OPENAI_API_KEY (streaming ask/plan) or OPENAI_API_KEY / ANTHROPIC_API_KEY (callLLM).
+ * Cloud AI: ANTHROPIC_API_KEY preferred (callLLM + streaming ask/plan); OPENAI_API_KEY optional fallback.
  */
 
 import { NextResponse } from "next/server";
@@ -12,9 +12,11 @@ import { aiLayoutToSceneNodes, sceneNodesToAILayout } from "@/lib/ai/schema/adap
 import type { SceneNode } from "@/lib/editor/types";
 import { coralGenerate } from "@/lib/ai/coral-engine";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
-import { callLLM, getOpenAIDefaultModel } from "@/lib/ai/providers";
+import { callLLM, getAnthropicDefaultModel, getOpenAIDefaultModel } from "@/lib/ai/providers";
 import {
   CHAT_SSE_HEADERS,
+  anthropicSSEToNormalizedStream,
+  fetchAnthropicChatStream,
   fetchOpenAIChatStream,
   openAISSEToNormalizedStream,
 } from "@/lib/ai/providers/stream";
@@ -100,10 +102,34 @@ export async function POST(req: Request) {
             return NextResponse.json(
               {
                 error:
-                  "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for AI chat. Streaming ask/plan needs OPENAI_API_KEY.",
+                  "ANTHROPIC_API_KEY or OPENAI_API_KEY is required for AI chat (streaming uses Anthropic first, then OpenAI).",
               },
               { status: 503 }
             );
+          }
+          if (process.env.ANTHROPIC_API_KEY) {
+            const upstream = await fetchAnthropicChatStream({
+              apiKey: process.env.ANTHROPIC_API_KEY,
+              messages: [
+                { role: "system", content: askSystem },
+                { role: "user", content: prompt },
+              ],
+              model: getAnthropicDefaultModel(),
+              temperature: 0.6,
+              maxTokens: 1800,
+            });
+            if (upstream.ok) {
+              return new Response(anthropicSSEToNormalizedStream(upstream.body), {
+                headers: CHAT_SSE_HEADERS,
+              });
+            }
+            const t = await upstream.text().catch(() => "");
+            if (!process.env.OPENAI_API_KEY) {
+              return NextResponse.json(
+                { error: t || "Anthropic stream failed" },
+                { status: upstream.status }
+              );
+            }
           }
           if (process.env.OPENAI_API_KEY) {
             const upstream = await fetchOpenAIChatStream({
@@ -127,7 +153,6 @@ export async function POST(req: Request) {
               headers: CHAT_SSE_HEADERS,
             });
           }
-          // Anthropic-only: no OpenAI stream — fall through to JSON below
         } catch (err) {
           console.error("Ask stream error:", err);
         }
@@ -163,10 +188,34 @@ export async function POST(req: Request) {
             return NextResponse.json(
               {
                 error:
-                  "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for AI chat. Streaming ask/plan needs OPENAI_API_KEY.",
+                  "ANTHROPIC_API_KEY or OPENAI_API_KEY is required for AI chat (streaming uses Anthropic first, then OpenAI).",
               },
               { status: 503 }
             );
+          }
+          if (process.env.ANTHROPIC_API_KEY) {
+            const upstream = await fetchAnthropicChatStream({
+              apiKey: process.env.ANTHROPIC_API_KEY,
+              messages: [
+                { role: "system", content: planSystem },
+                { role: "user", content: `Create a step-by-step plan for: ${prompt}` },
+              ],
+              model: getAnthropicDefaultModel(),
+              temperature: 0.5,
+              maxTokens: 1800,
+            });
+            if (upstream.ok) {
+              return new Response(anthropicSSEToNormalizedStream(upstream.body), {
+                headers: CHAT_SSE_HEADERS,
+              });
+            }
+            const t = await upstream.text().catch(() => "");
+            if (!process.env.OPENAI_API_KEY) {
+              return NextResponse.json(
+                { error: t || "Anthropic stream failed" },
+                { status: upstream.status }
+              );
+            }
           }
           if (process.env.OPENAI_API_KEY) {
             const upstream = await fetchOpenAIChatStream({
@@ -197,7 +246,7 @@ export async function POST(req: Request) {
       try {
         if (!hasCloudAi()) {
           return NextResponse.json(
-            { error: "OPENAI_API_KEY or ANTHROPIC_API_KEY is required for AI chat." },
+            { error: "ANTHROPIC_API_KEY or OPENAI_API_KEY is required for AI chat." },
             { status: 503 }
           );
         }

@@ -1,6 +1,6 @@
 /**
- * AI Provider abstraction — OpenAI Chat Completions API first (official api.openai.com),
- * optional Anthropic fallback. OPENAI_BASE_URL is for proxies or enterprise gateways only.
+ * AI Provider abstraction — Anthropic Messages API first (fast/cheap defaults),
+ * OpenAI Chat Completions second. OPENAI_BASE_URL is for proxies or enterprise gateways only.
  */
 
 export type AIProvider = "openai" | "anthropic";
@@ -17,6 +17,31 @@ export function getOpenAIChatCompletionsUrl(): string {
 /** Default model when the request omits `model` (env OPENAI_MODEL or gpt-4o-mini for speed). */
 export function getOpenAIDefaultModel(): string {
   return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+/** Default Anthropic model when the request omits `model` or passes an OpenAI-style model id. */
+export function getAnthropicDefaultModel(): string {
+  return process.env.ANTHROPIC_MODEL?.trim() || "claude-haiku-4-5-20251001";
+}
+
+function isOpenAIModelName(model: string): boolean {
+  const m = model.trim().toLowerCase();
+  return m.startsWith("gpt-") || /^o\d/.test(m) || m.startsWith("chatgpt");
+}
+
+function isAnthropicModelName(model: string): boolean {
+  return model.trim().toLowerCase().startsWith("claude-");
+}
+
+/** Avoid sending gpt-* ids to Anthropic (and vice versa) when callers pass a single default. */
+export function resolveAnthropicModel(model?: string): string {
+  if (!model || isOpenAIModelName(model)) return getAnthropicDefaultModel();
+  return model;
+}
+
+export function resolveOpenAIModel(model?: string): string {
+  if (!model || isAnthropicModelName(model)) return getOpenAIDefaultModel();
+  return model;
 }
 
 export interface ChatMessage {
@@ -55,7 +80,7 @@ function buildMessages(options: LLMOptions): Array<{ role: string; content: stri
 async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY required");
-  const model = options.model ?? getOpenAIDefaultModel();
+  const model = resolveOpenAIModel(options.model);
   const messages = buildMessages(options);
   if (!messages.length) throw new Error("No messages provided");
   const body: Record<string, unknown> = {
@@ -103,7 +128,7 @@ async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
 async function callAnthropic(options: LLMOptions): Promise<LLMResponse> {
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY required");
-  const model = options.model ?? "claude-sonnet-4-5";
+  const model = resolveAnthropicModel(options.model);
   const messages = buildMessages(options);
   const systemMsg = messages.find((m) => m.role === "system");
   const userMessages = messages.filter((m) => m.role === "user" || m.role === "assistant");
@@ -158,13 +183,6 @@ export async function callLLM(options: LLMOptions): Promise<LLMResponse> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   let lastError: Error | null = null;
 
-  if (openaiKey) {
-    try {
-      return await callOpenAI({ ...options, apiKey: openaiKey });
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-    }
-  }
   if (anthropicKey) {
     try {
       return await callAnthropic({ ...options, apiKey: anthropicKey });
@@ -172,5 +190,12 @@ export async function callLLM(options: LLMOptions): Promise<LLMResponse> {
       lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
-  throw lastError ?? new Error("No AI provider available (set OPENAI_API_KEY or ANTHROPIC_API_KEY)");
+  if (openaiKey) {
+    try {
+      return await callOpenAI({ ...options, apiKey: openaiKey });
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  throw lastError ?? new Error("No AI provider available (set ANTHROPIC_API_KEY or OPENAI_API_KEY)");
 }

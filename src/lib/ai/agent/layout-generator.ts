@@ -1,6 +1,6 @@
 /**
  * Layout Generator - Creates UI component tree from parsed prompt
- * Uses OpenAI (or Anthropic via callLLM) — no local Ollama fallback.
+ * Uses callLLM (Anthropic first, OpenAI fallback) — no local Ollama fallback.
  */
 
 import type { AIUILayout, AIUIElement, AIUIFrame } from "../schema/ui-schema";
@@ -340,7 +340,9 @@ JSON SCHEMA (no example labels — all copy must come from the PRIORITY block ab
 ${ABSTRACT_JSON_SHAPE_GUIDE}`;
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
+  const hasCloudKey = Boolean(
+    process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || options?.apiKey
+  );
 
   try {
     if (!hasCloudKey) {
@@ -403,7 +405,7 @@ IMPORTANT: Your previous output was empty, invalid JSON, or too minimal. Return 
     }
 
     console.warn(
-      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check your OPENAI_API_KEY and server logs."
+      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check ANTHROPIC_API_KEY / OPENAI_API_KEY and server logs."
     );
     const fb = getFallbackLayout(parsed);
     logDevParsedLayout("fallback", fb);
@@ -411,7 +413,7 @@ IMPORTANT: Your previous output was empty, invalid JSON, or too minimal. Return 
   } catch (err) {
     console.error("Layout generation error:", err);
     console.warn(
-      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check your OPENAI_API_KEY and server logs."
+      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check ANTHROPIC_API_KEY / OPENAI_API_KEY and server logs."
     );
     return getFallbackLayout(parsed);
   }
