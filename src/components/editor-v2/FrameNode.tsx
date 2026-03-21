@@ -11,9 +11,11 @@ interface FrameNodeProps {
   node: SceneNode;
   isSelected: boolean;
   zoom: number;
+  /** When true, parent uses flex — this frame is a flex item (relative, not absolute canvas coords). */
+  parentHasLayoutMode?: boolean;
 }
 
-export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
+export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false }: FrameNodeProps) {
   if (node.visible === false) return null;
   const {
     setSelectedIds,
@@ -96,15 +98,44 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
   const bc = node.props?.borderColor as string | undefined;
   const customBorder = bw != null && bc ? `${bw}px solid ${bc}` : undefined;
 
-  return (
-    <div
-      className={`frame-node ${isSelected ? "selected" : ""}`}
-      style={{
+  const isFlexLayout = node.layoutMode === "VERTICAL" || node.layoutMode === "HORIZONTAL";
+  const framePositioning: React.CSSProperties = parentHasLayoutMode
+    ? {
+        position: "relative",
+        left: "unset",
+        top: "unset",
+        width: node.width,
+        height: node.height,
+        flex: "0 0 auto",
+      }
+    : {
         position: "absolute",
         left: node.x,
         top: node.y,
         width: node.width,
         height: node.height,
+      };
+
+  const innerLayoutStyle: React.CSSProperties = isFlexLayout
+    ? {
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: 1,
+        display: "flex",
+        flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
+        flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
+        gap: node.itemSpacing ?? 0,
+        alignItems: "flex-start",
+        justifyContent: "flex-start",
+      }
+    : { position: "relative", width: "100%", height: "100%", minHeight: 1 };
+
+  return (
+    <div
+      className={`frame-node ${isSelected ? "selected" : ""}`}
+      style={{
+        ...framePositioning,
         border:
           isSelected && !isFrameEntered
             ? "none"
@@ -149,7 +180,7 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
       }}
     >
       {isSelected && !isFrameEntered && <ResizeHandles onResizeStart={handleResizeStart} />}
-      <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 1 }}>
+      <div style={innerLayoutStyle}>
         {node.children?.map((child) => {
           const childSelected = selectedIds.has(child.id);
           if (child.props?._figma) {
@@ -170,6 +201,7 @@ export function FrameNode({ node, isSelected, zoom }: FrameNodeProps) {
               node={child}
               isSelected={childSelected}
               zoom={zoom}
+              parentHasLayoutMode={isFlexLayout}
             />
           );
         })}

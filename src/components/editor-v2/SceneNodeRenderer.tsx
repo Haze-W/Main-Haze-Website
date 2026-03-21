@@ -21,9 +21,11 @@ interface SceneNodeRendererProps {
   node: SceneNode;
   isSelected: boolean;
   zoom: number;
+  /** When true, this node is laid out by a parent's flex container — use relative positioning. */
+  parentHasLayoutMode?: boolean;
 }
 
-export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererProps) {
+export function SceneNodeRenderer({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
   if (node.visible === false) return null;
   if (node.props?._figma) {
     return <FigmaNodeRenderer node={node} isSelected={isSelected} zoom={zoom} />;
@@ -32,12 +34,12 @@ export function SceneNodeRenderer({ node, isSelected, zoom }: SceneNodeRendererP
     return <TopBarNode node={node} isSelected={isSelected} zoom={zoom} />;
   }
   if (node.type === "FRAME") {
-    return <FrameNode node={node} isSelected={isSelected} zoom={zoom} />;
+    return <FrameNode node={node} isSelected={isSelected} zoom={zoom} parentHasLayoutMode={parentHasLayoutMode} />;
   }
-  return <GenericNode node={node} isSelected={isSelected} zoom={zoom} />;
+  return <GenericNode node={node} isSelected={isSelected} zoom={zoom} parentHasLayoutMode={parentHasLayoutMode} />;
 }
 
-function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
+function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
   const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds } = useEditorStore();
   const [isHovered, setIsHovered] = useState(false);
 
@@ -80,13 +82,41 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
     else setSelectedIds([node.id]);
   };
 
+  const isFlexLayout = node.layoutMode === "VERTICAL" || node.layoutMode === "HORIZONTAL";
+  const isContainerWithChildren = node.type === "CONTAINER" && (node.children?.length ?? 0) > 0;
+  /** Outer node gets flex when it has layoutMode, except CONTAINER defers flex to inner wrapper so children participate. */
+  const applyFlexToSelf = isFlexLayout && !isContainerWithChildren;
+
+  const flexProps: React.CSSProperties = {
+    display: "flex",
+    flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
+    flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
+    gap: node.itemSpacing ?? 0,
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+  };
+
   // Base style — applies to every node
+  const positioning: React.CSSProperties = parentHasLayoutMode
+    ? {
+        position: "relative",
+        left: "unset",
+        top: "unset",
+        width: node.width,
+        height: node.height,
+        flex: "0 0 auto",
+      }
+    : {
+        position: "absolute",
+        left: node.x,
+        top: node.y,
+        width: node.width,
+        height: node.height,
+      };
+
   const baseStyle: React.CSSProperties = {
-    position: "absolute",
-    left: node.x,
-    top: node.y,
-    width: node.width,
-    height: node.height,
+    ...positioning,
+    ...(applyFlexToSelf ? flexProps : {}),
     boxSizing: "border-box",
     cursor: "pointer",
     outline: isSelected ? "2px solid var(--accent)" : "none",
@@ -380,6 +410,7 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
         p != null || props.paddingTop != null
           ? `${(props.paddingTop as number) ?? p ?? 0}px ${(props.paddingRight as number) ?? p ?? 0}px ${(props.paddingBottom as number) ?? p ?? 0}px ${(props.paddingLeft as number) ?? p ?? 0}px`
           : undefined;
+      const flexParent = isFlexLayout;
       const containerStyle: React.CSSProperties = {
         ...merged,
         ...(bg && { backgroundColor: bg }),
@@ -390,16 +421,31 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
           ? { border: `${props.borderWidth}px solid ${props.borderColor}` }
           : {}),
       };
+      const innerLayoutStyle: React.CSSProperties = flexParent
+        ? {
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            minHeight: 1,
+            display: "flex",
+            flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
+            flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
+            gap: node.itemSpacing ?? 0,
+            alignItems: "flex-start",
+            justifyContent: "flex-start",
+          }
+        : { position: "relative", width: "100%", height: "100%", minHeight: 1 };
       return (
         <div className={styles.genericNode} style={containerStyle} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 1 }}>
+          <div style={innerLayoutStyle}>
             {node.children.map((child) => (
               <SceneNodeRenderer
                 key={child.id}
                 node={child}
                 isSelected={selectedIds.has(child.id)}
                 zoom={zoom}
+                parentHasLayoutMode={flexParent}
               />
             ))}
           </div>

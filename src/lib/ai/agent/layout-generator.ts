@@ -145,15 +145,6 @@ const STYLE_VARIATIONS = [
   "Visual direction F: founder-style dark slate + warm accent (not default indigo/purple), asymmetric content block.",
 ] as const;
 
-function hashPrompt(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 function archetypeHintForPrompt(raw: string): string {
   const t = raw.trim();
   for (const a of ARCHETYPE_SPECS) {
@@ -162,8 +153,8 @@ function archetypeHintForPrompt(raw: string): string {
   return "Archetype: Infer from PRIORITY text. Include typical regions for that product (nav, primary work area, actions). Avoid generic KPI cards unless the user asked for analytics or business metrics.";
 }
 
-function styleRotationHint(raw: string): string {
-  const idx = hashPrompt(raw) % STYLE_VARIATIONS.length;
+function styleRotationHint(): string {
+  const idx = Math.floor(Math.random() * STYLE_VARIATIONS.length);
   return `${STYLE_VARIATIONS[idx]} Pick a different palette family than cliché blue-purple SaaS unless the prompt dictates it.`;
 }
 
@@ -202,9 +193,23 @@ function buildUserPrompt(
         : "DESKTOP: sidebar + topbar + main content grid when appropriate.";
 
   const arch = archetypeHintForPrompt(parsed.raw);
-  const styleV = styleRotationHint(parsed.raw);
-  const generationBias = hashPrompt(`${parsed.raw}|${Date.now()}`);
-  const uniqueBias = `GENERATION_BIAS: ${generationBias} — vary shell layout, accent color family, and component density vs any prior generic output; obey PRIORITY first, then this bias for freshness.`;
+  const styleV = styleRotationHint();
+  const COLOR_SEEDS = [
+    "warm amber and cream",
+    "deep teal and mint green",
+    "slate grey and coral",
+    "forest green and sand",
+    "navy blue and gold",
+    "rose pink and charcoal",
+    "deep plum and soft lavender",
+    "burnt orange and ivory",
+    "midnight blue and electric cyan",
+    "earthy terracotta and warm white",
+    "cool grey and lime green",
+    "deep crimson and blush",
+  ];
+  const randomColorSeed = COLOR_SEEDS[Math.floor(Math.random() * COLOR_SEEDS.length)];
+  const uniqueBias = `COLOR DIRECTION: Build the palette around "${randomColorSeed}" unless the user's prompt specifies exact colors — adapt it naturally to the product type. GENERATION ID: ${Date.now()} — vary shell layout, sidebar width, card density, border-radius scale, and component density from any prior generic output. Obey PRIORITY block first, then this directive for freshness and uniqueness.`;
 
   return `=== PRIORITY: BUILD EXACTLY THIS (titles, nav, widgets must reflect these words) ===
 """
@@ -351,7 +356,7 @@ ${ABSTRACT_JSON_SHAPE_GUIDE}`;
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },
       ],
-      temperature: 0.42,
+      temperature: 0.75,
       maxTokens: 3200,
       jsonMode: true,
       timeoutMs: 40_000,
@@ -397,11 +402,17 @@ IMPORTANT: Your previous output was empty, invalid JSON, or too minimal. Return 
       }
     }
 
+    console.warn(
+      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check your OPENAI_API_KEY and server logs."
+    );
     const fb = getFallbackLayout(parsed);
     logDevParsedLayout("fallback", fb);
     return fb;
   } catch (err) {
     console.error("Layout generation error:", err);
+    console.warn(
+      "[Haze AI] ⚠️ Falling back to static layout — LLM call failed, returned invalid JSON, or was too minimal. Check your OPENAI_API_KEY and server logs."
+    );
     return getFallbackLayout(parsed);
   }
 }
