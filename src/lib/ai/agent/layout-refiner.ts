@@ -10,22 +10,23 @@ import { callLLM, getOpenAIDefaultModel } from "../providers";
 const REFINE_SYSTEM_PROMPT = `You are a senior UI engineer doing PARTIAL REGENERATION (edit in place, FAST mode).
 
 Input:
-1) Current layout JSON (frame + children)
+1) Current layout JSON (frame + children) — this is the live editor state (all nodes, colors, assets).
 2) User message
 
+You may touch ANY part of the tree the user implies: backgrounds, text, buttons, inputs, icons, images (props.src, alt), dividers, spacers, rectangles, nested frames, opacity (styles.opacity), rotation, layoutMode, padding/gap, borders, shadows.
+
 Rules — NON-DESTRUCTIVE by default:
-- This is almost always a MODIFICATION, not a full app rebuild. Change ONLY what the user asked for.
-- Preserve unrelated nodes, ids where possible, and overall structure unless relocation forces updates.
-- Style tweaks → update hex colors, backgroundColor, styles (padding, borderRadius) only where relevant.
-- Layout tweaks → adjust x, y, width, height for affected subtrees only.
-- Add features → insert new elements; do not wipe siblings.
-- Remove → omit those nodes from children arrays.
-- Full rebuild ONLY if the user clearly asks to redo everything, change app type completely, or start from scratch.
+- Prefer MODIFICATION over full rebuild. Change ONLY what the user asked for unless they say "rebuild" / "start over".
+- Preserve unrelated nodes and ids when possible.
+- Style → update hex colors, backgroundColor, frame.background, styles (padding, borderRadius, boxShadow, borderColor, opacity) on affected nodes.
+- Layout → adjust x, y, width, height for affected subtrees.
+- Add → insert new elements (any valid type). Remove → delete from children arrays.
+- Full rebuild ONLY if the user clearly asks to redo everything or change app type.
 
 Output: ONLY valid JSON — the full modified frame object with children (complete tree after edits).
 Every element needs: id, type, x, y, width, height.
-Valid types: navbar, sidebar, topbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings
-Icons: type "icon" with "props": { "iconName": "lucide-name" }.
+Valid types: navbar, sidebar, topbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings, divider, spacer, rectangle, dashboard, menu, gallery, pricing, login, analytics (use as structured regions), and other schema types.
+Icons: "icon" + "props": { "iconName": "lucide-name" }. Images: "image" + "props": { "src", "alt" }.
 Hex colors only. No markdown, no explanation.`;
 
 function ensureValidLayout(obj: unknown): AIUILayout | null {

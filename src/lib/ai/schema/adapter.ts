@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import type { SceneNode } from "@/lib/editor/types";
 import type { AIStyleProps, AIUIElement, AIUILayout, UIComponentType } from "./ui-schema";
 import { getValidIconName } from "@/lib/icon-valid";
+import { createDefaultTopBarConfig } from "@/lib/editor/blocks";
 
 /** Semantic types that map to CONTAINER with variant for proper editor styling */
 const CONTAINER_VARIANT_TYPES: Partial<Record<UIComponentType, string>> = {
@@ -211,13 +212,54 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
     };
   }
 
-  if (type === "IMAGE" && el.props?.src) {
-    props = { ...props, src: el.props.src, ...(el.props.alt ? { alt: el.props.alt } : {}) };
+  if (type === "IMAGE") {
+    const w = Math.max(32, Math.round(el.width));
+    const h = Math.max(32, Math.round(el.height));
+    const seed = encodeURIComponent((el.id || "img").replace(/[^a-zA-Z0-9]/g, "").slice(0, 32) || "a");
+    const placeholder = `https://picsum.photos/seed/${seed}/${w}/${h}`;
+    const src = (el.props?.src as string | undefined)?.trim();
+    props = {
+      ...props,
+      src: src || placeholder,
+      ...(el.props?.alt ? { alt: el.props.alt } : {}),
+      ...(el.props?.rounded === true ? { rounded: true } : {}),
+    };
   }
 
   if (type === "RECTANGLE") {
     props = { ...props, ...surfaceProps(el, false) };
   }
+
+  if (type === "TOPBAR") {
+    const cfg = createDefaultTopBarConfig("windows");
+    const bg = resolveBg(el);
+    const fg = resolveFg(el);
+    const titleFromProps = el.props?.title as string | undefined;
+    props = {
+      ...props,
+      _topBarConfig: {
+        ...cfg,
+        ...(bg ? { backgroundColor: bg } : {}),
+        ...(fg ? { textColor: fg } : {}),
+        title: titleFromProps ?? el.text ?? cfg.title,
+      },
+    };
+  }
+
+  if (type === "DIVIDER") {
+    const bg = resolveBg(el);
+    if (bg) props = { ...props, backgroundColor: bg };
+    else if (el.styles?.borderColor) {
+      props = { ...props, backgroundColor: String(el.styles.borderColor) };
+    }
+  }
+
+  const opacityFromStyles =
+    el.styles?.opacity != null
+      ? Math.min(1, Math.max(0, Number(el.styles.opacity)))
+      : undefined;
+  const nodeOpacity =
+    opacityFromStyles != null && !Number.isNaN(opacityFromStyles) ? opacityFromStyles : undefined;
 
   const node: SceneNode = {
     id,
@@ -232,6 +274,8 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
     locked: false,
     props,
     ...layoutPart,
+    ...(el.rotation != null && !Number.isNaN(Number(el.rotation)) ? { rotation: Number(el.rotation) } : {}),
+    ...(nodeOpacity != null ? { opacity: nodeOpacity } : {}),
   };
 
   return node;
@@ -297,6 +341,16 @@ function sceneNodeToAIElement(node: SceneNode): AIUIElement {
   if (props.boxShadow != null) styles.boxShadow = String(props.boxShadow);
   if (props.padding != null) styles.padding = props.padding as number;
   if (props.paddingTop != null) styles.paddingTop = props.paddingTop as number;
+  if (node.opacity != null && node.opacity < 1) styles.opacity = node.opacity;
+
+  let extraProps: Record<string, unknown> | undefined;
+  if (type === "icon") extraProps = { iconName: props.iconName };
+  else if (type === "image") {
+    extraProps = {};
+    if (props.src) extraProps.src = props.src;
+    if (props.alt) extraProps.alt = props.alt;
+    if (props.rounded) extraProps.rounded = props.rounded;
+  }
 
   return {
     id: node.id,
@@ -310,8 +364,9 @@ function sceneNodeToAIElement(node: SceneNode): AIUIElement {
     backgroundColor: props.backgroundColor as string | undefined,
     styles: Object.keys(styles).length ? styles : undefined,
     children: (node.children ?? []).map(sceneNodeToAIElement),
-    props: type === "icon" ? { iconName: props.iconName } : undefined,
+    props: extraProps,
     layoutMode: node.layoutMode,
+    ...(node.rotation != null ? { rotation: node.rotation } : {}),
   };
 }
 

@@ -321,8 +321,14 @@ function GenericNode({ node, isSelected, zoom }: SceneNodeRendererProps) {
 
   // ── DIVIDER ───────────────────────────────────────────────────────────────
   if (node.type === "DIVIDER") {
+    const divBg = (props.backgroundColor as string) || undefined;
     return (
-      <div className={styles.dividerNode} style={merged} onClick={handleClick} onPointerDown={drag}>
+      <div
+        className={styles.dividerNode}
+        style={{ ...merged, ...(divBg ? { background: divBg } : {}) }}
+        onClick={handleClick}
+        onPointerDown={drag}
+      >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );

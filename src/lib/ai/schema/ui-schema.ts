@@ -62,6 +62,8 @@ export interface AIStyleProps {
   borderWidth?: number;
   /** CSS box-shadow string, e.g. "0 4px 24px rgba(0,0,0,0.25)" */
   boxShadow?: string;
+  /** 0–1 — maps to editor node opacity */
+  opacity?: number;
 }
 
 export interface AIUIElement {
@@ -76,8 +78,11 @@ export interface AIUIElement {
   backgroundColor?: string;
   styles?: AIStyleProps;
   children?: AIUIElement[];
+  /** iconName, src/alt for images, title for topbar, rounded, etc. */
   props?: Record<string, unknown>;
   layoutMode?: "NONE" | "HORIZONTAL" | "VERTICAL";
+  /** Degrees — maps to editor rotation */
+  rotation?: number;
 }
 
 export interface AIUIFrame {

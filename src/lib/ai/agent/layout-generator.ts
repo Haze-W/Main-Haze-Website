@@ -29,10 +29,19 @@ export interface LayoutGeneratorOptions {
 
 /** No concrete example UI JSON — avoids the model copying the same dashboard labels every time. */
 const ABSTRACT_JSON_SHAPE_GUIDE = `
-Output shape: { "frame": { "width", "height", "background" (hex — full canvas), "children": [ ... ] } }
-Each child: "id", "type", "x", "y", "width", "height", "backgroundColor" (hex), "color" (hex for text/button), "text", "layoutMode" ("VERTICAL"|"HORIZONTAL"), "styles": { "fontSize", "fontWeight", "padding", "gap", "borderRadius", "boxShadow", "borderColor", "borderWidth" }, "props": { "iconName": "lucide-kebab-name" }, "children": [ nested ] }.
-Types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings.
-Coordinates are relative to parent. Every major surface needs explicit hex colors so the UI is not plain white. Vary structure for the app type.
+Output shape: { "frame": { "width", "height", "background" (hex — full app canvas), "children": [ ... ] } }
+Each node: "id", "type", "x", "y", "width", "height", optional "rotation" (degrees), "backgroundColor", "color", "text", "layoutMode" ("VERTICAL"|"HORIZONTAL"),
+"styles": { "fontSize", "fontWeight", "padding", "gap", "borderRadius", "boxShadow", "borderColor", "borderWidth", "opacity" (0–1) },
+"props": { ... }, "children": [ nested ] }.
+
+Types (use what fits the product — mix freely): sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings,
+divider (thin separator), spacer (flexible gap), rectangle (decorative block), dashboard, menu, gallery, pricing, login, analytics, ecommerce patterns as frames+cards.
+
+Images: type "image" with "props": { "src": "https://..." , "alt": "..." } OR omit src to let the pipeline use a placeholder.
+Icons: type "icon" + "props": { "iconName": "lucide-kebab-case" }.
+Top bar (window chrome): type "topbar" with children OR empty; set "backgroundColor"/"color"; optional "props": { "title": "App name" }.
+
+Coordinates relative to parent. Use DISTINCT hex palettes per request — never default to the same indigo/purple SaaS look unless the user asked for it.
 `.trim();
 const SYSTEM_PROMPT = `You are an elite product UI generator (FAST mode: think through intent → spec → layout internally; output only JSON).
 
@@ -42,21 +51,25 @@ Core:
 - USER / PRIORITY block is the only source of truth for app type, copy, and features. Never substitute a stock analytics dashboard unless they asked for metrics/SaaS KPIs.
 - Internally classify archetype (chatbot, dashboard, landing, ecommerce, portfolio, CRM, admin, social, finance, booking, messaging, productivity) and include the regions that archetype implies — always complete, never hollow shells.
 - Short prompts expand into real products (e.g. "make a chatbot" → history sidebar, thread, bubbles, composer, new chat).
-- Anti-repetition: vary layout structure, palette family, radius, and density vs previous generic SaaS templates. Do not reuse the same sidebar+three-metric-cards pattern unless the request is analytics.
+
+CRITICAL — NO CLONE-UI: Each generation must look DIFFERENT from generic templates:
+- Do NOT repeat the same layout skeleton every time (e.g. "left nav + 3 KPI cards" unless the user asked for KPIs).
+- Derive a fresh COLOR STORY from the user's words (e.g. "coffee" → warm browns/cream; "ocean" → teals; "night" → deep slate + one accent). Avoid cliché blue-purple gradients unless requested.
+- Vary: sidebar width, card density, radius scale (6–20px), typography scale, and whether the chrome is minimal vs dense.
+- If the prompt is vague, still pick a coherent theme and stick to it — but change that theme from one generation to the next when the wording differs.
 
 Technical:
-- Every element: id (unique), type, x, y, width, height.
-- Types: sidebar, topbar, navbar, hero, card, text, button, input, icon, image, frame, container, form, table, modal, settings.
-- Icons: "icon" + "props": { "iconName": "lucide-kebab-name" }.
+- Every element: id (unique string), type, x, y, width, height.
+- Use nested "frame" and "container" to group regions; use "divider" / "spacer" for rhythm.
 - Hex colors only; nested x,y relative to parent.
-- Premium, production-ready density: enough labels, nav, fields, cards, or chat rows to feel real — no Lorem ipsum.
+- Premium density: enough real labels, nav, fields, list rows, or chat bubbles — no "Lorem ipsum".
 
-VISUAL (required — the renderer uses these fields; omitting them causes a flat default look):
-- Root "frame" MUST set "background" (hex) for the app canvas.
-- Every sidebar, topbar, card, hero, main area, and nested "frame" MUST set "backgroundColor" (hex) and/or "styles": { "backgroundColor", "borderRadius", "padding", "gap", "boxShadow" }.
-- Every "text" node MUST set "color" (hex) and usually "styles": { "fontSize", "fontWeight" } (vary sizes for headings vs body).
-- "button" and "input" MUST set "backgroundColor" and "color" (and "styles.borderRadius" where relevant). Use contrasting palettes per app (fintech dark+navy, kids app bright multicolor, chatbot neon accents, etc.).
-- Optional "layoutMode": "VERTICAL" | "HORIZONTAL" on containers that stack children; optional "styles.gap" for spacing between stacked items.
+VISUAL (required — the renderer uses these fields):
+- Root "frame" MUST set "background" (hex) for the full canvas.
+- Every surface (sidebar, topbar, card, hero, nested frame) MUST set "backgroundColor" and/or "styles.backgroundColor", "borderRadius", "padding"/"gap", "boxShadow" where appropriate.
+- "text" nodes: "color" + "styles.fontSize" / "fontWeight" (vary heading vs body).
+- "button", "input": "backgroundColor", "color", "styles.borderRadius", optional "styles.borderColor".
+- Optional "styles.opacity" (0–1) for subtle layers; optional "rotation" on decorative elements.
 
 Output ONLY valid JSON. No markdown, no commentary.`;
 
@@ -190,6 +203,8 @@ function buildUserPrompt(
 
   const arch = archetypeHintForPrompt(parsed.raw);
   const styleV = styleRotationHint(parsed.raw);
+  const generationBias = hashPrompt(`${parsed.raw}|${Date.now()}`);
+  const uniqueBias = `GENERATION_BIAS: ${generationBias} — vary shell layout, accent color family, and component density vs any prior generic output; obey PRIORITY first, then this bias for freshness.`;
 
   return `=== PRIORITY: BUILD EXACTLY THIS (titles, nav, widgets must reflect these words) ===
 """
@@ -200,6 +215,8 @@ ${parsed.raw}
 PRODUCT SHAPING: ${arch}
 
 STYLE / UNIQUENESS: ${styleV}
+
+${uniqueBias}
 
 RULES: Valid JSON only; every node needs id, type, x, y, width, height. Icons use props.iconName (Lucide). Invent realistic labels FROM THE PRIORITY BLOCK — no generic "Total Revenue" unless the user asked for analytics. No Lorem ipsum. ${viewportHint}
 
