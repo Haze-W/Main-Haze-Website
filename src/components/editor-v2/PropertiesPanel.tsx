@@ -3,10 +3,29 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
-import { Image, Palette, Plus, Trash2, ChevronDown, Zap } from "lucide-react";
+import {
+  Image,
+  Palette,
+  Plus,
+  Trash2,
+  ChevronDown,
+  Zap,
+  ArrowLeftRight,
+  ArrowUpDown,
+  WrapText,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  AlignHorizontalJustifyCenter,
+  AlignVerticalJustifyCenter,
+  Scaling,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
 import { TopBarConfigPanel } from "./TopBarConfigPanel";
-import type { Paint } from "@/lib/figma/types";
+import type { Paint as FigmaPaint } from "@/lib/figma/types";
+import type { Paint as ScenePaint, Effect as SceneEffect, DropShadow, InnerShadow, BlurEffect } from "@/lib/editor/types";
 import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
 import { BLOCK_TYPE_OPTIONS, TRANSITION_OPTIONS, HOVER_PRESETS } from "@/lib/editor/blocks";
 import type { Interaction, Block, BlockType, BlockParams, InteractionList, HoverPreset } from "@/lib/editor/blocks";
@@ -89,6 +108,248 @@ function findNode(nodes: SceneNode[], id: string): SceneNode | null {
     if (found) return found;
   }
   return null;
+}
+
+/** 3×3 Figma-style alignment: [primaryAxis, counterAxis] per cell */
+const ALIGN_GRID: [string, string][][] = [
+  [
+    ["MIN", "MIN"],
+    ["MIN", "CENTER"],
+    ["MIN", "MAX"],
+  ],
+  [
+    ["CENTER", "MIN"],
+    ["CENTER", "CENTER"],
+    ["CENTER", "MAX"],
+  ],
+  [
+    ["MAX", "MIN"],
+    ["MAX", "CENTER"],
+    ["MAX", "MAX"],
+  ],
+];
+
+function AutoLayoutFrameSection({
+  node,
+  updateNode,
+}: {
+  node: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  const layoutMode = node.layoutMode ?? "NONE";
+  const isAuto = layoutMode === "HORIZONTAL" || layoutMode === "VERTICAL";
+  const primary = node.primaryAxisAlignItems ?? "MIN";
+  const counter = node.counterAxisAlignItems ?? "MIN";
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.label}>Layout</div>
+      {layoutMode === "NONE" && (
+        <button
+          type="button"
+          className={styles.autoLayoutAddBtn}
+          onClick={() =>
+            updateNode(node.id, {
+              layoutMode: "HORIZONTAL",
+              itemSpacing: 8,
+              paddingTop: 8,
+              paddingRight: 8,
+              paddingBottom: 8,
+              paddingLeft: 8,
+              primaryAxisAlignItems: "MIN",
+              counterAxisAlignItems: "MIN",
+            })
+          }
+        >
+          + Auto Layout
+        </button>
+      )}
+      {isAuto && (
+        <>
+          <div className={styles.row} style={{ alignItems: "center", marginTop: 4 }}>
+            <span className={styles.autoLayoutMiniLabel}>Direction</span>
+            <div className={styles.directionBtnGroup}>
+              <button
+                type="button"
+                title="Horizontal"
+                className={`${styles.directionIconBtn} ${layoutMode === "HORIZONTAL" ? styles.directionIconBtnActive : ""}`}
+                onClick={() => updateNode(node.id, { layoutMode: "HORIZONTAL" })}
+              >
+                <ArrowLeftRight size={16} />
+              </button>
+              <button
+                type="button"
+                title="Vertical"
+                className={`${styles.directionIconBtn} ${layoutMode === "VERTICAL" ? styles.directionIconBtnActive : ""}`}
+                onClick={() => updateNode(node.id, { layoutMode: "VERTICAL" })}
+              >
+                <ArrowUpDown size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.row} style={{ marginTop: 8 }}>
+            <div className={styles.inputGroup}>
+              <span className={styles.inputPrefix}>Gap</span>
+              <NumberInput
+                value={node.itemSpacing ?? 0}
+                onChange={(v) => updateNode(node.id, { itemSpacing: v })}
+              />
+            </div>
+          </div>
+
+          <div className={styles.autoLayoutSubLabel}>Padding</div>
+          <div className={styles.row}>
+            <div className={styles.inputGroup}>
+              <span className={styles.inputPrefix}>T</span>
+              <NumberInput value={node.paddingTop ?? 0} onChange={(v) => updateNode(node.id, { paddingTop: v })} />
+            </div>
+            <div className={styles.inputGroup}>
+              <span className={styles.inputPrefix}>R</span>
+              <NumberInput value={node.paddingRight ?? 0} onChange={(v) => updateNode(node.id, { paddingRight: v })} />
+            </div>
+            <div className={styles.inputGroup}>
+              <span className={styles.inputPrefix}>B</span>
+              <NumberInput value={node.paddingBottom ?? 0} onChange={(v) => updateNode(node.id, { paddingBottom: v })} />
+            </div>
+            <div className={styles.inputGroup}>
+              <span className={styles.inputPrefix}>L</span>
+              <NumberInput value={node.paddingLeft ?? 0} onChange={(v) => updateNode(node.id, { paddingLeft: v })} />
+            </div>
+          </div>
+
+          <div className={styles.autoLayoutSubLabel}>Align</div>
+          <div className={styles.alignGrid9} role="group" aria-label="Alignment">
+            {ALIGN_GRID.map((row, ri) =>
+              row.map(([p, c], ci) => {
+                const active = primary === p && counter === c && primary !== "SPACE_BETWEEN";
+                return (
+                  <button
+                    key={`${ri}-${ci}`}
+                    type="button"
+                    className={`${styles.alignCell9} ${active ? styles.alignCell9Active : ""}`}
+                    title={`${p} / ${c}`}
+                    onClick={() =>
+                      updateNode(node.id, {
+                        primaryAxisAlignItems: p,
+                        counterAxisAlignItems: c,
+                      })
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
+          <button
+            type="button"
+            className={`${styles.spaceBetweenBtn} ${primary === "SPACE_BETWEEN" ? styles.spaceBetweenBtnActive : ""}`}
+            onClick={() => updateNode(node.id, { primaryAxisAlignItems: "SPACE_BETWEEN" })}
+          >
+            Space between (main axis)
+          </button>
+
+          <label className={styles.wrapToggle}>
+            <input
+              type="checkbox"
+              checked={node.layoutWrap === "WRAP"}
+              onChange={(e) => updateNode(node.id, { layoutWrap: e.target.checked ? "WRAP" : "NO_WRAP" })}
+            />
+            <WrapText size={14} />
+            <span>Wrap</span>
+          </label>
+
+          <div className={styles.row} style={{ marginTop: 8 }}>
+            <div className={styles.inputGroup} style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+              <span className={styles.autoLayoutMiniLabel}>Primary axis sizing</span>
+              <select
+                className={styles.select}
+                value={node.primaryAxisSizingMode ?? "FIXED"}
+                onChange={(e) =>
+                  updateNode(node.id, {
+                    primaryAxisSizingMode: e.target.value as "FIXED" | "AUTO",
+                  })
+                }
+              >
+                <option value="FIXED">Fixed</option>
+                <option value="AUTO">Hug contents</option>
+              </select>
+            </div>
+            <div className={styles.inputGroup} style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+              <span className={styles.autoLayoutMiniLabel}>Counter axis sizing</span>
+              <select
+                className={styles.select}
+                value={node.counterAxisSizingMode ?? "FIXED"}
+                onChange={(e) =>
+                  updateNode(node.id, {
+                    counterAxisSizingMode: e.target.value as "FIXED" | "AUTO",
+                  })
+                }
+              >
+                <option value="FIXED">Fixed</option>
+                <option value="AUTO">Hug contents</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={styles.clearAutoLayoutBtn}
+            onClick={() => updateNode(node.id, { layoutMode: "NONE" })}
+          >
+            Remove auto layout
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AutoLayoutChildSection({
+  node,
+  parent,
+  updateNode,
+}: {
+  node: SceneNode;
+  parent: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  const parentAuto =
+    parent.layoutMode === "HORIZONTAL" || parent.layoutMode === "VERTICAL";
+  if (!parentAuto) return null;
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.label}>In auto layout</div>
+      <label className={styles.checkboxModern}>
+        <div className={styles.checkboxTrack}>
+          <input
+            type="checkbox"
+            checked={node.layoutGrow === 1}
+            onChange={(e) => updateNode(node.id, { layoutGrow: e.target.checked ? 1 : 0 })}
+            className={styles.checkboxInput}
+          />
+          <span className={styles.checkboxThumb} />
+        </div>
+        <span>Fill container</span>
+      </label>
+      <label className={styles.checkboxModern} style={{ marginTop: 8 }}>
+        <div className={styles.checkboxTrack}>
+          <input
+            type="checkbox"
+            checked={node.primaryAxisSizingMode === "AUTO"}
+            onChange={(e) =>
+              updateNode(node.id, {
+                primaryAxisSizingMode: e.target.checked ? "AUTO" : "FIXED",
+              })
+            }
+            className={styles.checkboxInput}
+          />
+          <span className={styles.checkboxThumb} />
+        </div>
+        <span>Hug contents</span>
+      </label>
+    </div>
+  );
 }
 
 function updateProps(
@@ -409,6 +670,452 @@ function ColorRow({
   );
 }
 
+function defaultSolidFill(): ScenePaint {
+  return { type: "SOLID", color: "#ffffff", opacity: 1 };
+}
+
+function defaultLinearFill(): ScenePaint {
+  return {
+    type: "GRADIENT_LINEAR",
+    stops: [
+      { position: 0, color: "#5e5ce6" },
+      { position: 1, color: "#ff6b6b" },
+    ],
+    angle: 90,
+  };
+}
+
+function defaultRadialFill(): ScenePaint {
+  return {
+    type: "GRADIENT_RADIAL",
+    stops: [
+      { position: 0, color: "#5e5ce6" },
+      { position: 1, color: "#ff6b6b" },
+    ],
+  };
+}
+
+function defaultImageFill(): ScenePaint {
+  return { type: "IMAGE", src: "", scaleMode: "FILL" };
+}
+
+function newDropShadowEffect(): DropShadow {
+  return {
+    type: "DROP_SHADOW",
+    color: "#000000",
+    opacity: 0.25,
+    offsetX: 0,
+    offsetY: 4,
+    blur: 8,
+    spread: 0,
+  };
+}
+
+function newInnerShadowEffect(): InnerShadow {
+  return {
+    type: "INNER_SHADOW",
+    color: "#000000",
+    opacity: 0.25,
+    offsetX: 0,
+    offsetY: 2,
+    blur: 6,
+    spread: 0,
+  };
+}
+
+function newLayerBlurEffect(): BlurEffect {
+  return { type: "LAYER_BLUR", radius: 8 };
+}
+
+function SceneSwatchColorPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const hex = /^#[0-9A-Fa-f]{3,8}$/.test(value) ? value : "#888888";
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.colorSwatchBtn}
+        style={{ background: hex }}
+        onClick={(e) => setAnchor((a) => (a ? null : e.currentTarget))}
+      />
+      {anchor && (
+        <ColorPickerPopover
+          value={value}
+          onChange={onChange}
+          anchor={anchor}
+          onClose={() => setAnchor(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function SceneFillsEditor({
+  node,
+  updateNode,
+}: {
+  node: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  const fills = node.fills ?? [];
+
+  const setFills = (next: ScenePaint[]) => {
+    updateNode(node.id, { fills: next.length ? next : undefined });
+  };
+
+  const replaceFill = (index: number, fill: ScenePaint) => {
+    const next = [...fills];
+    next[index] = fill;
+    setFills(next);
+  };
+
+  const setFillType = (index: number, t: ScenePaint["type"]) => {
+    if (t === "SOLID") replaceFill(index, defaultSolidFill());
+    else if (t === "GRADIENT_LINEAR") replaceFill(index, defaultLinearFill());
+    else if (t === "GRADIENT_RADIAL") replaceFill(index, defaultRadialFill());
+    else replaceFill(index, defaultImageFill());
+  };
+
+  const removeFill = (index: number) => {
+    setFills(fills.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.interactionsSectionHeader}>
+        <div className={styles.label}>Fills</div>
+        <button
+          type="button"
+          className={styles.addInteractionBtn}
+          title="Add fill"
+          onClick={() => setFills([...fills, defaultSolidFill()])}
+        >
+          <Plus size={12} /> Add
+        </button>
+      </div>
+
+      {fills.length === 0 && (
+        <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>No fills — click Add or use Fill below.</div>
+      )}
+
+      {fills.map((fill, i) => (
+        <div
+          key={i}
+          style={{
+            border: "1px solid var(--color-s-02)",
+            borderRadius: 8,
+            padding: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div className={styles.row} style={{ alignItems: "center" }}>
+            <select
+              className={styles.select}
+              value={fill.type}
+              onChange={(e) => setFillType(i, e.target.value as ScenePaint["type"])}
+            >
+              <option value="SOLID">Solid</option>
+              <option value="GRADIENT_LINEAR">Linear gradient</option>
+              <option value="GRADIENT_RADIAL">Radial gradient</option>
+              <option value="IMAGE">Image</option>
+            </select>
+            <button type="button" className={styles.interactionRemoveBtn} title="Remove fill" onClick={() => removeFill(i)}>
+              <Trash2 size={13} />
+            </button>
+          </div>
+
+          {fill.type === "SOLID" && (
+            <>
+              <div className={styles.row} style={{ alignItems: "center" }}>
+                <span className={styles.label} style={{ textTransform: "none" }}>
+                  Color
+                </span>
+                <SceneSwatchColorPicker
+                  value={fill.color}
+                  onChange={(v) => replaceFill(i, { ...fill, color: v })}
+                />
+              </div>
+              <div className={styles.section}>
+                <div className={styles.label}>Opacity</div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round((fill.opacity ?? 1) * 100)}
+                  onChange={(e) =>
+                    replaceFill(i, { ...fill, opacity: Number(e.target.value) / 100 })
+                  }
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </>
+          )}
+
+          {(fill.type === "GRADIENT_LINEAR" || fill.type === "GRADIENT_RADIAL") && (
+            <>
+              <div className={styles.gradientInputs}>
+              {fill.type === "GRADIENT_LINEAR" && (
+                <div className={styles.gradientAngle}>
+                  <span>Angle</span>
+                  <NumberInput
+                    min={0}
+                    max={360}
+                    value={fill.angle ?? 90}
+                    onChange={(v) => replaceFill(i, { ...fill, angle: v })}
+                    className={styles.gradientAngleInput}
+                  />
+                </div>
+              )}
+              <div className={styles.gradientStops}>
+                <GradientStopPicker
+                  label="Start"
+                  value={fill.stops[0]?.color ?? "#5e5ce6"}
+                  onChange={(v) => {
+                    const stops = [...fill.stops];
+                    stops[0] = { position: 0, color: v };
+                    if (!stops[1]) stops[1] = { position: 1, color: "#ff6b6b" };
+                    replaceFill(i, { ...fill, stops });
+                  }}
+                />
+                <GradientStopPicker
+                  label="End"
+                  value={fill.stops[1]?.color ?? "#ff6b6b"}
+                  onChange={(v) => {
+                    const stops = [...fill.stops];
+                    if (!stops[0]) stops[0] = { position: 0, color: "#5e5ce6" };
+                    stops[1] = { position: 1, color: v };
+                    replaceFill(i, { ...fill, stops });
+                  }}
+                />
+              </div>
+              </div>
+            </>
+          )}
+
+          {fill.type === "IMAGE" && (
+            <input
+              type="text"
+              className={styles.standaloneInput}
+              placeholder="Image URL"
+              value={fill.src ?? ""}
+              onChange={(e) => replaceFill(i, { ...fill, src: e.target.value })}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SceneEffectsEditor({
+  node,
+  updateNode,
+}: {
+  node: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  const effects = node.effects ?? [];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const effectMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (effectMenuRef.current && !effectMenuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  const setEffects = (next: SceneEffect[]) => {
+    updateNode(node.id, { effects: next.length ? next : undefined });
+  };
+
+  const updateEffectAt = (index: number, efx: SceneEffect) => {
+    const next = [...effects];
+    next[index] = efx;
+    setEffects(next);
+  };
+
+  const removeEffect = (index: number) => {
+    setEffects(effects.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.interactionsSectionHeader} style={{ position: "relative" }}>
+        <div className={styles.label}>Effects</div>
+        <button
+          type="button"
+          className={styles.addInteractionBtn}
+          onClick={() => setMenuOpen((o) => !o)}
+        >
+          <Plus size={12} /> Add
+        </button>
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "100%",
+              zIndex: 20,
+              marginTop: 4,
+              background: "var(--surface-03)",
+              border: "1px solid var(--color-s-02)",
+              borderRadius: 8,
+              padding: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              minWidth: 140,
+              boxShadow: "var(--box-shadow-popover)",
+            }}
+          >
+            <button
+              type="button"
+              className={styles.fontItem}
+              style={{ justifyContent: "flex-start" }}
+              onClick={() => {
+                setEffects([...effects, newDropShadowEffect()]);
+                setMenuOpen(false);
+              }}
+            >
+              Drop shadow
+            </button>
+            <button
+              type="button"
+              className={styles.fontItem}
+              style={{ justifyContent: "flex-start" }}
+              onClick={() => {
+                setEffects([...effects, newInnerShadowEffect()]);
+                setMenuOpen(false);
+              }}
+            >
+              Inner shadow
+            </button>
+            <button
+              type="button"
+              className={styles.fontItem}
+              style={{ justifyContent: "flex-start" }}
+              onClick={() => {
+                setEffects([...effects, newLayerBlurEffect()]);
+                setMenuOpen(false);
+              }}
+            >
+              Layer blur
+            </button>
+          </div>
+        )}
+      </div>
+
+      {effects.map((efx, i) => (
+        <div
+          key={i}
+          style={{
+            border: "1px solid var(--color-s-02)",
+            borderRadius: 8,
+            padding: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div className={styles.row} style={{ alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--shade-06)" }}>
+              {efx.type === "DROP_SHADOW"
+                ? "Drop shadow"
+                : efx.type === "INNER_SHADOW"
+                  ? "Inner shadow"
+                  : "Layer blur"}
+            </span>
+            <button type="button" className={styles.interactionRemoveBtn} title="Remove" onClick={() => removeEffect(i)}>
+              <Trash2 size={13} />
+            </button>
+          </div>
+
+          {(efx.type === "DROP_SHADOW" || efx.type === "INNER_SHADOW") && (
+            <>
+              <div className={styles.row}>
+                <div className={styles.inputGroup}>
+                  <span className={styles.inputPrefix}>X</span>
+                  <NumberInput
+                    value={efx.offsetX}
+                    onChange={(v) => updateEffectAt(i, { ...efx, offsetX: v })}
+                  />
+                </div>
+                <div className={styles.inputGroup}>
+                  <span className={styles.inputPrefix}>Y</span>
+                  <NumberInput
+                    value={efx.offsetY}
+                    onChange={(v) => updateEffectAt(i, { ...efx, offsetY: v })}
+                  />
+                </div>
+              </div>
+              <div className={styles.row}>
+                <div className={styles.inputGroup}>
+                  <span className={styles.inputPrefix}>Blur</span>
+                  <NumberInput value={efx.blur} onChange={(v) => updateEffectAt(i, { ...efx, blur: v })} />
+                </div>
+                <div className={styles.inputGroup}>
+                  <span className={styles.inputPrefix}>Spr</span>
+                  <NumberInput
+                    value={efx.spread ?? 0}
+                    onChange={(v) => updateEffectAt(i, { ...efx, spread: v })}
+                  />
+                </div>
+              </div>
+              <div className={styles.row} style={{ alignItems: "center" }}>
+                <span className={styles.label} style={{ textTransform: "none" }}>
+                  Color
+                </span>
+                <SceneSwatchColorPicker
+                  value={efx.color}
+                  onChange={(v) => updateEffectAt(i, { ...efx, color: v })}
+                />
+              </div>
+              <div className={styles.section}>
+                <div className={styles.label}>Opacity</div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(efx.opacity * 100)}
+                  onChange={(e) =>
+                    updateEffectAt(i, { ...efx, opacity: Number(e.target.value) / 100 })
+                  }
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </>
+          )}
+
+          {efx.type === "LAYER_BLUR" && (
+            <div className={styles.section}>
+              <div className={styles.label}>Radius</div>
+              <input
+                type="range"
+                min={0}
+                max={64}
+                value={efx.radius}
+                onChange={(e) => updateEffectAt(i, { ...efx, radius: Number(e.target.value) })}
+                style={{ width: "100%" }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FigmaProperties({
   node,
   updateNode,
@@ -417,8 +1124,8 @@ function FigmaProperties({
   updateNode: (id: string, p: Partial<SceneNode>) => void;
 }) {
   const figma = node.props?._figma as {
-    fills: Paint[];
-    strokes: Paint[];
+    fills: FigmaPaint[];
+    strokes: FigmaPaint[];
     strokeWeight: number;
     originalType: string;
     [k: string]: unknown;
@@ -450,7 +1157,7 @@ function FigmaProperties({
         label="Fill"
         value={fillHex}
         onChange={(v) => {
-          const newFills: Paint[] = [{ hex: v, alpha: fillAlpha }];
+          const newFills: FigmaPaint[] = [{ hex: v, alpha: fillAlpha }];
           updateFigmaProp("fills", newFills);
         }}
       />
@@ -465,7 +1172,7 @@ function FigmaProperties({
             value={Math.round(fillAlpha * 100)}
             onChange={(v) => {
               const a = v / 100;
-              const newFills: Paint[] = [{ hex: fillHex, alpha: a }];
+              const newFills: FigmaPaint[] = [{ hex: fillHex, alpha: a }];
               updateFigmaProp("fills", newFills);
             }}
           />
@@ -478,7 +1185,7 @@ function FigmaProperties({
             label="Stroke"
             value={strokeHex}
             onChange={(v) => {
-              const newStrokes: Paint[] = [{ hex: v, alpha: strokeAlpha }];
+              const newStrokes: FigmaPaint[] = [{ hex: v, alpha: strokeAlpha }];
               updateFigmaProp("strokes", newStrokes);
             }}
           />
@@ -571,12 +1278,12 @@ function FigmaProperties({
               </div>
             </div>
           </div>
-          {props._textFills && (props._textFills as Paint[]).length > 0 && (
+          {props._textFills && (props._textFills as FigmaPaint[]).length > 0 && (
             <ColorRow
               label="Text color"
-              value={(props._textFills as Paint[])[0].hex ?? "#000000"}
+              value={(props._textFills as FigmaPaint[])[0].hex ?? "#000000"}
               onChange={(v) => {
-                const f = (props._textFills as Paint[])[0];
+                const f = (props._textFills as FigmaPaint[])[0];
                 const alpha = f.alpha ?? f.opacity ?? 1;
                 updateNode(node.id, { props: { ...props, _textFills: [{ hex: v, alpha }] } });
               }}
@@ -585,51 +1292,7 @@ function FigmaProperties({
         </>
       )}
 
-      {isFrame && (
-        <div className={styles.section}>
-          <div className={styles.label}>Layout</div>
-          <select
-            value={node.layoutMode ?? "NONE"}
-            onChange={(e) => updateNode(node.id, { layoutMode: e.target.value as "NONE" | "HORIZONTAL" | "VERTICAL" })}
-            className={styles.select}
-          >
-            <option value="NONE">Absolute</option>
-            <option value="HORIZONTAL">Horizontal</option>
-            <option value="VERTICAL">Vertical</option>
-          </select>
-          {node.layoutMode && node.layoutMode !== "NONE" && (
-            <>
-              <div className={styles.row} style={{ marginTop: 4 }}>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>Gap</span>
-                  <NumberInput
-                    value={node.itemSpacing ?? 0}
-                    onChange={(v) => updateNode(node.id, { itemSpacing: v })}
-                  />
-                </div>
-              </div>
-              <div className={styles.row} style={{ marginTop: 4 }}>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>T</span>
-                  <NumberInput value={node.paddingTop ?? 0} onChange={(v) => updateNode(node.id, { paddingTop: v })} />
-                </div>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>R</span>
-                  <NumberInput value={node.paddingRight ?? 0} onChange={(v) => updateNode(node.id, { paddingRight: v })} />
-                </div>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>B</span>
-                  <NumberInput value={node.paddingBottom ?? 0} onChange={(v) => updateNode(node.id, { paddingBottom: v })} />
-                </div>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>L</span>
-                  <NumberInput value={node.paddingLeft ?? 0} onChange={(v) => updateNode(node.id, { paddingLeft: v })} />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {isFrame && <AutoLayoutFrameSection node={node} updateNode={updateNode} />}
 
       <div className={styles.section}>
         <div className={styles.label}>Rotation</div>
@@ -708,6 +1371,254 @@ function CanvasProperties() {
               ))}
             </div>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Constraints (Figma-style) ────────────────────────────────────────────────
+
+type ConstraintH = NonNullable<SceneNode["constraints"]>["horizontal"];
+type ConstraintV = NonNullable<SceneNode["constraints"]>["vertical"];
+
+function ConstraintsSection({
+  node,
+  updateNode,
+}: {
+  node: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  const base = node.constraints ?? { horizontal: "LEFT" as const, vertical: "TOP" as const };
+
+  const setHorizontal = (horizontal: ConstraintH) => {
+    updateNode(node.id, { constraints: { ...base, horizontal } });
+  };
+  const setVertical = (vertical: ConstraintV) => {
+    updateNode(node.id, { constraints: { ...base, vertical } });
+  };
+
+  const horizontalOptions: { value: ConstraintH; title: string; Icon: typeof ArrowLeft }[] = [
+    { value: "LEFT", title: "Left", Icon: ArrowLeft },
+    { value: "RIGHT", title: "Right", Icon: ArrowRight },
+    { value: "LEFT_RIGHT", title: "Left & right (stretch width)", Icon: ArrowLeftRight },
+    { value: "CENTER", title: "Center horizontally", Icon: AlignHorizontalJustifyCenter },
+    { value: "SCALE", title: "Scale horizontally", Icon: Scaling },
+  ];
+
+  const verticalOptions: { value: ConstraintV; title: string; Icon: LucideIcon }[] = [
+    { value: "TOP", title: "Top", Icon: ArrowUp },
+    { value: "BOTTOM", title: "Bottom", Icon: ArrowDown },
+    { value: "TOP_BOTTOM", title: "Top & bottom (stretch height)", Icon: ArrowUpDown },
+    { value: "CENTER", title: "Center vertically", Icon: AlignVerticalJustifyCenter },
+    { value: "SCALE", title: "Scale vertically", Icon: Scaling },
+  ];
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.label}>Constraints</div>
+      <div className={styles.constraintSubLabel}>Horizontal</div>
+      <div className={styles.constraintRow} role="group" aria-label="Horizontal constraints">
+        {horizontalOptions.map(({ value, title, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            className={`${styles.constraintIconBtn} ${base.horizontal === value ? styles.constraintIconBtnActive : ""}`}
+            title={title}
+            onClick={() => setHorizontal(value)}
+          >
+            <Icon size={16} strokeWidth={2} />
+          </button>
+        ))}
+      </div>
+      <div className={styles.constraintSubLabel}>Vertical</div>
+      <div className={styles.constraintCol} role="group" aria-label="Vertical constraints">
+        {verticalOptions.map(({ value, title, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            className={`${styles.constraintIconBtn} ${base.vertical === value ? styles.constraintIconBtnActive : ""}`}
+            title={title}
+            onClick={() => setVertical(value)}
+          >
+            <Icon size={16} strokeWidth={2} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Prototype (Figma-style) ─────────────────────────────────────────────────
+
+type PrototypeInteraction = {
+  trigger: "ON_CLICK";
+  action: "NAVIGATE" | "OVERLAY" | "BACK";
+  targetId?: string;
+  transition?: string;
+  duration?: number;
+};
+
+const ON_CLICK_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "navigate", label: "Navigate to" },
+  { value: "overlay", label: "Open overlay" },
+  { value: "back", label: "Go back" },
+] as const;
+
+const TRANSITION_OPTIONS = ["Instant", "Dissolve", "Push Left", "Push Right", "Slide Up"] as const;
+
+function PrototypeSection({ node, updateNode }: { node: SceneNode; updateNode: (id: string, p: Partial<SceneNode>) => void }) {
+  const nodes = useEditorStore((s) => s.nodes);
+  const frames = useMemo(() => {
+    const flat: SceneNode[] = [];
+    function walk(ns: SceneNode[]) {
+      for (const n of ns) {
+        flat.push(n);
+        if (n.children?.length) walk(n.children);
+      }
+    }
+    walk(nodes);
+    return flat.filter((n) => n.type === "FRAME");
+  }, [nodes]);
+
+  const raw = node.props?.interactions as PrototypeInteraction[] | undefined;
+  const first = raw?.[0];
+  const mode =
+    !first || !first.action
+      ? "none"
+      : first.action === "NAVIGATE"
+        ? "navigate"
+        : first.action === "OVERLAY"
+          ? "overlay"
+          : first.action === "BACK"
+            ? "back"
+            : "none";
+
+  const targetId = first?.action === "NAVIGATE" ? first.targetId ?? "" : "";
+  const transition = first?.transition ?? "Instant";
+  const durationMs = first?.duration ?? 300;
+
+  const setInteractions = (list: PrototypeInteraction[] | undefined) => {
+    const props = { ...(node.props ?? {}) };
+    if (list && list.length > 0) props.interactions = list as unknown[];
+    else delete props.interactions;
+    updateNode(node.id, { props });
+  };
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.label}>Prototype</div>
+      <div className={styles.section} style={{ gap: 8 }}>
+        <div className={styles.label} style={{ textTransform: "none", fontSize: 11 }}>
+          On Click
+        </div>
+        <select
+          className={styles.select}
+          value={mode}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "none") setInteractions(undefined);
+            else if (v === "navigate") {
+              const tid = frames.find((f) => f.id !== node.id)?.id ?? "";
+              setInteractions([
+                {
+                  trigger: "ON_CLICK",
+                  action: "NAVIGATE",
+                  targetId: tid,
+                  transition: "Instant",
+                  duration: 300,
+                },
+              ]);
+            } else if (v === "overlay") {
+              setInteractions([{ trigger: "ON_CLICK", action: "OVERLAY" }]);
+            } else if (v === "back") {
+              setInteractions([{ trigger: "ON_CLICK", action: "BACK" }]);
+            }
+          }}
+        >
+          {ON_CLICK_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
+        {mode === "navigate" && (
+          <>
+            <div className={styles.label} style={{ textTransform: "none", fontSize: 11 }}>
+              Destination
+            </div>
+            <select
+              className={styles.select}
+              value={targetId}
+              onChange={(e) => {
+                setInteractions([
+                  {
+                    trigger: "ON_CLICK",
+                    action: "NAVIGATE",
+                    targetId: e.target.value,
+                    transition,
+                    duration: durationMs,
+                  },
+                ]);
+              }}
+            >
+              <option value="">Select frame…</option>
+              {frames
+                .filter((f) => f.id !== node.id)
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name || f.id}
+                  </option>
+                ))}
+            </select>
+            <div className={styles.label} style={{ textTransform: "none", fontSize: 11 }}>
+              Transition
+            </div>
+            <select
+              className={styles.select}
+              value={transition}
+              onChange={(e) => {
+                setInteractions([
+                  {
+                    trigger: "ON_CLICK",
+                    action: "NAVIGATE",
+                    targetId,
+                    transition: e.target.value,
+                    duration: durationMs,
+                  },
+                ]);
+              }}
+            >
+              {TRANSITION_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <div className={styles.label} style={{ textTransform: "none", fontSize: 11 }}>
+              Duration (ms)
+            </div>
+            <div className={styles.inputGroup}>
+              <NumberInput
+                min={0}
+                max={10000}
+                value={durationMs}
+                onChange={(v) => {
+                  setInteractions([
+                    {
+                      trigger: "ON_CLICK",
+                      action: "NAVIGATE",
+                      targetId,
+                      transition,
+                      duration: v,
+                    },
+                  ]);
+                }}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -1081,7 +1992,8 @@ function InteractionsPanel({ node }: { node: SceneNode }) {
 }
 
 export function PropertiesPanel() {
-  const { nodes, selectedIds, updateNode } = useEditorStore();
+  const { nodes, selectedIds, updateNode, setSelectedIds, createInstance, detachInstance, getNode } =
+    useEditorStore();
   const selectedId = [...selectedIds][0];
   const node = selectedId ? findNode(nodes, selectedId) : null;
 
@@ -1094,11 +2006,53 @@ export function PropertiesPanel() {
   }
 
   const props = node.props ?? {};
+  const isMasterComponent =
+    node.type === "COMPONENT" && (props as { isComponent?: boolean }).isComponent === true;
+  const isInstance = node.type === "COMPONENT_INSTANCE";
+  const masterForInstance = node.mainComponentId ? getNode(node.mainComponentId) : undefined;
 
   return (
     <div className={styles.panel}>
       <div className={styles.header}>Properties</div>
       <div className={styles.content}>
+        {isMasterComponent && (
+          <div className={styles.componentMasterBanner}>
+            <span className={styles.componentMasterBadge}>Master Component</span>
+            <button
+              type="button"
+              className={styles.componentInstanceActionBtn}
+              onClick={() => createInstance(node.id)}
+            >
+              Duplicate as Instance
+            </button>
+          </div>
+        )}
+        {isInstance && (
+          <div className={styles.componentInstanceBanner}>
+            <div className={styles.componentInstanceTitle}>
+              Instance of: <strong>{masterForInstance?.name ?? "…"}</strong>
+            </div>
+            <div className={styles.componentInstanceActions}>
+              <button
+                type="button"
+                className={styles.componentInstanceActionBtn}
+                onClick={() => detachInstance(node.id)}
+              >
+                Detach
+              </button>
+              <button
+                type="button"
+                className={styles.componentInstanceActionBtn}
+                onClick={() => {
+                  if (node.mainComponentId) setSelectedIds([node.mainComponentId]);
+                }}
+                disabled={!node.mainComponentId}
+              >
+                Go to master
+              </button>
+            </div>
+          </div>
+        )}
         <div className={styles.section}>
           <div className={styles.label}>Name</div>
           <input
@@ -1148,6 +2102,24 @@ export function PropertiesPanel() {
             </div>
           </div>
         </div>
+
+        {node.parentId &&
+          (() => {
+            const p = findNode(nodes, node.parentId!);
+            return p && p.type === "FRAME" ? (
+              <ConstraintsSection node={node} updateNode={updateNode} />
+            ) : null;
+          })()}
+
+        {node.parentId &&
+          (() => {
+            const p = findNode(nodes, node.parentId!);
+            return p ? <AutoLayoutChildSection node={node} parent={p} updateNode={updateNode} /> : null;
+          })()}
+
+        {(node.type === "FRAME" || node.type === "CONTAINER") && (
+          <AutoLayoutFrameSection node={node} updateNode={updateNode} />
+        )}
 
         {(node.type === "TEXT" || node.name === "Label") && (
           <>
@@ -1286,30 +2258,21 @@ export function PropertiesPanel() {
 
         {(node.type === "RECTANGLE" || node.type === "FRAME") && (
           <>
-            <ColorRow
-              label="Fill"
-              value={(props.backgroundColor as string) ?? (node.type === "FRAME" ? "#000000" : "#1c1c1e")}
-              onChange={(v) => updateProps(node, updateNode, "backgroundColor", v)}
-            />
+            <SceneFillsEditor node={node} updateNode={updateNode} />
+            <SceneEffectsEditor node={node} updateNode={updateNode} />
+            <div className={styles.section}>
+              <div className={styles.label}>Fallback fill (when no fills)</div>
+              <ColorRow
+                label="Background"
+                value={(props.backgroundColor as string) ?? (node.type === "FRAME" ? "#000000" : "#1c1c1e")}
+                onChange={(v) => updateProps(node, updateNode, "backgroundColor", v)}
+              />
+            </div>
             <ColorRow
               label="Border"
               value={(props.borderColor as string) ?? "#30363d"}
               onChange={(v) => updateProps(node, updateNode, "borderColor", v)}
             />
-            {node.type === "FRAME" && (
-              <div className={styles.section}>
-                <div className={styles.label}>Layout</div>
-                <select
-                  value={node.layoutMode ?? "NONE"}
-                  onChange={(e) => updateNode(node.id, { layoutMode: e.target.value as "NONE" | "HORIZONTAL" | "VERTICAL" })}
-                  className={styles.select}
-                >
-                  <option value="NONE">Absolute</option>
-                  <option value="HORIZONTAL">Horizontal</option>
-                  <option value="VERTICAL">Vertical</option>
-                </select>
-              </div>
-            )}
           </>
         )}
 
@@ -1407,6 +2370,8 @@ export function PropertiesPanel() {
             />
           </div>
         </div>
+
+        <PrototypeSection node={node} updateNode={updateNode} />
 
         <InteractionsPanel node={node} />
       </div>

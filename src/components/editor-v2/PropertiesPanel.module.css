@@ -950,3 +950,280 @@
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
+
+/* ── Auto layout (Figma-style) ─────────────────────────────── */
+
+.autoLayoutAddBtn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.autoLayoutAddBtn:hover {
+  background: var(--shade-07_05);
+}
+
+.autoLayoutMiniLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 64px;
+}
+
+.autoLayoutSubLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.directionBtnGroup {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.directionIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  color: var(--shade-08);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.directionIconBtn:hover {
+  border-color: var(--accent);
+  color: var(--shade-09);
+}
+
+.directionIconBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.alignGrid9 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  max-width: 120px;
+  margin-top: 4px;
+}
+
+.alignCell9 {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-s-02);
+  border-radius: 4px;
+  background: var(--surface-03);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.alignCell9:hover {
+  border-color: var(--accent);
+}
+
+.alignCell9Active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.spaceBetweenBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--shade-08);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.spaceBetweenBtn:hover {
+  border-color: var(--accent);
+}
+
+.spaceBetweenBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.wrapToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+  cursor: pointer;
+  user-select: none;
+}
+
+.wrapToggle input {
+  margin: 0;
+}
+
+.clearAutoLayoutBtn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 8px;
+  font-size: 0.75rem;
+  color: var(--shade-06);
+  background: transparent;
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.clearAutoLayoutBtn:hover {
+  color: var(--shade-09);
+  border-color: var(--shade-06);
+}
+
+/* ── Master component / instance banners ───────────────────── */
+
+.componentMasterBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: var(--space-2);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(59, 130, 246, 0.12));
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 10px;
+}
+
+.componentMasterBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c4b5fd;
+}
+
+.componentInstanceBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: var(--space-2);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
+}
+
+.componentInstanceTitle {
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+}
+
+.componentInstanceTitle strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.componentInstanceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.componentInstanceActionBtn {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--shade-09);
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.componentInstanceActionBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.componentInstanceActionBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Figma-style constraints ───────────────────────────────── */
+.constraintSubLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.constraintRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.constraintCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.constraintIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  background: var(--surface-03);
+  color: var(--shade-09);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.constraintIconBtn:hover {
+  border-color: var(--accent);
+  background: var(--shade-07_05);
+}
+
+.constraintIconBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}

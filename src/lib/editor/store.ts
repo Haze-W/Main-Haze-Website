@@ -44,9 +44,14 @@ export interface Viewport {
 
 export type Tool = "SELECT" | "FRAME" | "HAND";
 
+export type EditorPage = { id: string; name: string; nodes: SceneNode[] };
+
 interface EditorState {
-  // Scene
+  // Scene (active page)
   nodes: SceneNode[];
+  /** All pages — current canvas is `nodes`; switching pages syncs into `pages` */
+  pages: EditorPage[];
+  currentPageId: string;
   // Viewport
   viewport: Viewport;
   // Selection
@@ -66,7 +71,7 @@ interface EditorState {
   history: { nodes: SceneNode[] }[];
   historyIndex: number;
   // UI
-  mode: "design" | "code" | "settings" | "preview";
+  mode: "design" | "code" | "settings" | "preview" | "backend";
   // Canvas appearance
   canvasBg: string;
   showGrid: boolean;
@@ -81,6 +86,8 @@ interface EditorState {
   lastCanvasPoint: { x: number; y: number } | null;
   /** Multi-line status while AI builds layout (shown on canvas) */
   aiBuild: { lines: string[] } | null;
+  /** Figma-style prototype links overlay on canvas */
+  prototypeMode: boolean;
 }
 
 type EditorActions = {
@@ -106,7 +113,7 @@ type EditorActions = {
   finishCreateFrame: (x: number, y: number) => void;
   cancelCreateFrame: () => void;
   setSnapLines: (lines: Array<{ id: string; type: "h" | "v"; pos: number }>) => void;
-  setMode: (mode: "design" | "code" | "settings" | "preview") => void;
+  setMode: (mode: "design" | "code" | "settings" | "preview" | "backend") => void;
   setCanvasBg: (v: string) => void;
   setShowGrid: (v: boolean) => void;
   setGridType: (v: "dots" | "lines" | "cross" | "none") => void;
@@ -117,6 +124,7 @@ type EditorActions = {
   setAiBuild: (v: { lines: string[] } | null) => void;
   appendAiBuildLine: (line: string) => void;
   clearAiBuild: () => void;
+  setPrototypeMode: (v: boolean) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -128,6 +136,16 @@ type EditorActions = {
   // Group / ungroup
   groupNodes: (ids: string[]) => void;
   ungroupNodes: (ids: string[]) => void;
+  // Figma-style components / instances
+  createComponent: (ids: string[]) => void;
+  createInstance: (componentId: string, at?: { x: number; y: number }) => void;
+  detachInstance: (id: string) => void;
+  syncInstances: (componentId: string) => void;
+  // Pages (Figma-style)
+  addPage: () => void;
+  deletePage: (id: string) => void;
+  renamePage: (id: string, name: string) => void;
+  switchPage: (id: string) => void;
   // Helpers
   getNode: (id: string) => SceneNode | undefined;
   getNodeBounds: (id: string) => { x: number; y: number; width: number; height: number } | null;
@@ -190,10 +208,109 @@ function cloneNode(n: SceneNode): SceneNode {
   };
 }
 
+/** Returns master component id when `targetId` is the master root or a descendant inside that master (not instances). */
+function findMasterComponentIdForSync(nodes: SceneNode[], targetId: string): string | null {
+  function walk(list: SceneNode[], activeMasterId: string | null): string | null {
+    for (const n of list) {
+      let m = activeMasterId;
+      const isMaster =
+        n.type === "COMPONENT" && (n.props as { isComponent?: boolean } | undefined)?.isComponent === true;
+      if (isMaster) m = n.id;
+      if (n.id === targetId) {
+        if (isMaster) return n.id;
+        return m;
+      }
+      const sub = walk(n.children ?? [], m);
+      if (sub !== null) return sub;
+    }
+    return null;
+  }
+  return walk(nodes, null);
+}
+
+function syncInstancesInTree(nodes: SceneNode[], componentId: string, master: SceneNode): SceneNode[] {
+  return nodes.map((n) => {
+    if (n.type === "COMPONENT_INSTANCE" && n.mainComponentId === componentId) {
+      const childrenClone = (master.children ?? []).map((c) => cloneNode(c));
+      return {
+        ...n,
+        width: master.width,
+        height: master.height,
+        children: childrenClone,
+      };
+    }
+    return {
+      ...n,
+      children: syncInstancesInTree(n.children ?? [], componentId, master),
+    };
+  });
+}
+
+/** After a frame (or container with children) is resized, adjust child positions/sizes per Figma-like constraints. */
+function applyConstraintsAfterResize(
+  nodes: SceneNode[],
+  parentId: string,
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number
+): SceneNode[] {
+  return nodes.map((node) => {
+    if (node.id === parentId) {
+      const updatedChildren = (node.children ?? []).map((child) => {
+        const c = child.constraints ?? { horizontal: "LEFT", vertical: "TOP" };
+        let { x, y, width: w, height: h } = child;
+        const dw = newWidth - oldWidth;
+        const dh = newHeight - oldHeight;
+
+        if (c.horizontal === "RIGHT") {
+          x = child.x + dw;
+        } else if (c.horizontal === "LEFT_RIGHT") {
+          w = child.width + dw;
+        } else if (c.horizontal === "CENTER") {
+          x = child.x + dw / 2;
+        } else if (c.horizontal === "SCALE" && oldWidth > 0) {
+          x = (child.x / oldWidth) * newWidth;
+          w = (child.width / oldWidth) * newWidth;
+        }
+
+        if (c.vertical === "BOTTOM") {
+          y = child.y + dh;
+        } else if (c.vertical === "TOP_BOTTOM") {
+          h = child.height + dh;
+        } else if (c.vertical === "CENTER") {
+          y = child.y + dh / 2;
+        } else if (c.vertical === "SCALE" && oldHeight > 0) {
+          y = (child.y / oldHeight) * newHeight;
+          h = (child.height / oldHeight) * newHeight;
+        }
+
+        return { ...child, x, y, width: Math.max(1, w), height: Math.max(1, h) };
+      });
+      return { ...node, children: updatedChildren };
+    }
+    return {
+      ...node,
+      children: applyConstraintsAfterResize(
+        node.children ?? [],
+        parentId,
+        oldWidth,
+        oldHeight,
+        newWidth,
+        newHeight
+      ),
+    };
+  });
+}
+
 const initialNodes: SceneNode[] = [];
+const initialPageId = "page-1";
+const initialPages: EditorPage[] = [{ id: initialPageId, name: "Page 1", nodes: initialNodes }];
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
   nodes: initialNodes,
+  pages: initialPages,
+  currentPageId: initialPageId,
   viewport: { panX: 0, panY: 0, zoom: 1 },
   selectedIds: new Set(),
   tool: "SELECT",
@@ -216,8 +333,17 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   enteredFrameId: null,
   lastCanvasPoint: null,
   aiBuild: null,
+  prototypeMode: false,
 
-  setNodes: (nodes) => set({ nodes }),
+  setPrototypeMode: (v) => set({ prototypeMode: v }),
+
+  setNodes: (nodes) =>
+    set((s) => ({
+      nodes,
+      pages: s.pages.map((p) =>
+        p.id === s.currentPageId ? { ...p, nodes: serializeNodesForHistory(nodes) } : p
+      ),
+    })),
   addNode: (partial, parentId) => {
     const node = createNode(partial as Partial<SceneNode>);
     if (parentId) {
@@ -238,6 +364,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   },
   updateNode: (id, updates) => {
     set((s) => ({ nodes: updateNodeInTree(s.nodes, id, updates) }));
+    const compId = findMasterComponentIdForSync(get().nodes, id);
+    if (compId) {
+      get().syncInstances(compId);
+    }
   },
   deleteNodes: (ids) => {
     const idSet = new Set(ids);
@@ -303,6 +433,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   resizeNode: (id, handle, dx, dy) => {
     const n = findNodeById(get().nodes, id);
     if (!n) return;
+    const oldWidth = n.width;
+    const oldHeight = n.height;
     let { x, y, width, height } = n;
     if (handle.includes("e")) width = Math.max(20, width + dx);
     if (handle.includes("w")) {
@@ -316,7 +448,19 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       y += height - newHeight;
       height = newHeight;
     }
-    get().updateNode(id, { x, y, width, height });
+    const childCount = n.children?.length ?? 0;
+    const sizeChanged = oldWidth !== width || oldHeight !== height;
+    set((s) => {
+      let tree = updateNodeInTree(s.nodes, id, { x, y, width, height });
+      if (childCount > 0 && sizeChanged) {
+        tree = applyConstraintsAfterResize(tree, id, oldWidth, oldHeight, width, height);
+      }
+      return { nodes: tree };
+    });
+    const compId = findMasterComponentIdForSync(get().nodes, id);
+    if (compId) {
+      get().syncInstances(compId);
+    }
   },
   setViewport: (v) =>
     set((s) => ({
@@ -529,6 +673,130 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       return { nodes, selectedIds: new Set(newIds) };
     });
     get().pushHistory();
+  },
+  createComponent: (ids) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const selected = get().nodes.filter((n) => idSet.has(n.id));
+    if (selected.length === 0) return;
+    const minX = Math.min(...selected.map((n) => n.x));
+    const minY = Math.min(...selected.map((n) => n.y));
+    const maxX = Math.max(...selected.map((n) => n.x + n.width));
+    const maxY = Math.max(...selected.map((n) => n.y + n.height));
+    const baseName = selected[0]?.name ?? "Component";
+    const component = createNode({
+      type: "COMPONENT",
+      name: `${baseName} Component`,
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      props: { isComponent: true },
+      children: selected.map((n) => ({
+        ...n,
+        x: n.x - minX,
+        y: n.y - minY,
+        parentId: undefined,
+      })),
+    });
+    component.props = { ...(component.props ?? {}), isComponent: true };
+    set((s) => ({
+      nodes: [...s.nodes.filter((n) => !idSet.has(n.id)), component],
+      selectedIds: new Set([component.id]),
+    }));
+    get().pushHistory();
+  },
+  createInstance: (componentId, at) => {
+    const master = findNodeById(get().nodes, componentId);
+    if (!master || master.type !== "COMPONENT") return;
+    const inst = cloneNode(master);
+    inst.type = "COMPONENT_INSTANCE";
+    inst.mainComponentId = componentId;
+    inst.name = `${master.name} instance`;
+    inst.props = { ...(inst.props ?? {}) };
+    (inst.props as Record<string, unknown>).isComponent = false;
+    if (at) {
+      inst.x = at.x;
+      inst.y = at.y;
+    } else {
+      inst.x = master.x + 24;
+      inst.y = master.y + 24;
+    }
+    set((s) => ({
+      nodes: [...s.nodes, inst],
+      selectedIds: new Set([inst.id]),
+    }));
+    get().pushHistory();
+  },
+  detachInstance: (id) => {
+    const n = findNodeById(get().nodes, id);
+    if (!n || n.type !== "COMPONENT_INSTANCE") return;
+    const nextName = n.name.includes("(detached)") ? n.name : `${n.name} (detached)`;
+    set((s) => ({
+      nodes: updateNodeInTree(s.nodes, id, {
+        type: "FRAME",
+        mainComponentId: undefined,
+        name: nextName,
+      }),
+    }));
+    get().pushHistory();
+  },
+  syncInstances: (componentId) => {
+    const master = findNodeById(get().nodes, componentId);
+    if (!master || master.type !== "COMPONENT") return;
+    set((s) => ({
+      nodes: syncInstancesInTree(s.nodes, componentId, master),
+    }));
+  },
+  addPage: () => {
+    const id = nanoid();
+    set((s) => {
+      const current = s.currentPageId;
+      const pagesWithSaved = s.pages.map((p) =>
+        p.id === current ? { ...p, nodes: serializeNodesForHistory(s.nodes) } : p
+      );
+      return {
+        pages: [...pagesWithSaved, { id, name: `Page ${s.pages.length + 1}`, nodes: [] }],
+        currentPageId: id,
+        nodes: [],
+        selectedIds: new Set(),
+        history: [],
+        historyIndex: -1,
+      };
+    });
+  },
+  switchPage: (id) => {
+    const current = get().currentPageId;
+    if (id === current) return;
+    const currentNodes = get().nodes;
+    const pages = get().pages.map((p) =>
+      p.id === current ? { ...p, nodes: serializeNodesForHistory(currentNodes) } : p
+    );
+    const targetPage = pages.find((p) => p.id === id);
+    set({
+      pages,
+      currentPageId: id,
+      nodes: targetPage?.nodes ? serializeNodesForHistory(targetPage.nodes) : [],
+      selectedIds: new Set(),
+      history: [],
+      historyIndex: -1,
+    });
+  },
+  deletePage: (id) => {
+    const { pages, currentPageId } = get();
+    if (pages.length <= 1) return;
+    const newPages = pages.filter((p) => p.id !== id);
+    const newCurrentId = currentPageId === id ? newPages[0].id : currentPageId;
+    const newCurrentNodes = newPages.find((p) => p.id === newCurrentId)?.nodes ?? [];
+    set({
+      pages: newPages,
+      currentPageId: newCurrentId,
+      nodes: serializeNodesForHistory(newCurrentNodes),
+      selectedIds: new Set(),
+    });
+  },
+  renamePage: (id, name) => {
+    set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, name } : p)) }));
   },
   getNode: (id) => findNodeById(get().nodes, id),
   getNodeBounds: (id) => {

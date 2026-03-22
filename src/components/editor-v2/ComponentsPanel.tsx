@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Search, Sparkles, Wand2, Loader2, ImageIcon, Upload, Monitor, Tablet, Smartphone } from "lucide-react";
 import { COMPONENT_CATEGORIES, COMPONENT_PRESETS } from "@/lib/editor/component-presets";
@@ -42,6 +42,39 @@ function DraggableComponent({
   );
 }
 
+function DraggableSceneComponent({ node }: { node: SceneNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `scene-component-${node.id}`,
+    data: { type: "sceneComponent", componentId: node.id },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${styles.sceneComponentTile} ${isDragging ? styles.dragging : ""}`}
+      title={node.name}
+    >
+      <span className={styles.sceneComponentGlyph}>⊞</span>
+      <span className={styles.sceneComponentLabel}>{node.name}</span>
+    </div>
+  );
+}
+
+function collectSceneMasterComponents(nodes: SceneNode[]): SceneNode[] {
+  const out: SceneNode[] = [];
+  function walk(ns: SceneNode[]) {
+    for (const n of ns) {
+      if (n.type === "COMPONENT" && (n.props as { isComponent?: boolean } | undefined)?.isComponent === true) {
+        out.push(n);
+      }
+      walk(n.children ?? []);
+    }
+  }
+  walk(nodes);
+  return out;
+}
+
 function getIcon(type: string): string {
   const icons: Record<string, string> = {
     FRAME: "⊞",
@@ -66,6 +99,8 @@ type AIMode = "prompt" | "screenshot";
 type ViewportType = "desktop" | "tablet" | "mobile";
 
 export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate }: ComponentsPanelProps) {
+  const nodes = useEditorStore((s) => s.nodes);
+  const sceneMasterComponents = useMemo(() => collectSceneMasterComponents(nodes), [nodes]);
   const editorColorMode = useEditorStore((s) => s.theme);
   const [search, setSearch] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -199,6 +234,17 @@ export function ComponentsPanel({ onAddComponent, onOpenIconPicker, onAIGenerate
           aria-label="Filter components"
         />
       </div>
+
+      {sceneMasterComponents.length > 0 && (
+        <div className={styles.sceneComponentsBlock}>
+          <div className={styles.sceneComponentsHeading}>Scene components</div>
+          <div className={styles.sceneComponentsGrid}>
+            {sceneMasterComponents.map((n) => (
+              <DraggableSceneComponent key={n.id} node={n} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {onAIGenerate && (
         <div className={styles.aiSection}>

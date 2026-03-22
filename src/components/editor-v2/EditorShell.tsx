@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, type ComponentType } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
@@ -32,10 +32,11 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { useEditorStore } from "@/lib/editor/store";
+import { useEditorStore, type EditorPage } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
+import { BackendPanel } from "./BackendPanel";
 import { SettingsPopover } from "./SettingsPopover";
 import { SaveAsModal } from "./SaveAsModal";
 import { ExportModal } from "@/components/editor/ExportModal";
@@ -90,22 +91,53 @@ function getTypeIcon(type: string): string {
   return map[type] ?? "•";
 }
 
+/** Layer panel type icon accent (Figma-style) */
+function getTypeIconColor(type: string): string {
+  const map: Record<string, string> = {
+    FRAME: "#3b82f6",
+    TEXT: "#f59e0b",
+    BUTTON: "#22c55e",
+    INPUT: "#8b5cf6",
+    RECTANGLE: "#6b7280",
+    CONTAINER: "#6b7280",
+    IMAGE: "#14b8a6",
+    ICON: "#eab308",
+  };
+  return map[type] ?? "#6b7280";
+}
+
+/** Show nodes matching search + ancestors; matching nodes keep full subtree. */
+function filterLayersForSearch(nodes: SceneNode[], q: string): SceneNode[] {
+  const lower = q.trim().toLowerCase();
+  if (!lower) return nodes;
+  const out: SceneNode[] = [];
+  for (const n of nodes) {
+    const childFiltered = filterLayersForSearch(n.children ?? [], q);
+    const selfMatch = n.name.toLowerCase().includes(lower);
+    if (selfMatch) {
+      out.push({ ...n, children: n.children ?? [] });
+    } else if (childFiltered.length > 0) {
+      out.push({ ...n, children: childFiltered });
+    }
+  }
+  return out;
+}
+
 function LayerItem({
   node,
   isSelected,
   depth,
+  editingId,
+  setEditingId,
 }: {
   node: SceneNode;
   isSelected: boolean;
   depth: number;
+  editingId: string | null;
+  setEditingId: (id: string | null) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [renaming, setRenaming] = useState(false);
-  const [nameValue, setNameValue] = useState(node.name);
-
-  useEffect(() => {
-    if (!renaming) setNameValue(node.name);
-  }, [node.name, renaming]);
+  const skipRenameBlurRef = useRef(false);
 
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
@@ -117,32 +149,16 @@ function LayerItem({
   const isHidden = node.visible === false;
   const isLocked = !!node.locked;
 
-  const commitRename = () => {
-    const trimmed = nameValue.trim();
-    if (trimmed && trimmed !== node.name) {
-      updateNode(node.id, { name: trimmed });
-      pushHistory();
-    } else {
-      setNameValue(node.name);
-    }
-    setRenaming(false);
-  };
-
   return (
     <div className={styles.layerGroup}>
       <div
         className={`${styles.layerItem} ${isSelected ? styles.layerItemSelected : ""} ${isHidden ? styles.layerHidden : ""}`}
         style={{ paddingLeft: depth * 14 + 6, position: "relative" }}
         onClick={(e) => {
-          if (renaming) return;
+          if (editingId === node.id) return;
           if (isLocked) return;
           if (e.shiftKey) toggleSelection(node.id);
           else setSelectedIds([node.id]);
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          setRenaming(true);
-          setNameValue(node.name);
         }}
       >
         <button
@@ -154,40 +170,51 @@ function LayerItem({
             setExpanded((v) => !v);
           }}
         >
-          <ChevronRight
-            size={10}
-            style={{
-              transition: "transform 120ms ease",
-              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-            }}
-          />
+          {expanded ? <ChevronDown size={12} strokeWidth={2} /> : <ChevronRight size={12} strokeWidth={2} />}
         </button>
         <div className={styles.layerIcon}>
-          <span className={styles.layerTypeIcon}>{getTypeIcon(node.type)}</span>
+          <span className={styles.layerTypeIcon} style={{ color: getTypeIconColor(node.type) }}>
+            {getTypeIcon(node.type)}
+          </span>
         </div>
-        {renaming ? (
+        {editingId === node.id ? (
           <input
-            id={`editor-layer-rename-${node.id}`}
-            name="layer_name"
             autoFocus
+            defaultValue={node.name}
             className={styles.layerRenameInput}
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            onBlur={commitRename}
+            onBlur={(e) => {
+              if (skipRenameBlurRef.current) {
+                skipRenameBlurRef.current = false;
+                return;
+              }
+              const v = e.target.value.trim();
+              updateNode(node.id, { name: v || node.name });
+              pushHistory();
+              setEditingId(null);
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
+              if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") {
-                setNameValue(node.name);
-                setRenaming(false);
+                skipRenameBlurRef.current = true;
+                setEditingId(null);
               }
               e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
             autoComplete="off"
             aria-label="Rename layer"
+            name="layer_name"
+            id={`editor-layer-rename-${node.id}`}
           />
         ) : (
-          <span className={styles.layerName} style={{ opacity: isHidden ? 0.4 : 1 }}>
+          <span
+            className={styles.layerName}
+            style={{ opacity: isHidden ? 0.4 : 1 }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setEditingId(node.id);
+            }}
+          >
             {node.name}
           </span>
         )}
@@ -242,6 +269,8 @@ function LayerItem({
             node={child}
             isSelected={selectedIds.has(child.id)}
             depth={depth + 1}
+            editingId={editingId}
+            setEditingId={setEditingId}
           />
         ))}
     </div>
@@ -263,6 +292,10 @@ export function EditorShell() {
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  /** Which layer row is in rename mode (double-click name) */
+  const [layerEditingId, setLayerEditingId] = useState<string | null>(null);
+  /** Pages panel: which page name is being edited */
+  const [renamingPage, setRenamingPage] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -291,6 +324,15 @@ export function EditorShell() {
     sendToBack,
     groupNodes,
     ungroupNodes,
+    createComponent,
+    pages,
+    currentPageId,
+    addPage,
+    deletePage,
+    renamePage,
+    switchPage,
+    prototypeMode,
+    setPrototypeMode,
   } = useEditorStore();
 
   const sensors = useSensors(
@@ -307,14 +349,22 @@ export function EditorShell() {
     const t = setTimeout(() => {
       try {
         import("@/lib/projects").then(({ saveProject }) => {
-          saveProject(projectId, { nodes: nodes as unknown[] });
+          const s = useEditorStore.getState();
+          const pagesWithCurrent = s.pages.map((p) =>
+            p.id === s.currentPageId ? { ...p, nodes: s.nodes } : p
+          );
+          saveProject(projectId, {
+            nodes: s.nodes as unknown[],
+            editorPages: pagesWithCurrent as unknown[],
+            currentPageId: s.currentPageId,
+          });
         });
       } catch {
         /* ignore */
       }
     }, 1000);
     return () => clearTimeout(t);
-  }, [nodes]);
+  }, [nodes, pages, currentPageId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -326,7 +376,24 @@ export function EditorShell() {
         const project = getProject(projectId);
         if (!project) return;
         setProjectName(project.name || "Untitled");
-        if (project.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
+        if (project.editorPages && Array.isArray(project.editorPages) && project.editorPages.length > 0) {
+          const ep = project.editorPages as EditorPage[];
+          const cid =
+            project.currentPageId && ep.some((p) => p.id === project.currentPageId)
+              ? project.currentPageId
+              : ep[0].id;
+          const cur = ep.find((p) => p.id === cid);
+          const loadedNodes = (cur?.nodes ?? []) as SceneNode[];
+          const nodesClone = JSON.parse(JSON.stringify(loadedNodes)) as SceneNode[];
+          useEditorStore.setState({
+            pages: ep,
+            currentPageId: cid,
+            nodes: nodesClone,
+            history: [{ nodes: JSON.parse(JSON.stringify(nodesClone)) }],
+            historyIndex: 0,
+            selectedIds: new Set(),
+          });
+        } else if (project.nodes && Array.isArray(project.nodes) && project.nodes.length > 0) {
           setNodes(project.nodes as Parameters<typeof setNodes>[0]);
         }
       })
@@ -370,7 +437,7 @@ export function EditorShell() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     const data = active.data.current as
-      | { type?: string; key?: string; iconName?: string }
+      | { type?: string; key?: string; iconName?: string; componentId?: string }
       | undefined;
     const pos = getPlacement();
     if (data?.type === "component" && data.key) {
@@ -384,6 +451,13 @@ export function EditorShell() {
         handleAddIcon(data.iconName, pos.x, pos.y);
       } else {
         handleAddIcon(data.iconName);
+      }
+    } else if (data?.type === "sceneComponent" && data.componentId) {
+      const s = useEditorStore.getState();
+      if (over?.id === "canvas-drop") {
+        s.createInstance(data.componentId, { x: pos.x, y: pos.y });
+      } else {
+        s.createInstance(data.componentId);
       }
     }
   };
@@ -480,6 +554,11 @@ export function EditorShell() {
         else groupNodes([...selectedIds]);
         return;
       }
+      if (e.ctrlKey && e.altKey && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        createComponent([...selectedIds]);
+        return;
+      }
       const step = e.shiftKey ? 10 : 1;
       if (e.key === "ArrowUp") {
         e.preventDefault();
@@ -516,6 +595,7 @@ export function EditorShell() {
     sendToBack,
     groupNodes,
     ungroupNodes,
+    createComponent,
     pushHistory,
   ]);
 
@@ -556,11 +636,10 @@ export function EditorShell() {
     // #endregion
   });
 
-  const filteredNodes = searchQuery
-    ? nodes.filter((n) =>
-        n.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : nodes;
+  const filteredLayerTree = useMemo(
+    () => filterLayersForSearch(nodes, searchQuery),
+    [nodes, searchQuery]
+  );
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
@@ -651,22 +730,6 @@ export function EditorShell() {
 
           {leftTab === "layers" && (
             <>
-              <div className={styles.layerTreeWrap}>
-                <div className={styles.layerTree}>
-                  {filteredNodes.length === 0 ? (
-                    <div className={styles.layerEmpty}>No layers yet</div>
-                  ) : (
-                    filteredNodes.map((node, i) => (
-                      <LayerItem
-                        key={`${node.id}-${i}`}
-                        node={node}
-                        isSelected={selectedIds.has(node.id)}
-                        depth={0}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
               <div className={styles.searchBar}>
                 <form className={styles.searchForm}>
                   <Search size={16} className={styles.searchIcon} />
@@ -675,7 +738,7 @@ export function EditorShell() {
                     name="layer_search"
                     type="search"
                     className={styles.searchInput}
-                    placeholder="Search"
+                    placeholder="Search layers"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     autoComplete="off"
@@ -683,6 +746,74 @@ export function EditorShell() {
                   />
                   <span className={styles.key}>⌘ K</span>
                 </form>
+              </div>
+              <div className={styles.layerTreeWrap}>
+                <div className={styles.layerTree}>
+                  {filteredLayerTree.length === 0 ? (
+                    <div className={styles.layerEmpty}>
+                      {nodes.length === 0 ? "No layers yet" : "No matching layers"}
+                    </div>
+                  ) : (
+                    filteredLayerTree.map((node, i) => (
+                      <LayerItem
+                        key={`${node.id}-${i}`}
+                        node={node}
+                        isSelected={selectedIds.has(node.id)}
+                        depth={0}
+                        editingId={layerEditingId}
+                        setEditingId={setLayerEditingId}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.pagesSection}>
+                <div className={styles.pagesSectionHeader}>
+                  <span>Pages</span>
+                  <button type="button" className={styles.pagesAddBtn} onClick={addPage} title="Add page">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                {pages.map((page) => (
+                  <div
+                    key={page.id}
+                    className={`${styles.pageItem} ${page.id === currentPageId ? styles.pageItemActive : ""}`}
+                    onClick={() => switchPage(page.id)}
+                    onDoubleClick={() => setRenamingPage(page.id)}
+                  >
+                    {renamingPage === page.id ? (
+                      <input
+                        className={styles.pageItemInput}
+                        autoFocus
+                        defaultValue={page.name}
+                        onBlur={(e) => {
+                          renamePage(page.id, e.target.value);
+                          setRenamingPage(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (e.key === "Escape") setRenamingPage(null);
+                        }}
+                      />
+                    ) : (
+                      <span className={styles.pageItemLabel}>{page.name}</span>
+                    )}
+                    {pages.length > 1 && (
+                      <button
+                        type="button"
+                        className={styles.pageItemDelete}
+                        title="Delete page"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deletePage(page.id);
+                        }}
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -855,6 +986,22 @@ export function EditorShell() {
           >
             View Code
           </button>
+          <button
+            type="button"
+            className={`${styles.toolbarDarkBtn} ${mode === "backend" ? styles.toolbarDarkBtnActive : ""}`}
+            onClick={() => setMode("backend")}
+          >
+            Backend
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarDarkBtn} ${prototypeMode ? styles.toolbarDarkBtnActive : ""}`}
+            onClick={() => setPrototypeMode(!prototypeMode)}
+            title="Prototype mode — show connection arrows on the canvas"
+          >
+            Prototype
+            {prototypeMode && <span className={styles.prototypeDot} aria-hidden />}
+          </button>
         </div>
 
         {/* ── Canvas Area ────────────────────────────────────────── */}
@@ -881,6 +1028,7 @@ export function EditorShell() {
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}
+          {mode === "backend" && <BackendPanel />}
         </main>
 
         <SettingsPopover

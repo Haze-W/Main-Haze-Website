@@ -9,6 +9,27 @@ import { SceneNodeRenderer } from "./SceneNodeRenderer";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import styles from "./Canvas.module.css";
 
+function collectPrototypeNavigateLinks(nodes: SceneNode[]): { source: SceneNode; target: SceneNode }[] {
+  const flat: SceneNode[] = [];
+  function walk(ns: SceneNode[]) {
+    for (const n of ns) {
+      flat.push(n);
+      walk(n.children ?? []);
+    }
+  }
+  walk(nodes);
+  const byId = new Map(flat.map((n) => [n.id, n]));
+  const links: { source: SceneNode; target: SceneNode }[] = [];
+  for (const n of flat) {
+    const ix = n.props?.interactions as Array<{ action?: string; targetId?: string }> | undefined;
+    if (ix?.[0]?.action === "NAVIGATE" && ix[0].targetId) {
+      const t = byId.get(ix[0].targetId);
+      if (t && t.type === "FRAME") links.push({ source: n, target: t });
+    }
+  }
+  return links;
+}
+
 function buildContextMenuItems(
   selectedIds: Set<string>,
   store: ReturnType<typeof useEditorStore.getState>
@@ -21,6 +42,12 @@ function buildContextMenuItems(
   const firstNode = hasSelection ? store.getNode(ids[0]) : null;
   const isHidden = firstNode?.visible === false;
   const isLocked = !!firstNode?.locked;
+  const single = ids.length === 1 ? firstNode : null;
+  const isMasterComponent =
+    single?.type === "COMPONENT" &&
+    (single.props as { isComponent?: boolean } | undefined)?.isComponent === true;
+  const isComponentInstance = single?.type === "COMPONENT_INSTANCE";
+  const masterId = single?.mainComponentId;
 
   return [
     {
@@ -70,6 +97,31 @@ function buildContextMenuItems(
     {
       id: "ungroup", label: "Ungroup", shortcut: "⌃⇧G", disabled: !hasSelection,
       onClick: () => store.ungroupNodes(ids),
+    },
+    { id: "div-comp", divider: true },
+    {
+      id: "create-instance",
+      label: "Create Instance",
+      disabled: !isMasterComponent,
+      onClick: () => {
+        if (single && isMasterComponent) store.createInstance(single.id);
+      },
+    },
+    {
+      id: "detach-instance",
+      label: "Detach Instance",
+      disabled: !isComponentInstance,
+      onClick: () => {
+        if (single && isComponentInstance) store.detachInstance(single.id);
+      },
+    },
+    {
+      id: "go-to-master",
+      label: "Go to Master",
+      disabled: !isComponentInstance || !masterId,
+      onClick: () => {
+        if (masterId) store.setSelectedIds([masterId]);
+      },
     },
     { id: "div3", divider: true },
     {
@@ -519,6 +571,60 @@ export function Canvas() {
           />
         );
       })()}
+
+      {prototypeMode && prototypeLinks.length > 0 && (
+        <svg
+          aria-hidden
+          style={{
+            position: "absolute",
+            zIndex: 9999,
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            overflow: "visible",
+          }}
+        >
+          <defs>
+            <marker
+              id="haze-prototype-arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#7B61FF" />
+            </marker>
+          </defs>
+          {prototypeLinks.map((link, i) => {
+            const { source, target } = link;
+            const sx = viewport.panX + (source.x + source.width) * viewport.zoom;
+            const sy = viewport.panY + (source.y + source.height / 2) * viewport.zoom;
+            const ex = viewport.panX + target.x * viewport.zoom;
+            const ey = viewport.panY + (target.y + target.height / 2) * viewport.zoom;
+            const midx = (sx + ex) / 2;
+            const midy = (sy + ey) / 2;
+            const qx = midx + (ey - sy) * 0.2;
+            const qy = midy - (ex - sx) * 0.2;
+            const pathD = `M ${sx} ${sy} Q ${qx} ${qy} ${ex} ${ey}`;
+            return (
+              <g key={`${source.id}-${target.id}-${i}`}>
+                <circle cx={sx} cy={sy} r={6} fill="#7B61FF" />
+                <path
+                  d={pathD}
+                  stroke="#7B61FF"
+                  strokeWidth={2}
+                  fill="none"
+                  markerEnd="url(#haze-prototype-arrowhead)"
+                />
+              </g>
+            );
+          })}
+        </svg>
+      )}
     </div>
   );
 }

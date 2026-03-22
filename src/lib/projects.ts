@@ -9,7 +9,10 @@ export interface Project {
   name: string;
   createdAt: string;
   updatedAt: string;
-  nodes?: unknown[];   // serialized SceneNode[]
+  nodes?: unknown[];   // serialized SceneNode[] (current page / legacy)
+  /** Multi-page editor state (optional; when present, overrides single `nodes` for canvas) */
+  editorPages?: unknown[];
+  currentPageId?: string;
   template?: string;
   runtimeTarget?: string;
   languageTarget?: string;

@@ -6,6 +6,46 @@ import { useEditorStore } from "@/lib/editor/store";
 import { ResizeHandles } from "./ResizeHandles";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
+import { paintsToCss, effectsToBoxShadow, effectsToFilter } from "@/lib/editor/node-surface-style";
+
+function mapPrimaryAxisAlign(v?: string): React.CSSProperties["justifyContent"] {
+  switch (v) {
+    case "CENTER":
+      return "center";
+    case "MAX":
+      return "flex-end";
+    case "SPACE_BETWEEN":
+      return "space-between";
+    default:
+      return "flex-start";
+  }
+}
+
+function mapCounterAxisAlign(v?: string): React.CSSProperties["alignItems"] {
+  switch (v) {
+    case "CENTER":
+      return "center";
+    case "MAX":
+      return "flex-end";
+    case "STRETCH":
+      return "stretch";
+    default:
+      return "flex-start";
+  }
+}
+
+function flexContainerAutoSize(node: SceneNode): React.CSSProperties {
+  const out: React.CSSProperties = {};
+  if (node.layoutMode !== "HORIZONTAL" && node.layoutMode !== "VERTICAL") return out;
+  if (node.layoutMode === "HORIZONTAL") {
+    if (node.primaryAxisSizingMode === "AUTO") out.width = "fit-content";
+    if (node.counterAxisSizingMode === "AUTO") out.height = "fit-content";
+  } else {
+    if (node.primaryAxisSizingMode === "AUTO") out.height = "fit-content";
+    if (node.counterAxisSizingMode === "AUTO") out.width = "fit-content";
+  }
+  return out;
+}
 
 interface FrameNodeProps {
   node: SceneNode;
@@ -27,6 +67,7 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
     enteredFrameId,
     enterFrame,
     exitFrame,
+    getNode,
   } = useEditorStore();
 
   const isFrameEntered = enteredFrameId === node.id;
@@ -98,23 +139,50 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
   const bc = node.props?.borderColor as string | undefined;
   const customBorder = bw != null && bc ? `${bw}px solid ${bc}` : undefined;
 
+  const fillBackground =
+    paintsToCss(node.fills) ?? (node.props?.backgroundColor as string | undefined);
+  const effectShadow = effectsToBoxShadow(node.effects);
+  const propsShadow = node.props?.boxShadow as string | undefined;
+  const effectBlur = effectsToFilter(node.effects);
+  const mergedShadow = [effectShadow, propsShadow].filter(Boolean).join(", ") || undefined;
+  const mergedFilter = effectBlur || undefined;
+
   const isFlexLayout = node.layoutMode === "VERTICAL" || node.layoutMode === "HORIZONTAL";
-  const framePositioning: React.CSSProperties = parentHasLayoutMode
+  const parentNode = node.parentId ? getNode(node.parentId) : undefined;
+  const parentIsAutoLayout =
+    parentHasLayoutMode ||
+    parentNode?.layoutMode === "HORIZONTAL" ||
+    parentNode?.layoutMode === "VERTICAL";
+
+  const positionStyle: React.CSSProperties = parentIsAutoLayout
     ? {
         position: "relative",
-        left: "unset",
-        top: "unset",
-        width: node.width,
-        height: node.height,
-        flex: "0 0 auto",
+        flexShrink: node.layoutGrow === 1 ? 0 : 1,
+        flexGrow: node.layoutGrow ?? 0,
+        alignSelf: node.layoutAlign === "STRETCH" ? "stretch" : "auto",
+        minWidth: node.minWidth ?? undefined,
+        maxWidth: node.maxWidth ?? undefined,
+        minHeight: node.minHeight ?? undefined,
+        maxHeight: node.maxHeight ?? undefined,
+        ...(parentNode?.layoutMode === "HORIZONTAL" && node.primaryAxisSizingMode === "AUTO"
+          ? { width: "fit-content" as const }
+          : {}),
+        ...(parentNode?.layoutMode === "VERTICAL" && node.primaryAxisSizingMode === "AUTO"
+          ? { height: "fit-content" as const }
+          : {}),
       }
     : {
         position: "absolute",
         left: node.x,
         top: node.y,
-        width: node.width,
-        height: node.height,
       };
+
+  const frameOuterBox: React.CSSProperties = {
+    ...positionStyle,
+    width: node.width,
+    height: node.height,
+    ...(isFlexLayout ? flexContainerAutoSize(node) : {}),
+  };
 
   const innerLayoutStyle: React.CSSProperties = isFlexLayout
     ? {
@@ -126,8 +194,8 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
         flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
         flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
         gap: node.itemSpacing ?? 0,
-        alignItems: "flex-start",
-        justifyContent: "flex-start",
+        justifyContent: mapPrimaryAxisAlign(node.primaryAxisAlignItems),
+        alignItems: mapCounterAxisAlign(node.counterAxisAlignItems),
       }
     : { position: "relative", width: "100%", height: "100%", minHeight: 1 };
 
@@ -135,14 +203,18 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
     <div
       className={`frame-node ${isSelected ? "selected" : ""}`}
       style={{
-        ...framePositioning,
+        ...frameOuterBox,
         border:
           isSelected && !isFrameEntered
             ? "none"
             : customBorder ?? "1px solid rgba(255,255,255,0.06)",
         borderRadius: (node.props?.borderRadius as number) ?? 6,
-        background: (node.props?.backgroundColor as string) ?? "rgba(30,30,34,0.95)",
-        ...(node.props?.boxShadow ? { boxShadow: String(node.props.boxShadow) } : {}),
+        background:
+          (fillBackground != null && fillBackground !== ""
+            ? fillBackground
+            : (node.props?.backgroundColor as string) ?? "rgba(30,30,34,0.95)"),
+        ...(mergedShadow ? { boxShadow: mergedShadow } : {}),
+        ...(mergedFilter ? { filter: mergedFilter } : {}),
         ...(framePad ? { padding: framePad } : {}),
         overflow: node.overflow === "HIDDEN" ? "hidden" : "visible",
         cursor: "pointer",

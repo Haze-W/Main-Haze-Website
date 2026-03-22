@@ -230,9 +230,119 @@
 /* Layer tree */
 .layerTreeWrap {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-3);
   scrollbar-width: none;
+}
+
+/* Pages (Figma-style) — below layers */
+.pagesSection {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-s-01);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 40%;
+  overflow-y: auto;
+}
+
+.pagesSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pagesAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  background: var(--surface-03);
+  color: var(--shade-09);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.pagesAddBtn:hover {
+  background: var(--surface-01);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pageItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.pageItem:hover {
+  background: var(--shade-07_05);
+}
+
+.pageItemActive {
+  background: var(--surface-01);
+  border-color: var(--color-s-02);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pageItemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageItemInput {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface-01);
+  color: var(--shade-09);
+  outline: none;
+}
+
+.pageItemDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.pageItemDelete:hover {
+  background: var(--shade-07_10);
+  color: var(--shade-09);
 }
 
 .layerTreeWrap::-webkit-scrollbar {
@@ -703,6 +813,17 @@
 
 .toolbarDarkBtnActive {
   background: linear-gradient(180deg, #4a4a4e 0%, #3a3a3e 100%) !important;
+}
+
+.prototypeDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #7b61ff;
+  box-shadow: 0 0 8px rgba(123, 97, 255, 0.65);
+  vertical-align: middle;
 }
 
 .toolbarIconBtn {

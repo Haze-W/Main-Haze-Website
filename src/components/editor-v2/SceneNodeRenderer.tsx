@@ -11,11 +11,54 @@ import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
 import { TopBarNode } from "./TopBarNode";
 import { ResizeHandles } from "./ResizeHandles";
 import styles from "./SceneNodeRenderer.module.css";
+import { paintsToCss, effectsToBoxShadow, effectsToFilter } from "@/lib/editor/node-surface-style";
 
 const DynamicIcon = dynamic(
   () => import("lucide-react/dynamic").then((m) => m.DynamicIcon),
   { ssr: false }
 );
+
+function mapPrimaryAxisAlign(v?: string): React.CSSProperties["justifyContent"] {
+  switch (v) {
+    case "CENTER":
+      return "center";
+    case "MAX":
+      return "flex-end";
+    case "SPACE_BETWEEN":
+      return "space-between";
+    case "MIN":
+    default:
+      return "flex-start";
+  }
+}
+
+function mapCounterAxisAlign(v?: string): React.CSSProperties["alignItems"] {
+  switch (v) {
+    case "CENTER":
+      return "center";
+    case "MAX":
+      return "flex-end";
+    case "STRETCH":
+      return "stretch";
+    case "MIN":
+    default:
+      return "flex-start";
+  }
+}
+
+/** Hug-contents sizing on the flex container (frame / auto-layout root). */
+function flexContainerAutoSize(node: SceneNode): React.CSSProperties {
+  const out: React.CSSProperties = {};
+  if (node.layoutMode !== "HORIZONTAL" && node.layoutMode !== "VERTICAL") return out;
+  if (node.layoutMode === "HORIZONTAL") {
+    if (node.primaryAxisSizingMode === "AUTO") out.width = "fit-content";
+    if (node.counterAxisSizingMode === "AUTO") out.height = "fit-content";
+  } else {
+    if (node.primaryAxisSizingMode === "AUTO") out.height = "fit-content";
+    if (node.counterAxisSizingMode === "AUTO") out.width = "fit-content";
+  }
+  return out;
+}
 
 interface SceneNodeRendererProps {
   node: SceneNode;
@@ -33,14 +76,14 @@ export function SceneNodeRenderer({ node, isSelected, zoom, parentHasLayoutMode 
   if (node.type === "TOPBAR") {
     return <TopBarNode node={node} isSelected={isSelected} zoom={zoom} />;
   }
-  if (node.type === "FRAME") {
+  if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_INSTANCE") {
     return <FrameNode node={node} isSelected={isSelected} zoom={zoom} parentHasLayoutMode={parentHasLayoutMode} />;
   }
   return <GenericNode node={node} isSelected={isSelected} zoom={zoom} parentHasLayoutMode={parentHasLayoutMode} />;
 }
 
 function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds } = useEditorStore();
+  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds, getNode } = useEditorStore();
   const [isHovered, setIsHovered] = useState(false);
 
   const handleResizeStart = useCallback(
@@ -87,32 +130,51 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   /** Outer node gets flex when it has layoutMode, except CONTAINER defers flex to inner wrapper so children participate. */
   const applyFlexToSelf = isFlexLayout && !isContainerWithChildren;
 
-  const flexProps: React.CSSProperties = {
-    display: "flex",
-    flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
-    flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
-    gap: node.itemSpacing ?? 0,
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-  };
+  const parentNode = node.parentId ? getNode(node.parentId) : undefined;
+  const parentIsAutoLayout =
+    parentHasLayoutMode ||
+    parentNode?.layoutMode === "HORIZONTAL" ||
+    parentNode?.layoutMode === "VERTICAL";
 
-  // Base style — applies to every node
-  const positioning: React.CSSProperties = parentHasLayoutMode
+  const positionStyle: React.CSSProperties = parentIsAutoLayout
     ? {
         position: "relative",
-        left: "unset",
-        top: "unset",
-        width: node.width,
-        height: node.height,
-        flex: "0 0 auto",
+        flexShrink: node.layoutGrow === 1 ? 0 : 1,
+        flexGrow: node.layoutGrow ?? 0,
+        alignSelf: node.layoutAlign === "STRETCH" ? "stretch" : "auto",
+        minWidth: node.minWidth ?? undefined,
+        maxWidth: node.maxWidth ?? undefined,
+        minHeight: node.minHeight ?? undefined,
+        maxHeight: node.maxHeight ?? undefined,
+        ...(parentNode?.layoutMode === "HORIZONTAL" && node.primaryAxisSizingMode === "AUTO"
+          ? { width: "fit-content" as const }
+          : {}),
+        ...(parentNode?.layoutMode === "VERTICAL" && node.primaryAxisSizingMode === "AUTO"
+          ? { height: "fit-content" as const }
+          : {}),
       }
     : {
         position: "absolute",
         left: node.x,
         top: node.y,
-        width: node.width,
-        height: node.height,
       };
+
+  const flexProps: React.CSSProperties = {
+    display: "flex",
+    flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
+    flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
+    gap: node.itemSpacing ?? 0,
+    justifyContent: mapPrimaryAxisAlign(node.primaryAxisAlignItems),
+    alignItems: mapCounterAxisAlign(node.counterAxisAlignItems),
+    ...flexContainerAutoSize(node),
+  };
+
+  // Base style — applies to every node
+  const positioning: React.CSSProperties = {
+    ...positionStyle,
+    width: node.width,
+    height: node.height,
+  };
 
   const baseStyle: React.CSSProperties = {
     ...positioning,
@@ -156,7 +218,24 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   } : {};
 
   const drag = createDragHandler(node.id, zoom, moveNodes, pushHistory, isLocked);
-  const merged = { ...baseStyle, ...hoverStyle, ...(isLocked ? { cursor: "not-allowed", opacity: (Number(baseStyle.opacity) || 1) * 0.7 } : {}) };
+
+  const fillBackground = paintsToCss(node.fills) ?? (props.backgroundColor as string | undefined);
+  const effectShadow = effectsToBoxShadow(node.effects);
+  const propsShadow = props.boxShadow as string | undefined;
+  const effectBlur = effectsToFilter(node.effects);
+
+  const merged: React.CSSProperties = {
+    ...baseStyle,
+    ...(fillBackground != null && fillBackground !== "" ? { background: fillBackground } : {}),
+    ...hoverStyle,
+    ...(isLocked ? { cursor: "not-allowed", opacity: (Number(baseStyle.opacity) || 1) * 0.7 } : {}),
+  };
+
+  const shadowParts = [effectShadow, propsShadow, hoverStyle.boxShadow].filter(Boolean) as string[];
+  if (shadowParts.length) merged.boxShadow = shadowParts.join(", ");
+
+  const filterParts = [effectBlur, hoverStyle.filter].filter(Boolean) as string[];
+  if (filterParts.length) merged.filter = filterParts.join(" ");
 
   // ── ICON ──────────────────────────────────────────────────────────────────
   if (node.type === "ICON") {
@@ -200,7 +279,11 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     return (
       <div
         className={btnClass}
-        style={{ ...merged, ...(btnColor && { color: btnColor }), ...(btnBg && { backgroundColor: btnBg }) }}
+        style={{
+          ...merged,
+          ...(btnColor && { color: btnColor }),
+          ...(!fillBackground && btnBg ? { backgroundColor: btnBg } : {}),
+        }}
         onClick={handleClick}
         onPointerDown={drag}
         {...hoverHandlers}
@@ -251,12 +334,11 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
   // ── RECTANGLE ─────────────────────────────────────────────────────────────
   if (node.type === "RECTANGLE") {
-    const bg = (props.backgroundColor as string) || undefined;
     const borderColor = (props.borderColor as string) || undefined;
     return (
       <div
         className={styles.rectNode}
-        style={{ ...merged, ...(bg && { background: bg }), ...(borderColor && { borderColor, borderStyle: "solid" }) }}
+        style={{ ...merged, ...(borderColor && { borderColor, borderStyle: "solid" }) }}
         onClick={handleClick}
         onPointerDown={drag}
         {...hoverHandlers}
@@ -402,9 +484,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
     // CONTAINER with children — render them so design matches preview (sidebar, navbar, card, content)
     if (node.children && node.children.length > 0) {
-      const bg = (props.backgroundColor as string) || undefined;
       const radius = (props.borderRadius as number) ?? 6;
-      const shadow = (props.boxShadow as string) || undefined;
       const p = props.padding as number | undefined;
       const pad =
         p != null || props.paddingTop != null
@@ -413,9 +493,8 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
       const flexParent = isFlexLayout;
       const containerStyle: React.CSSProperties = {
         ...merged,
-        ...(bg && { backgroundColor: bg }),
+        ...(flexParent ? flexContainerAutoSize(node) : {}),
         borderRadius: radius,
-        ...(shadow && { boxShadow: shadow }),
         ...(pad ? { padding: pad } : {}),
         ...(props.borderColor != null && props.borderWidth != null
           ? { border: `${props.borderWidth}px solid ${props.borderColor}` }
@@ -431,8 +510,8 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
             flexDirection: node.layoutMode === "VERTICAL" ? "column" : "row",
             flexWrap: node.layoutWrap === "WRAP" ? "wrap" : "nowrap",
             gap: node.itemSpacing ?? 0,
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
+            justifyContent: mapPrimaryAxisAlign(node.primaryAxisAlignItems),
+            alignItems: mapCounterAxisAlign(node.counterAxisAlignItems),
           }
         : { position: "relative", width: "100%", height: "100%", minHeight: 1 };
       return (
