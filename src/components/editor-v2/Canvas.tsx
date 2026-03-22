@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useEditorStore } from "@/lib/editor/store";
+import type { SceneNode } from "@/lib/editor/types";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { screenToCanvas, clampZoom, clampPan } from "@/lib/editor/viewport";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
@@ -215,8 +216,13 @@ export function Canvas() {
     showGrid,
     gridType,
     setLastCanvasPoint,
+    prototypeMode,
   } = useEditorStore();
 
+  const prototypeLinks = useMemo(
+    () => collectPrototypeNavigateLinks(nodes),
+    [nodes]
+  );
 
   const measure = useCallback(() => {
     if (containerRef.current) {
