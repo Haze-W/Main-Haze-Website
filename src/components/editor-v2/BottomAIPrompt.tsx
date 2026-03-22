@@ -166,7 +166,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
               className={styles.agentBtn}
               onClick={() => setShowAgent((v) => !v)}
             >
-              Coral
+              Coral 1.0
               <ChevronDown size={16} />
             </button>
             {showAgent && (
@@ -176,7 +176,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
                   className={`${styles.dropdownItem} ${styles.dropdownItemActive}`}
                   onClick={() => setShowAgent(false)}
                 >
-                  Coral (local)
+                  Coral 1.0
                 </button>
               </div>
             )}

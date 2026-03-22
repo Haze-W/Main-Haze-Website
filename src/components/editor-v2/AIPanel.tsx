@@ -68,7 +68,7 @@ const SLASH_COMMANDS = [
   { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Canvas / layout fixes" },
 ];
 
-const AGENTS = [{ id: "coral-local", name: "Coral (local)", active: true }];
+const AGENTS = [{ id: "coral-local", name: "Coral 1.0", active: true }];
 
 const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
   { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
@@ -588,8 +588,8 @@ export function AIPanel() {
       ) : (
         <div className={styles.empty}>
           <Sparkles size={28} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Coral</p>
-          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Coral.</p>
+          <p className={styles.emptyTitle}>Coral 1.0</p>
+          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Coral 1.0.</p>
           <div className={styles.chipGroups}>
             {CHIPS.map((g) => (
               <div key={g.mode} className={styles.chipGroup}>
