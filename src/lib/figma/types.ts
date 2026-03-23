@@ -8,6 +8,7 @@ export interface Paint {
   visible?: boolean;
   type?: "SOLID" | "IMAGE" | "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND" | string;
   imageRef?: string;
+  imageHash?: string;
   imageBytes?: string;
   imageData?: string;
   src?: string;
@@ -34,6 +35,7 @@ export interface TextSegment {
   fontSize: number;
   fills: Paint[];
   textDecoration?: string;
+  /** Numeric weight when provided; otherwise infer from `fontStyle` (e.g. SemiBold) */
   fontWeight?: number;
   letterSpacing?: number;
   lineHeight?: number | string;
@@ -80,7 +82,13 @@ export interface FigmaNode {
   textHasNoBackgroundFill?: boolean;
   imageData?: string;
   src?: string;
+  /** Optional PNG raster (base64 or data URL). Prefer over svgData for stable HTML layout. */
+  pngData?: string;
+  /** Figma image hash — lookup in merged `images` / assets after paste */
+  imageHash?: string;
   svgData?: string;
+  /** Plugin alias for svgData when blobs are deduped to `assets` */
+  svgSrc?: string;
   cornerRadius: number | null;
   topLeftRadius: number | null;
   topRightRadius: number | null;
@@ -99,29 +107,47 @@ export interface FigmaNode {
   itemSpacing: number;
   primaryAxisAlignItems: string | null;
   counterAxisAlignItems: string | null;
+  /** Auto-layout: Figma `layoutGrow` (0 = fixed, 1 = fill) */
+  layoutGrow?: number;
+  /** Auto-layout: STRETCH vs INHERIT */
+  layoutAlign?: "STRETCH" | "MIN" | "CENTER" | "MAX" | "BASELINE" | string;
+  /** Child sizing along primary axis */
+  primaryAxisSizingMode?: "FIXED" | "AUTO" | string;
+  /** Child sizing along counter axis */
+  counterAxisSizingMode?: "FIXED" | "AUTO" | string;
+  /** Absolute vs auto-layout positioning */
+  layoutPositioning?: "AUTO" | "ABSOLUTE" | string;
+  layoutWrap?: "NO_WRAP" | "WRAP" | string;
+  minWidth?: number | null;
+  maxWidth?: number | null;
+  minHeight?: number | null;
+  maxHeight?: number | null;
   text?: TextStyle;
   children?: FigmaNode[];
 }
 
 /**
  * Clipboard payload from Figma → Haze plugins.
- * Plugins may set either `_render` or `_haze` (same meaning); accept both at runtime.
+ * Plugins may set `_render` and/or `_haze` (same meaning), or `source: "figma-haze-plugin"`.
  */
 export interface RenderPayload {
   /** Legacy / primary marker */
   _render?: true;
   /** Alternative marker (Figma To Haze and related plugins) */
   _haze?: true;
-  version: string;
-  exportedAt: string;
-  pageName: string;
-  preview: string | null;
+  /** Identifies official plugin payloads when boolean markers are omitted (still accept markers). */
+  source?: string;
+  /** Informational; any string is accepted (do not reject unknown versions). */
+  version?: string;
+  exportedAt?: string;
+  pageName?: string;
+  preview?: string | null;
   frame: FigmaNode;
-  assets?: Record<string, string | { data?: string; base64?: string; svg?: string }>;
-  /** Some plugins use "images" instead of "assets" */
-  images?: Record<string, string | { data?: string; base64?: string }>;
-  /** Some plugins use "exports" */
-  exports?: Record<string, string | { data?: string; base64?: string; format?: string }>;
+  assets?: Record<string, string | { data?: string; base64?: string; svg?: string; png?: string }>;
+  /** Deduped bitmaps by Figma `imageHash` — merged into asset lookup */
+  images?: Record<string, string | { data?: string; base64?: string; svg?: string; png?: string }>;
+  /** Often `nodeId_svg` strings — merged last */
+  exports?: Record<string, string | { data?: string; base64?: string; format?: string; svg?: string; png?: string }>;
 }
 
 /** Convert Figma {hex, alpha} paint to CSS rgba string */
@@ -131,6 +157,23 @@ export function hexAlpha(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Map Figma font style names (SemiBold, Medium, …) to CSS font-weight when numeric weight is missing */
+export function fontStyleToFontWeight(style: string | null | undefined): number | undefined {
+  if (!style) return undefined;
+  const s = style.toLowerCase().replace(/\s+/g, "");
+  if (s.includes("thin")) return 100;
+  if (s.includes("extralight") || s === "ultralight") return 200;
+  if (s.includes("light") && !s.includes("semi")) return 300;
+  if (s.includes("regular") || s === "normal" || s === "book") return 400;
+  if (s.includes("medium")) return 500;
+  if (s.includes("semibold") || s.includes("demibold")) return 600;
+  if (s.includes("bold") && !s.includes("semi")) return 700;
+  if (s.includes("extrabold") || s === "ultrabold") return 800;
+  if (s.includes("black") || s.includes("heavy")) return 900;
+  if (s.includes("italic")) return undefined;
+  return undefined;
 }
 
 /** Convert SOLID paint to CSS color - supports hex or Figma color {r,g,b,a} */
@@ -148,12 +191,16 @@ export function paintToSolidColor(fill: Paint): string | undefined {
   return undefined;
 }
 
-/** True if payload uses either supported clipboard marker (not both required). */
+/** True if payload uses a supported clipboard marker (any one is enough). */
 export function isHazeRenderMarker(d: Record<string, unknown>): boolean {
-  return d._render === true || d._haze === true;
+  return (
+    d._render === true ||
+    d._haze === true ||
+    d.source === "figma-haze-plugin"
+  );
 }
 
-/** Type guard for validating a pasted object as RenderPayload (v2.1+). Minified JSON is fine. */
+/** Type guard for validating a pasted object as RenderPayload. Minified JSON is fine. `version` is not required. */
 export function isRenderPayload(data: unknown): data is RenderPayload {
   if (typeof data !== "object" || data === null) return false;
   const d = data as Record<string, unknown>;

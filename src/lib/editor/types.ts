@@ -6,6 +6,7 @@ export type SceneNodeType =
   | "FRAME"
   | "GROUP"
   | "RECTANGLE"
+  | "VECTOR"
   | "TEXT"
   | "COMPONENT"
   | "COMPONENT_INSTANCE"

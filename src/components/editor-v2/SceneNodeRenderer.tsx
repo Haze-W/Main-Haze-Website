@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import dynamic from "next/dynamic";
 import type { SceneNode } from "@/lib/editor/types";
 import { getValidIconName } from "@/lib/icon-valid";
 import { useEditorStore } from "@/lib/editor/store";
+import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { loadGoogleFont } from "@/lib/editor/fonts";
 import { FrameNode } from "./FrameNode";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
@@ -68,7 +70,7 @@ interface SceneNodeRendererProps {
   parentHasLayoutMode?: boolean;
 }
 
-export function SceneNodeRenderer({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
+function SceneNodeRendererInner({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
   if (node.visible === false) return null;
   if (node.props?._figma) {
     return <FigmaNodeRenderer node={node} isSelected={isSelected} zoom={zoom} />;
@@ -82,8 +84,23 @@ export function SceneNodeRenderer({ node, isSelected, zoom, parentHasLayoutMode 
   return <GenericNode node={node} isSelected={isSelected} zoom={zoom} parentHasLayoutMode={parentHasLayoutMode} />;
 }
 
+export const SceneNodeRenderer = memo(SceneNodeRendererInner);
+
 function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: SceneNodeRendererProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory, updateNode, selectedIds, getNode } = useEditorStore();
+  const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const resizeNode = useEditorStore((s) => s.resizeNode);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+  const updateNode = useEditorStore((s) => s.updateNode);
+  const getNode = useEditorStore((s) => s.getNode);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const dragOffset = useEditorStore(
+    useShallow((s) => {
+      const d = s.dragSession;
+      if (!d || !d.ids.includes(node.id)) return null;
+      return { dx: d.deltaX, dy: d.deltaY };
+    })
+  );
   const [isHovered, setIsHovered] = useState(false);
 
   const handleResizeStart = useCallback(
@@ -217,7 +234,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     onMouseLeave: () => setIsHovered(false),
   } : {};
 
-  const drag = createDragHandler(node.id, zoom, moveNodes, pushHistory, isLocked);
+  const drag = createDragHandler(node.id, isLocked);
 
   const fillBackground = paintsToCss(node.fills) ?? (props.backgroundColor as string | undefined);
   const effectShadow = effectsToBoxShadow(node.effects);
@@ -236,6 +253,9 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
   const filterParts = [effectBlur, hoverStyle.filter].filter(Boolean) as string[];
   if (filterParts.length) merged.filter = filterParts.join(" ");
+
+  const dragSt = mergeDragTransform(merged.transform as string | undefined, dragOffset);
+  if (dragSt) Object.assign(merged, dragSt);
 
   // ── ICON ──────────────────────────────────────────────────────────────────
   if (node.type === "ICON") {
@@ -411,22 +431,48 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     );
   }
 
-  // ── IMAGE ─────────────────────────────────────────────────────────────────
-  if (node.type === "IMAGE") {
+  // ── IMAGE / VECTOR (SVG or bitmap raster; not plain RECTANGLE fills) ────────
+  if (node.type === "IMAGE" || node.type === "VECTOR") {
     const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
     const rounded = (props.rounded as boolean) ?? false;
+    if (src) {
+      return (
+        <div
+          className={`${styles.imageNode} ${rounded ? styles.rounded : ""}`}
+          style={merged}
+          onClick={handleClick}
+          onPointerDown={drag}
+          {...hoverHandlers}
+        >
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <img src={src} alt={(props.alt as string) ?? node.name} />
+        </div>
+      );
+    }
+    if (node.type === "IMAGE") {
+      return (
+        <div
+          className={`${styles.imageNode} ${rounded ? styles.rounded : ""}`}
+          style={merged}
+          onClick={handleClick}
+          onPointerDown={drag}
+          {...hoverHandlers}
+        >
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.imagePlaceholder}>{rounded ? "👤" : "🖼"}</div>
+        </div>
+      );
+    }
+    /* VECTOR without raster/SVG — show stroke/fill from merged surface (not an empty solid block) */
     return (
       <div
-        className={`${styles.imageNode} ${rounded ? styles.rounded : ""}`}
+        className={styles.rectNode}
         style={merged}
         onClick={handleClick}
         onPointerDown={drag}
         {...hoverHandlers}
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-        {src
-          ? <img src={src} alt={(props.alt as string) ?? ""} />
-          : <div className={styles.imagePlaceholder}>{rounded ? "👤" : "🖼"}</div>}
       </div>
     );
   }
@@ -1217,19 +1263,17 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   );
 }
 
-function createDragHandler(
-  nodeId: string,
-  zoom: number,
-  moveNodes: (ids: string[], dx: number, dy: number) => void,
-  pushHistory: () => void,
-  locked = false
-) {
+function createDragHandler(nodeId: string, locked = false) {
   return (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     if (locked) return;
     e.stopPropagation();
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
+    const st = useEditorStore.getState();
+    const sel = st.selectedIds;
+    const dragIds = sel.has(nodeId) && sel.size > 0 ? [...sel] : [nodeId];
+    st.startDragSession(dragIds);
     const last = { clientX: e.clientX, clientY: e.clientY };
     let moved = false;
     const onMove = (move: PointerEvent) => {
@@ -1237,7 +1281,7 @@ function createDragHandler(
       const dx = (move.clientX - last.clientX) / currentZoom;
       const dy = (move.clientY - last.clientY) / currentZoom;
       if (dx !== 0 || dy !== 0) moved = true;
-      moveNodes([nodeId], dx, dy);
+      useEditorStore.getState().appendDragDelta(dx, dy);
       last.clientX = move.clientX;
       last.clientY = move.clientY;
     };
@@ -1245,7 +1289,8 @@ function createDragHandler(
       target.releasePointerCapture(e.pointerId);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
-      if (moved) pushHistory();
+      if (moved) useEditorStore.getState().commitDragSession();
+      else useEditorStore.getState().cancelDragSession();
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);

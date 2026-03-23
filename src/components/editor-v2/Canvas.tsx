@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useDroppable } from "@dnd-kit/core";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
@@ -217,7 +218,36 @@ export function Canvas() {
     gridType,
     setLastCanvasPoint,
     prototypeMode,
-  } = useEditorStore();
+  } = useEditorStore(
+    useShallow((s) => ({
+      nodes: s.nodes,
+      viewport: s.viewport,
+      setViewport: s.setViewport,
+      selectedIds: s.selectedIds,
+      setSelectedIds: s.setSelectedIds,
+      setMarquee: s.setMarquee,
+      deleteNodes: s.deleteNodes,
+      duplicateNodes: s.duplicateNodes,
+      tool: s.tool,
+      isPanning: s.isPanning,
+      isSpacePressed: s.isSpacePressed,
+      setSpacePressed: s.setSpacePressed,
+      setIsPanning: s.setIsPanning,
+      isMarqueeSelecting: s.isMarqueeSelecting,
+      marqueeRect: s.marqueeRect,
+      isCreatingFrame: s.isCreatingFrame,
+      createFrameStart: s.createFrameStart,
+      finishCreateFrame: s.finishCreateFrame,
+      cancelCreateFrame: s.cancelCreateFrame,
+      findNodesInRect: s.findNodesInRect,
+      setTool: s.setTool,
+      canvasBg: s.canvasBg,
+      showGrid: s.showGrid,
+      gridType: s.gridType,
+      setLastCanvasPoint: s.setLastCanvasPoint,
+      prototypeMode: s.prototypeMode,
+    }))
+  );
 
   const prototypeLinks = useMemo(
     () => collectPrototypeNavigateLinks(nodes),

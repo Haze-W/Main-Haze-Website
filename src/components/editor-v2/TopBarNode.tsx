@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
+import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { createDefaultTopBarConfig, type TopBarConfig, type TopBarLayout } from "@/lib/editor/blocks";
 import { ResizeHandles } from "./ResizeHandles";
 import styles from "./TopBarNode.module.css";
@@ -111,7 +113,17 @@ function MacControls() {
 }
 
 export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeProps) {
-  const { setSelectedIds, toggleSelection, moveNodes, resizeNode, pushHistory } = useEditorStore();
+  const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const resizeNode = useEditorStore((s) => s.resizeNode);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+  const dragOffset = useEditorStore(
+    useShallow((s) => {
+      const d = s.dragSession;
+      if (!d || !d.ids.includes(node.id)) return null;
+      return { dx: d.deltaX, dy: d.deltaY };
+    })
+  );
   const config = getConfig(node);
   const [lastClick, setLastClick] = useState(0);
 
@@ -158,32 +170,40 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
   const isMac = config.layout === "mac";
   const titleFirst = !isMac;
 
+  const topBarStyle: CSSProperties = {
+    left: node.x,
+    top: node.y,
+    width: node.width,
+    height: node.height,
+    background: config.backgroundColor,
+    color: config.textColor,
+    fontSize: config.fontSize,
+    fontWeight: config.fontWeight,
+    fontFamily: config.fontFamily,
+    borderBottom: config.borderBottom ? `1px solid ${config.borderColor}` : "none",
+    borderRadius: isSelected ? 0 : 2,
+    outline: isSelected ? "2px solid var(--accent)" : "none",
+    outlineOffset: -1,
+    paddingLeft: isMac ? 0 : config.paddingX,
+    paddingRight: isMac ? config.paddingX : 0,
+  };
+  const dragT = mergeDragTransform(undefined, dragOffset);
+  if (dragT) Object.assign(topBarStyle, dragT);
+
   return (
     <div
       className={styles.topbar}
-      style={{
-        left: node.x,
-        top: node.y,
-        width: node.width,
-        height: node.height,
-        background: config.backgroundColor,
-        color: config.textColor,
-        fontSize: config.fontSize,
-        fontWeight: config.fontWeight,
-        fontFamily: config.fontFamily,
-        borderBottom: config.borderBottom ? `1px solid ${config.borderColor}` : "none",
-        borderRadius: isSelected ? 0 : 2,
-        outline: isSelected ? "2px solid var(--accent)" : "none",
-        outlineOffset: -1,
-        paddingLeft: isMac ? 0 : config.paddingX,
-        paddingRight: isMac ? config.paddingX : 0,
-      }}
+      style={topBarStyle}
       onClick={handleClick}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
+        const st0 = useEditorStore.getState();
+        const sel = st0.selectedIds;
+        const dragIds = sel.has(node.id) && sel.size > 0 ? [...sel] : [node.id];
+        st0.startDragSession(dragIds);
         const last = { clientX: e.clientX, clientY: e.clientY };
         let moved = false;
         const onMove = (move: PointerEvent) => {
@@ -191,7 +211,7 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
           const dx = (move.clientX - last.clientX) / currentZoom;
           const dy = (move.clientY - last.clientY) / currentZoom;
           if (dx !== 0 || dy !== 0) moved = true;
-          moveNodes([node.id], dx, dy);
+          useEditorStore.getState().appendDragDelta(dx, dy);
           last.clientX = move.clientX;
           last.clientY = move.clientY;
         };
@@ -199,7 +219,8 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
           target.releasePointerCapture(e.pointerId);
           document.removeEventListener("pointermove", onMove);
           document.removeEventListener("pointerup", onUp);
-          if (moved) pushHistory();
+          if (moved) useEditorStore.getState().commitDragSession();
+          else useEditorStore.getState().cancelDragSession();
         };
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp);

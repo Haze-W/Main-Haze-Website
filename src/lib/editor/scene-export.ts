@@ -168,6 +168,8 @@ function mapAlign(val: string | null | undefined): string | undefined {
     case "MAX": return "flex-end";
     case "CENTER": return "center";
     case "SPACE_BETWEEN": return "space-between";
+    case "STRETCH": return "stretch";
+    case "BASELINE": return "baseline";
     default: return undefined;
   }
 }
@@ -315,7 +317,10 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   const hasImageFill = !!node.props?._hasImageFill;
   const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
   const VECTOR_TYPES = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
-  const isVector = figma ? VECTOR_TYPES.includes(figma.originalType) : false;
+  /** Scene `VECTOR` = path exports; legacy `RECTANGLE` + `_figma.originalType` still used for some shapes (e.g. ellipse). */
+  const isVector =
+    node.type === "VECTOR" ||
+    (figma ? VECTOR_TYPES.includes(figma.originalType) : false);
   const isVectorOrImageWithData = hasImageFill || (isVector && node.props?._imageData);
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
@@ -355,8 +360,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const bg = getBackground(figma.fills ?? [], fillEnabled, false);
       if (bg) style.background = bg;
     }
-    // Apply stroke/border for all non-vector, non-image nodes
-    if (!isVector && !hasImageFill) {
+    /* Vectors need CSS borders too when stroke-only or stroke+fill (same as FigmaNodeRenderer). */
+    if (!hasImageFill) {
       const strokeEnabled = figma.strokeEnabled !== false;
       const border = getBorder(figma.strokes ?? [], figma.strokeWeight ?? 0, strokeEnabled);
       if (border) style.border = border;
@@ -372,7 +377,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (node.overflow === "HIDDEN") style.overflow = "hidden";
     else if (node.overflow === "SCROLL") style.overflow = "auto";
     else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
-    else if (isVectorOrImageWithData) style.overflow = "visible";
+    else if (isVectorOrImageWithData && !usesFlex) style.overflow = "visible";
+    else if (isVectorOrImageWithData) style.overflow = "hidden";
   }
 
   if (layout === "HORIZONTAL" || layout === "VERTICAL") {
@@ -409,6 +415,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   if (isText) {
     const props = node.props ?? {};
     const textStyle: Record<string, string> = { ...style, color: getTextColor(props), whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "0", padding: "0" };
+    if (usesFlex) {
+      textStyle.flexShrink = "0";
+      textStyle.minWidth =
+        node.minWidth != null ? `${node.minWidth}px` : `${Math.max(node.width, 1)}px`;
+      textStyle.writingMode = "horizontal-tb";
+    }
     delete textStyle.background;
     delete textStyle.backgroundColor;
     if (props.fontFamily) textStyle.fontFamily = `"${props.fontFamily as string}",sans-serif`;
@@ -428,10 +440,23 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   if (hasImageFill || (isVector && node.props?._imageData)) {
     const imageData = node.props?._imageData as string | undefined;
     if (imageData) {
-      const containerStyle = { ...style, overflow: "visible", border: "none", boxShadow: "none" };
+      const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
+      const isSvgDataUrl = imageData.includes("image/svg+xml");
+      const objectFit =
+        isSvgDataUrl ? "fill" : scaleMode === "FIT" ? "contain" : scaleMode === "TILE" ? "none" : "fill";
+      const containerStyle: Record<string, string> = {
+        ...style,
+        overflow: usesFlex ? "hidden" : "visible",
+        ...(usesFlex ? { minWidth: "0", minHeight: "0" } : {}),
+        border: "none",
+        boxShadow: "none",
+      };
       const containerStr = Object.entries(containerStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
-      const objectFit = imageData.includes("image/svg+xml") ? "fill" : "fill";
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="width:100%;height:100%;object-fit:${objectFit};display:block;stroke:none;outline:none;border:none" /></div>`;
+      const imgSizing =
+        "width:100%;height:100%;max-width:100%;max-height:100%;min-width:0;min-height:0;object-fit:" +
+        objectFit +
+        ";display:block;stroke:none;outline:none;border:none";
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + containerStr)}"><img src="${escapeHtml(imageData)}" alt="${escapeHtml(node.name)}" style="${escapeHtml(imgSizing)}" /></div>`;
     }
   }
 
@@ -518,8 +543,8 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(selStyle)}"><span>${escapeHtml(ph)}</span><span style="font-size:10px;">▼</span></div>`;
     }
 
-    // IMAGE
-    if (node.type === "IMAGE") {
+    // IMAGE / VECTOR (same img pipeline; VECTOR without src uses surface fills below)
+    if (node.type === "IMAGE" || node.type === "VECTOR") {
       const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
       const rounded = (props.rounded as boolean) ?? false;
       const radius = rounded ? "border-radius:50%;" : "border-radius:6px;";
@@ -527,7 +552,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       if (src) {
         return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><img src="${escapeHtml(src)}" style="width:100%;height:100%;object-fit:cover;" /></div>`;
       }
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><span style="font-size:32px;opacity:0.3;">${rounded ? "👤" : "🖼"}</span></div>`;
+      if (node.type === "IMAGE") {
+        return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><span style="font-size:32px;opacity:0.3;">${rounded ? "👤" : "🖼"}</span></div>`;
+      }
+      const vBg = (props.backgroundColor as string) || "transparent";
+      const vRect = `${styleStr};background:${vBg};border-radius:4px;`;
+      return `${pad}<div ${extraAttrs} style="${escapeHtml(vRect)}"></div>`;
     }
 
     // DIVIDER

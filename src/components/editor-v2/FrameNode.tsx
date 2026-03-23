@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
+import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { ResizeHandles } from "./ResizeHandles";
 import { FigmaNodeRenderer } from "./FigmaNodeRenderer";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
@@ -55,20 +57,24 @@ interface FrameNodeProps {
   parentHasLayoutMode?: boolean;
 }
 
-export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false }: FrameNodeProps) {
+function FrameNodeInner({ node, isSelected, zoom, parentHasLayoutMode = false }: FrameNodeProps) {
   if (node.visible === false) return null;
-  const {
-    setSelectedIds,
-    toggleSelection,
-    moveNodes,
-    resizeNode,
-    pushHistory,
-    selectedIds,
-    enteredFrameId,
-    enterFrame,
-    exitFrame,
-    getNode,
-  } = useEditorStore();
+  const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const resizeNode = useEditorStore((s) => s.resizeNode);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const enteredFrameId = useEditorStore((s) => s.enteredFrameId);
+  const enterFrame = useEditorStore((s) => s.enterFrame);
+  const exitFrame = useEditorStore((s) => s.exitFrame);
+  const getNode = useEditorStore((s) => s.getNode);
+  const dragOffset = useEditorStore(
+    useShallow((s) => {
+      const d = s.dragSession;
+      if (!d || !d.ids.includes(node.id)) return null;
+      return { dx: d.deltaX, dy: d.deltaY };
+    })
+  );
 
   const isFrameEntered = enteredFrameId === node.id;
   const hasChildren = node.children && node.children.length > 0;
@@ -183,6 +189,8 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
     height: node.height,
     ...(isFlexLayout ? flexContainerAutoSize(node) : {}),
   };
+  const dragT = mergeDragTransform(undefined, dragOffset);
+  if (dragT) Object.assign(frameOuterBox, dragT);
 
   const innerLayoutStyle: React.CSSProperties = isFlexLayout
     ? {
@@ -232,12 +240,16 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
         target.setPointerCapture(e.pointerId);
         const last = { clientX: e.clientX, clientY: e.clientY };
         let moved = false;
+        const st0 = useEditorStore.getState();
+        const sel = st0.selectedIds;
+        const dragIds = sel.has(node.id) && sel.size > 0 ? [...sel] : [node.id];
+        st0.startDragSession(dragIds);
         const onMove = (move: PointerEvent) => {
           const currentZoom = useEditorStore.getState().viewport.zoom;
           const dx = (move.clientX - last.clientX) / currentZoom;
           const dy = (move.clientY - last.clientY) / currentZoom;
           if (dx !== 0 || dy !== 0) moved = true;
-          moveNodes([node.id], dx, dy);
+          useEditorStore.getState().appendDragDelta(dx, dy);
           last.clientX = move.clientX;
           last.clientY = move.clientY;
         };
@@ -245,7 +257,8 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
           target.releasePointerCapture(e.pointerId);
           document.removeEventListener("pointermove", onMove);
           document.removeEventListener("pointerup", onUp);
-          if (moved) pushHistory();
+          if (moved) useEditorStore.getState().commitDragSession();
+          else useEditorStore.getState().cancelDragSession();
         };
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp);
@@ -281,3 +294,5 @@ export function FrameNode({ node, isSelected, zoom, parentHasLayoutMode = false 
     </div>
   );
 }
+
+export const FrameNode = memo(FrameNodeInner);

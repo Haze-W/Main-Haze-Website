@@ -46,6 +46,18 @@ export type Tool = "SELECT" | "FRAME" | "HAND";
 
 export type EditorPage = { id: string; name: string; nodes: SceneNode[] };
 
+/** Transient drag — avoids rewriting the full scene tree on every pointermove (large Figma pastes). */
+export type DragSession = {
+  ids: string[];
+  deltaX: number;
+  deltaY: number;
+};
+
+/** RAF-batched pending deltas (module scope — tied to store lifecycle). */
+let dragRafId: number | null = null;
+let pendingDragDx = 0;
+let pendingDragDy = 0;
+
 interface EditorState {
   // Scene (active page)
   nodes: SceneNode[];
@@ -88,6 +100,8 @@ interface EditorState {
   aiBuild: { lines: string[] } | null;
   /** Figma-style prototype links overlay on canvas */
   prototypeMode: boolean;
+  /** In-flight pointer drag: visual = CSS translate; commit applies moveNodes once */
+  dragSession: DragSession | null;
 }
 
 type EditorActions = {
@@ -98,6 +112,11 @@ type EditorActions = {
   duplicateNodes: (ids: string[]) => void;
   pasteNodes: (nodes: SceneNode[]) => void;
   moveNodes: (ids: string[], dx: number, dy: number) => void;
+  /** Start RAF-batched drag; on pointerup call commitDragSession or cancelDragSession */
+  startDragSession: (ids: string[]) => void;
+  appendDragDelta: (dx: number, dy: number) => void;
+  commitDragSession: () => void;
+  cancelDragSession: () => void;
   resizeNode: (id: string, handle: string, dx: number, dy: number) => void;
   setViewport: (v: Partial<Viewport>) => void;
   setSelectedIds: (ids: string[] | Set<string>) => void;
@@ -334,6 +353,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   lastCanvasPoint: null,
   aiBuild: null,
   prototypeMode: false,
+  dragSession: null,
 
   setPrototypeMode: (v) => set({ prototypeMode: v }),
 
@@ -429,6 +449,73 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set((s) => ({
       nodes: moveInTree(s.nodes, idSet, dx, dy),
     }));
+  },
+
+  startDragSession: (ids) => {
+    if (ids.length === 0) return;
+    if (dragRafId != null) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
+    pendingDragDx = 0;
+    pendingDragDy = 0;
+    set({ dragSession: { ids: [...ids], deltaX: 0, deltaY: 0 }, isDragging: true });
+  },
+
+  appendDragDelta: (dx, dy) => {
+    const session = get().dragSession;
+    if (!session) return;
+    pendingDragDx += dx;
+    pendingDragDy += dy;
+    if (dragRafId != null) return;
+    dragRafId = requestAnimationFrame(() => {
+      dragRafId = null;
+      const cur = get().dragSession;
+      if (!cur) {
+        pendingDragDx = 0;
+        pendingDragDy = 0;
+        return;
+      }
+      const pdx = pendingDragDx;
+      const pdy = pendingDragDy;
+      pendingDragDx = 0;
+      pendingDragDy = 0;
+      set({
+        dragSession: {
+          ...cur,
+          deltaX: cur.deltaX + pdx,
+          deltaY: cur.deltaY + pdy,
+        },
+      });
+    });
+  },
+
+  commitDragSession: () => {
+    if (dragRafId != null) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
+    const session = get().dragSession;
+    if (!session) return;
+    const totalDx = session.deltaX + pendingDragDx;
+    const totalDy = session.deltaY + pendingDragDy;
+    pendingDragDx = 0;
+    pendingDragDy = 0;
+    set({ dragSession: null, isDragging: false });
+    if (totalDx !== 0 || totalDy !== 0) {
+      get().moveNodes(session.ids, totalDx, totalDy);
+    }
+    get().pushHistory();
+  },
+
+  cancelDragSession: () => {
+    if (dragRafId != null) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
+    pendingDragDx = 0;
+    pendingDragDy = 0;
+    set({ dragSession: null, isDragging: false });
   },
   resizeNode: (id, handle, dx, dy) => {
     const n = findNodeById(get().nodes, id);

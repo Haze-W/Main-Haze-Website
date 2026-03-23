@@ -2256,7 +2256,7 @@ export function PropertiesPanel() {
           </>
         )}
 
-        {(node.type === "RECTANGLE" || node.type === "FRAME") && (
+        {(node.type === "RECTANGLE" || node.type === "VECTOR" || node.type === "FRAME") && (
           <>
             <SceneFillsEditor node={node} updateNode={updateNode} />
             <SceneEffectsEditor node={node} updateNode={updateNode} />

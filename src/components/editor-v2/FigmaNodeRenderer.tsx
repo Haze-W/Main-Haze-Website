@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef, useEffect, memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
+import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { loadGoogleFont } from "@/lib/editor/fonts";
-import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
+import { hexAlpha, paintToSolidColor, fontStyleToFontWeight } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import { ResizeHandles } from "./ResizeHandles";
 
@@ -176,6 +178,8 @@ function mapAlign(val: string | null | undefined): string | undefined {
     case "MAX": return "flex-end";
     case "CENTER": return "center";
     case "SPACE_BETWEEN": return "space-between";
+    case "STRETCH": return "stretch";
+    case "BASELINE": return "baseline";
     default: return undefined;
   }
 }
@@ -210,7 +214,10 @@ function renderTextContent(props: Record<string, unknown>): React.ReactNode {
     const fontFamily = seg.fontFamily ?? fallbackFont;
     if (fontFamily) segStyle.fontFamily = `"${fontFamily}", sans-serif`;
     if (seg.fontSize) segStyle.fontSize = seg.fontSize;
-    if (seg.fontWeight) segStyle.fontWeight = seg.fontWeight;
+    const segW =
+      seg.fontWeight ??
+      fontStyleToFontWeight(seg.fontStyle);
+    if (segW != null) segStyle.fontWeight = segW;
     if (seg.fontStyle?.toLowerCase() === "italic") segStyle.fontStyle = "italic";
     if (seg.textDecoration) {
       const dec = seg.textDecoration.toLowerCase();
@@ -236,24 +243,29 @@ function renderTextContent(props: Record<string, unknown>): React.ReactNode {
   });
 }
 
-export function FigmaNodeRenderer({
+function FigmaNodeRendererInner({
   node,
   isSelected,
   zoom,
   parentLayout = "NONE",
   isChild = false,
 }: FigmaNodeRendererProps) {
-  const {
-    setSelectedIds,
-    toggleSelection,
-    moveNodes,
-    resizeNode,
-    pushHistory,
-    enteredFrameId,
-    enterFrame,
-    exitFrame,
-    updateNode,
-  } = useEditorStore();
+  const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const resizeNode = useEditorStore((s) => s.resizeNode);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+  const enterFrame = useEditorStore((s) => s.enterFrame);
+  const exitFrame = useEditorStore((s) => s.exitFrame);
+  const updateNode = useEditorStore((s) => s.updateNode);
+  const enteredFrameId = useEditorStore((s) => s.enteredFrameId);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const dragOffset = useEditorStore(
+    useShallow((s) => {
+      const d = s.dragSession;
+      if (!d || !d.ids.includes(node.id)) return null;
+      return { dx: d.deltaX, dy: d.deltaY };
+    })
+  );
 
   const [isEditingText, setIsEditingText] = useState(false);
   const textEditRef = useRef<HTMLDivElement>(null);
@@ -276,7 +288,9 @@ export function FigmaNodeRenderer({
   const isText = figma?.originalType === "TEXT";
   const hasImageFill = !!node.props?._hasImageFill;
   const isTextNode = isText || figma?.textHasNoBackgroundFill === true;
-  const isVector = figma ? VECTOR_TYPES.includes(figma.originalType) : false;
+  const isVector =
+    node.type === "VECTOR" ||
+    (figma ? VECTOR_TYPES.includes(figma.originalType) : false);
 
   const isFrameEntered = enteredFrameId === node.id;
   const isInsideEnteredFrame = isChild && enteredFrameId != null;
@@ -309,6 +323,10 @@ export function FigmaNodeRenderer({
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
       e.stopPropagation();
+      const st = useEditorStore.getState();
+      const sel = st.selectedIds;
+      const dragIds = sel.has(node.id) && sel.size > 0 ? [...sel] : [node.id];
+      st.startDragSession(dragIds);
       const target = e.currentTarget as HTMLElement;
       target.setPointerCapture(e.pointerId);
       const last = { clientX: e.clientX, clientY: e.clientY };
@@ -318,7 +336,7 @@ export function FigmaNodeRenderer({
         const dx = (move.clientX - last.clientX) / currentZoom;
         const dy = (move.clientY - last.clientY) / currentZoom;
         if (dx !== 0 || dy !== 0) moved = true;
-        moveNodes([node.id], dx, dy);
+        useEditorStore.getState().appendDragDelta(dx, dy);
         last.clientX = move.clientX;
         last.clientY = move.clientY;
       };
@@ -326,12 +344,13 @@ export function FigmaNodeRenderer({
         target.releasePointerCapture(e.pointerId);
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
-        if (moved) pushHistory();
+        if (moved) useEditorStore.getState().commitDragSession();
+        else useEditorStore.getState().cancelDragSession();
       };
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
     },
-    [node.id, moveNodes, pushHistory]
+    [node.id]
   );
 
   const handleResizeStart = useCallback(
@@ -380,6 +399,17 @@ export function FigmaNodeRenderer({
     cursor: canDrag ? "pointer" : "default",
   };
 
+  /** Auto-layout children: match Figma flex grow / stretch / min constraints */
+  if (usesFlex && isChild) {
+    style.flexShrink = node.layoutGrow === 1 ? 0 : 1;
+    style.flexGrow = node.layoutGrow ?? 0;
+    if (node.layoutAlign === "STRETCH") style.alignSelf = "stretch";
+    if (node.minWidth != null) style.minWidth = node.minWidth;
+    if (node.maxWidth != null) style.maxWidth = node.maxWidth;
+    if (node.minHeight != null) style.minHeight = node.minHeight;
+    if (node.maxHeight != null) style.maxHeight = node.maxHeight;
+  }
+
   if (showSelection) {
     style.outline = "2px solid var(--accent)";
     style.outlineOffset = -1;
@@ -401,6 +431,9 @@ export function FigmaNodeRenderer({
     if (parts.length) style.transform = parts.join(" ");
   }
 
+  const dragStyle = mergeDragTransform(style.transform, dragOffset);
+  if (dragStyle) Object.assign(style, dragStyle);
+
   const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData)) && !isText;
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
@@ -416,7 +449,8 @@ export function FigmaNodeRenderer({
       }
     }
 
-    if (!isVector && !hasImageFill) {
+    /* Vectors need CSS borders too when stroke-only or stroke+fill (no raster/SVG). */
+    if (!hasImageFill) {
       const strokeEnabled = figma.strokeEnabled !== false;
       const border = getBorder(figma.strokes, figma.strokeWeight, strokeEnabled);
       if (border) style.border = border;
@@ -436,13 +470,16 @@ export function FigmaNodeRenderer({
     if (node.overflow === "HIDDEN") style.overflow = "hidden";
     else if (node.overflow === "SCROLL") style.overflow = "auto";
     else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
-    else if (isVectorOrImageWithData) style.overflow = "visible";
+    // SVG/PNG as <img>: avoid overflow:visible inside auto-layout — breaks flex sizing (min-content).
+    else if (isVectorOrImageWithData && !(usesFlex && isChild)) style.overflow = "visible";
+    else if (isVectorOrImageWithData) style.overflow = "hidden";
   }
 
   const layout = node.layoutMode ?? "NONE";
   if (layout === "HORIZONTAL" || layout === "VERTICAL") {
     style.display = "flex";
     style.flexDirection = layout === "HORIZONTAL" ? "row" : "column";
+    if (node.layoutWrap === "WRAP") style.flexWrap = "wrap";
     if (node.itemSpacing) style.gap = node.itemSpacing;
     if (node.paddingTop) style.paddingTop = node.paddingTop;
     if (node.paddingRight) style.paddingRight = node.paddingRight;
@@ -463,6 +500,13 @@ export function FigmaNodeRenderer({
     style.wordBreak = "break-word";
     style.margin = 0;
     style.padding = 0;
+    /** Prevent flex from shrinking text width to ~0 (one char per line). */
+    style.writingMode = "horizontal-tb";
+    if (usesFlex && isChild) {
+      style.flexShrink = 0;
+      style.minWidth =
+        node.minWidth != null ? node.minWidth : Math.max(typeof node.width === "number" ? node.width : 0, 1);
+    }
 
     // No background for text nodes
     style.backgroundColor = undefined;
@@ -510,6 +554,9 @@ export function FigmaNodeRenderer({
     if (props.fontWeight) {
       const fw = props.fontWeight as string;
       style.fontWeight = /^\d+$/.test(fw) ? Number(fw) : fw;
+    } else {
+      const w = fontStyleToFontWeight(props.fontStyle as string | null | undefined);
+      if (w != null) style.fontWeight = w;
     }
     if (props.textAlign) style.textAlign = props.textAlign as React.CSSProperties["textAlign"];
     if (props.letterSpacing != null && (props.letterSpacing as number) !== 0) {
@@ -576,9 +623,11 @@ export function FigmaNodeRenderer({
       scaleMode === "FIT" ? "contain" :
       scaleMode === "TILE" ? "none" : "fill";
 
+    const flexChildRaster = usesFlex && isChild;
     const containerStyle: React.CSSProperties = {
       ...style,
-      overflow: "visible",
+      overflow: flexChildRaster ? "hidden" : "visible",
+      ...(flexChildRaster ? { minWidth: 0, minHeight: 0 } : {}),
       border: "none",
       boxShadow: "none",
     };
@@ -598,6 +647,10 @@ export function FigmaNodeRenderer({
             style={{
               width: "100%",
               height: "100%",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              minWidth: 0,
+              minHeight: 0,
               objectFit,
               display: "block",
               pointerEvents: "none",
@@ -656,10 +709,10 @@ export function FigmaNodeRenderer({
     >
       {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       {node.children?.map((child) => (
-        <FigmaNodeRenderer
+        <FigmaNodeRendererInner
           key={child.id}
           node={child}
-          isSelected={useEditorStore.getState().selectedIds.has(child.id)}
+          isSelected={selectedIds.has(child.id)}
           zoom={zoom}
           parentLayout={childLayout}
           isChild={true}
@@ -668,3 +721,5 @@ export function FigmaNodeRenderer({
     </div>
   );
 }
+
+export const FigmaNodeRenderer = memo(FigmaNodeRendererInner);

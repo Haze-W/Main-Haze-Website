@@ -1,5 +1,5 @@
 import type { SceneNode, SceneNodeType } from "@/lib/editor/types";
-import type { FigmaNode, RenderPayload } from "./types";
+import { fontStyleToFontWeight, type FigmaNode, type RenderPayload } from "./types";
 
 function mapType(figmaType: string): SceneNodeType {
   switch (figmaType) {
@@ -15,13 +15,14 @@ function mapType(figmaType: string): SceneNodeType {
       return "TEXT";
     case "ELLIPSE":
       return "RECTANGLE";
+    case "IMAGE":
+      return "IMAGE";
     case "LINE":
     case "VECTOR":
     case "BOOLEAN_OPERATION":
     case "STAR":
     case "POLYGON":
-    case "IMAGE":
-      return "RECTANGLE";
+      return "VECTOR";
     default:
       return "FRAME";
   }
@@ -33,6 +34,14 @@ function mapLayoutMode(mode: string | null): "NONE" | "HORIZONTAL" | "VERTICAL" 
   return "NONE";
 }
 
+/** UTF-8 → base64 (SVG in data URLs — avoids huge encodeURIComponent URLs in Chromium/Tauri). */
+function utf8ToBase64(str: string): string {
+  if (typeof Buffer !== "undefined" && typeof Buffer.from === "function") {
+    return Buffer.from(str, "utf-8").toString("base64");
+  }
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
 function toDataUrl(value: string): string {
   if (!value) return "";
   if (value.startsWith("data:")) return value;
@@ -40,19 +49,27 @@ function toDataUrl(value: string): string {
 
   const trimmed = value.trim();
   if (trimmed.startsWith("<svg") || trimmed.startsWith("<?xml") || trimmed.includes("<svg")) {
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(trimmed)}`;
+    return `data:image/svg+xml;base64,${utf8ToBase64(trimmed)}`;
+  }
+
+  // Raster magic bytes when value is raw base64 (no data: prefix)
+  if (trimmed.startsWith("/9j/")) {
+    return `data:image/jpeg;base64,${value}`;
+  }
+  if (trimmed.startsWith("iVBORw0KGgo")) {
+    return `data:image/png;base64,${value}`;
   }
 
   return `data:image/png;base64,${value}`;
 }
 
-/** Extract string data from asset value (handles object format from some plugins) */
+/** Extract string data from asset value (handles object format from some plugins). Prefers PNG over SVG when both exist. */
 function extractAssetString(
-  val: string | { data?: string; base64?: string; svg?: string } | undefined
+  val: string | { data?: string; base64?: string; svg?: string; png?: string } | undefined
 ): string | null {
   if (!val) return null;
   if (typeof val === "string") return val;
-  return val.data ?? val.base64 ?? val.svg ?? null;
+  return val.png ?? val.data ?? val.base64 ?? val.svg ?? null;
 }
 
 function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
@@ -65,21 +82,60 @@ function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
   return "HIDDEN";
 }
 
-type AssetMap = Record<string, string | { data?: string; base64?: string; svg?: string }>;
+type AssetMap = Record<string, string | { data?: string; base64?: string; svg?: string; png?: string }>;
 
+/**
+ * Contract order (Figma To Haze plugin, deduped blobs in merged assets):
+ * pngData → imageData / src → *_png keys → merged[nodeId] (and : → - / _) → imageHash → IMAGE fills (+ id_fill_i, alt ids) → svgData / svgSrc → *_svg / generic.
+ */
 function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string | null {
-  // Direct image data on the node (plugin may populate after export)
+  const getStr = (val: unknown) =>
+    extractAssetString(val as string | { data?: string; base64?: string; svg?: string; png?: string } | undefined);
+  const altIds = [node.id.replace(/:/g, "-"), node.id.replace(/:/g, "_")];
+
+  // 1) Explicit PNG on node
+  if (node.pngData) return toDataUrl(node.pngData);
+
+  // 2) Inline hydration (plugin may mirror the same URL as pngData / assets[id])
   if (node.imageData) return toDataUrl(node.imageData);
   if (node.src) return toDataUrl(node.src);
 
-  // SVG data on the node (common for VECTOR/BOOLEAN_OPERATION nodes)
-  if (node.svgData) return toDataUrl(node.svgData);
+  // 3) assets[id_png] / alt id variants
+  if (assets) {
+    const pngKey = `${node.id}_png`;
+    const pngVal = getStr(assets[pngKey]);
+    if (pngVal) return toDataUrl(pngVal);
+    for (const altId of altIds) {
+      const ap = getStr(assets[`${altId}_png`]);
+      if (ap) return toDataUrl(ap);
+    }
+  }
 
-  // Check fills for IMAGE type
+  // 4) IMAGE layer: `images` bucket keyed by imageHash (deduped bitmaps)
+  if (node.type === "IMAGE" && node.imageHash && assets?.[node.imageHash]) {
+    const fromHash = getStr(assets[node.imageHash]);
+    if (fromHash) return toDataUrl(fromHash);
+  }
+
+  // 5) Deduped blob keyed by node id only (large selections omit inline fields)
+  if (assets) {
+    const directId = getStr(assets[node.id]);
+    if (directId) return toDataUrl(directId);
+    for (const altId of altIds) {
+      const a = getStr(assets[altId]);
+      if (a) return toDataUrl(a);
+    }
+  }
+
+  // 6) IMAGE fills (imageHash, inline, ref, nodeId_fill_i with id variants)
   if (node.fills) {
     for (let i = 0; i < node.fills.length; i++) {
       const fill = node.fills[i];
       if (fill.type === "IMAGE") {
+        if (fill.imageHash && assets?.[fill.imageHash]) {
+          const fromFillHash = getStr(assets[fill.imageHash]);
+          if (fromFillHash) return toDataUrl(fromFillHash);
+        }
         if (fill.imageData) return toDataUrl(fill.imageData);
         if (fill.src) return toDataUrl(fill.src);
         if (fill.imageBytes) return toDataUrl(fill.imageBytes);
@@ -87,37 +143,36 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
         const refStr = extractAssetString(refVal as string | { data?: string } | undefined);
         if (refStr) return toDataUrl(refStr);
         const fillKey = `${node.id}_fill_${i}`;
-        const fillVal = assets?.[fillKey];
-        const fillStr = extractAssetString(fillVal as string | { data?: string } | undefined);
-        if (fillStr) return toDataUrl(fillStr);
+        const fillCandidates = [fillKey, ...altIds.map((alt) => `${alt}_fill_${i}`)];
+        for (const fk of fillCandidates) {
+          const fillVal = assets?.[fk];
+          const fillStr = extractAssetString(fillVal as string | { data?: string } | undefined);
+          if (fillStr) return toDataUrl(fillStr);
+        }
       }
     }
   }
 
+  // 7) SVG on node (plugin may use svgSrc instead of svgData when deduping)
+  if (node.svgData) return toDataUrl(node.svgData);
+  if (node.svgSrc) return toDataUrl(node.svgSrc);
+
   if (!assets) return null;
 
-  const getStr = (val: unknown) => extractAssetString(val as string | { data?: string } | undefined);
   const vectorTypes = ["VECTOR", "STAR", "POLYGON", "LINE", "BOOLEAN_OPERATION", "ELLIPSE"];
   const isVectorType = vectorTypes.includes(node.type);
 
   const svgKey = `${node.id}_svg`;
   const svgVal = getStr(assets[svgKey]);
-  const direct = getStr(assets[node.id]);
 
   if (isVectorType && svgVal) return toDataUrl(svgVal);
-  if (direct) return toDataUrl(direct);
   if (svgVal) return toDataUrl(svgVal);
 
-  // Colon-stripped IDs (e.g., "123:4" → "123-4", "123_4")
-  const altIds = [node.id.replace(/:/g, "-"), node.id.replace(/:/g, "_")];
   for (const altId of altIds) {
-    const a = getStr(assets[altId]);
-    if (a) return toDataUrl(a);
     const aSvg = getStr(assets[`${altId}_svg`]);
     if (aSvg) return toDataUrl(aSvg);
   }
 
-  // Fallback: any key that ends with or contains node.id (plugin-specific formats)
   for (const [key, value] of Object.entries(assets)) {
     const str = getStr(value);
     if (!str) continue;
@@ -182,8 +237,20 @@ function convertNode(
 
     // Extract typography from segments if available, fall back to top-level text props
     const seg0 = node.text.segments?.[0];
+    const rawTw = node.text.fontWeight;
+    const numericTw =
+      typeof rawTw === "number"
+        ? rawTw
+        : typeof rawTw === "string" && /^\d+$/.test(rawTw)
+          ? parseInt(rawTw, 10)
+          : undefined;
+    const inferredWeight =
+      seg0?.fontWeight ??
+      fontStyleToFontWeight(seg0?.fontStyle) ??
+      numericTw ??
+      fontStyleToFontWeight(node.text.fontStyle ?? null);
     props.fontSize = seg0?.fontSize ?? node.text.fontSize ?? 14;
-    props.fontWeight = String(seg0?.fontWeight ?? node.text.fontWeight ?? 400);
+    props.fontWeight = String(inferredWeight ?? 400);
     props.fontFamily = seg0?.fontFamily ?? node.text.fontFamily;
     props.fontStyle = seg0?.fontStyle ?? node.text.fontStyle;
 
@@ -233,6 +300,23 @@ function convertNode(
     convertNode(child, nodeId, idPrefix, assets)
   );
 
+  const layoutGrow = node.layoutGrow;
+  const layoutAlignRaw = node.layoutAlign;
+  const layoutAlign: SceneNode["layoutAlign"] =
+    layoutAlignRaw === "STRETCH" ? "STRETCH" : layoutAlignRaw === "INHERIT" ? "INHERIT" : undefined;
+
+  const primaryAxisSizingMode =
+    node.primaryAxisSizingMode === "AUTO" || node.primaryAxisSizingMode === "FIXED"
+      ? node.primaryAxisSizingMode
+      : undefined;
+  const counterAxisSizingMode =
+    node.counterAxisSizingMode === "AUTO" || node.counterAxisSizingMode === "FIXED"
+      ? node.counterAxisSizingMode
+      : undefined;
+
+  const layoutWrap =
+    node.layoutWrap === "WRAP" || node.layoutWrap === "NO_WRAP" ? node.layoutWrap : undefined;
+
   return {
     id: nodeId,
     type,
@@ -256,15 +340,27 @@ function convertNode(
     paddingLeft: node.paddingLeft,
     itemSpacing: node.itemSpacing,
     overflow: getOverflow(node),
+    layoutGrow: layoutGrow != null ? layoutGrow : undefined,
+    layoutAlign,
+    primaryAxisSizingMode,
+    counterAxisSizingMode,
+    layoutWrap,
+    minWidth: node.minWidth ?? undefined,
+    maxWidth: node.maxWidth ?? undefined,
+    minHeight: node.minHeight ?? undefined,
+    maxHeight: node.maxHeight ?? undefined,
   };
 }
 
-/** Merge assets from payload - some plugins use "images", "exports", or other keys */
+/**
+ * Merge before any asset resolve (plugin contract):
+ * `assets` → `images` (imageHash keys) → `exports` (later keys win on collision).
+ */
 function getMergedAssets(payload: RenderPayload): AssetMap | undefined {
   const assets = payload.assets ?? {};
   const images = payload.images ?? {};
   const exports = payload.exports ?? {};
-  const merged = { ...assets, ...images, ...exports };
+  const merged: AssetMap = { ...assets, ...images, ...exports };
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
