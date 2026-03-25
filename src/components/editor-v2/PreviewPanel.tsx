@@ -79,6 +79,7 @@ export function PreviewPanel() {
   const [device, setDevice] = useState<DeviceSize>("desktop");
   const [frameKey, setFrameKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("");
 
   const [zoom, setZoom] = useState(0.75);
   const [panX, setPanX] = useState(0);
@@ -405,7 +406,8 @@ export function PreviewPanel() {
                 className={styles.iframe}
                 srcDoc={html}
                 title="Preview"
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
                 style={{ width, height, border: "none", display: "block" }}
               />
             </div>

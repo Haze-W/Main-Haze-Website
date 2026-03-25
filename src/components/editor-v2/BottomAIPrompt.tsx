@@ -176,8 +176,17 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
                   className={`${styles.dropdownItem} ${styles.dropdownItemActive}`}
                   onClick={() => setShowAgent(false)}
                 >
+                  <span className={styles.dropdownDot} />
                   Coral 1.0
                 </button>
+                <div className={`${styles.dropdownItem} ${styles.dropdownItemDisabled}`}>
+                  Hybrid Pro
+                  <span className={styles.comingSoonBadge}>Coming Soon</span>
+                </div>
+                <div className={`${styles.dropdownItem} ${styles.dropdownItemDisabled}`}>
+                  Opal
+                  <span className={styles.comingSoonBadge}>Coming Soon</span>
+                </div>
               </div>
             )}
           </div>

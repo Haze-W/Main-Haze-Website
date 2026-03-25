@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, type ComponentType } from "react";
+import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
@@ -28,7 +28,6 @@ import {
   Search,
   Settings,
   PanelLeft,
-  MessageSquare,
   X,
   Loader2,
 } from "lucide-react";
@@ -43,7 +42,7 @@ import { ExportModal } from "@/components/editor/ExportModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { AIChatPanel } from "./AIChatPanel";
+import { AnimationsPanel } from "./AnimationsPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
@@ -287,8 +286,7 @@ export function EditorShell() {
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
   const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<"design" | "code">("design");
+  const [rightTab, setRightTab] = useState<"properties" | "animations">("properties");
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -301,7 +299,6 @@ export function EditorShell() {
   const shellRef = useRef<HTMLDivElement>(null);
 
   const theme = useEditorStore((s) => s.theme);
-  const aiBuild = useEditorStore((s) => s.aiBuild);
 
   const {
     nodes,
@@ -606,35 +603,7 @@ export function EditorShell() {
     }
   }, [editingName]);
 
-  useLayoutEffect(() => {
-    // #region agent log
-    const el = shellRef.current;
-    const cs = el ? getComputedStyle(el) : null;
-    const box = el?.getBoundingClientRect();
-    fetch("http://127.0.0.1:7414/ingest/06c84fbc-4d5d-429d-95c7-09038428f9b6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a51597" },
-      body: JSON.stringify({
-        sessionId: "a51597",
-        runId: "post-fix",
-        hypothesisId: "A",
-        location: "EditorShell.tsx:useLayoutEffect",
-        message: "EditorShell root computed layout",
-        data: {
-          innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
-          shellDisplay: cs?.display,
-          shellVisibility: cs?.visibility,
-          shellOpacity: cs?.opacity,
-          shellW: box?.width,
-          shellH: box?.height,
-          likelyHiddenBy1340Rule:
-            typeof window !== "undefined" && window.innerWidth <= 1340,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  });
+  /* Debug telemetry removed for security */
 
   const filteredLayerTree = useMemo(
     () => filterLayersForSearch(nodes, searchQuery),
@@ -823,13 +792,6 @@ export function EditorShell() {
               <ComponentsPanel
                 onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
-                onAIGenerate={(newNodes) => {
-                  const s = useEditorStore.getState();
-                  s.setNodes(newNodes);
-                  s.pushHistory();
-                  s.setMode("preview");
-                  setRightTab("design");
-                }}
               />
             </div>
           )}
@@ -878,26 +840,26 @@ export function EditorShell() {
             <div className={styles.rightTabsPill}>
               <button
                 type="button"
-                className={`${styles.rightTabBtn} ${rightTab === "design" ? styles.rightTabBtnActive : ""}`}
+                className={`${styles.rightTabBtn} ${rightTab === "properties" ? styles.rightTabBtnActive : ""}`}
                 onClick={() => {
-                  setRightTab("design");
+                  setRightTab("properties");
                   setMode("design");
                 }}
               >
-                Design
+                Properties
               </button>
               <button
                 type="button"
-                className={`${styles.rightTabBtn} ${rightTab === "code" ? styles.rightTabBtnActive : ""}`}
-                onClick={() => setRightTab("code")}
+                className={`${styles.rightTabBtn} ${rightTab === "animations" ? styles.rightTabBtnActive : ""}`}
+                onClick={() => setRightTab("animations")}
               >
-                Properties
+                Animations
               </button>
             </div>
           </div>
           <div className={styles.rightPanelContent}>
-            {rightTab === "design" && <PropertiesPanel />}
-            {rightTab === "code" && <PreviewPanel />}
+            {rightTab === "properties" && <PropertiesPanel />}
+            {rightTab === "animations" && <AnimationsPanel />}
           </div>
         </aside>
 
@@ -927,16 +889,6 @@ export function EditorShell() {
               title="Hand (H)"
             >
               <Hand size={20} strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              className={`${styles.toolbarIconBtn} ${styles.commentsBtn}`}
-              title="Comments (coming soon)"
-              onClick={() =>
-                show("Comments and real-time collaboration are coming soon.", "info")
-              }
-            >
-              <MessageSquare size={20} strokeWidth={2} />
             </button>
             <button
               type="button"
@@ -981,7 +933,7 @@ export function EditorShell() {
             className={styles.toolbarDarkBtn}
             onClick={() => {
               setMode("code");
-              setRightTab("code");
+              setRightTab("properties");
             }}
           >
             View Code
@@ -1006,25 +958,6 @@ export function EditorShell() {
 
         {/* ── Canvas Area ────────────────────────────────────────── */}
         <main className={styles.canvasArea}>
-          {aiBuild && (
-            <div className={styles.aiBuildOverlay} role="status" aria-live="polite">
-              <div className={styles.aiBuildCard}>
-                <Loader2 className={styles.aiBuildSpinner} size={22} aria-hidden />
-                <div className={styles.aiBuildTitle}>AI is building your screen</div>
-                <p className={styles.aiBuildHint}>Watch the log — this mirrors layout generation on the canvas.</p>
-                <ul className={styles.aiBuildLog}>
-                  {aiBuild.lines.map((line, i) => (
-                    <li
-                      key={`${i}-${line.slice(0, 24)}`}
-                      className={i === aiBuild.lines.length - 1 ? styles.aiBuildLogActive : undefined}
-                    >
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}
@@ -1039,7 +972,7 @@ export function EditorShell() {
           onSave={() => {
             const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
             const projectId = params.get("project");
-            if (projectId) {
+            if (projectId && /^[a-zA-Z0-9_-]+$/.test(projectId)) {
               import("@/lib/projects").then(({ saveProject }) => {
                 saveProject(projectId, { nodes: nodes as unknown[], name: projectName });
               });
@@ -1048,58 +981,8 @@ export function EditorShell() {
           onSaveAs={() => setSaveAsOpen(true)}
         />
 
-        {/* ── Bottom: AI Chat + prompt (dock) ─────────────────────── */}
-        {aiChatOpen && (
-          <div
-            className={styles.aiChatBackdrop}
-            aria-hidden
-            onClick={() => setAiChatOpen(false)}
-          />
-        )}
-        {aiChatOpen && (
-          <div
-            id="editor-ai-chat-sheet"
-            className={styles.aiChatSheet}
-            role="dialog"
-            aria-label="AI chat refine"
-          >
-            <div className={styles.aiChatSheetBar}>
-              <span className={styles.aiChatSheetTitle}>AI refine</span>
-              <button
-                type="button"
-                className={styles.aiChatSheetClose}
-                onClick={() => setAiChatOpen(false)}
-                aria-label="Close AI chat"
-              >
-                <X size={18} strokeWidth={2} />
-              </button>
-            </div>
-            <div className={styles.aiChatSheetBody}>
-              <AIChatPanel
-                embedded
-                nodes={nodes}
-                onApplyNodes={(newNodes) => {
-                  const s = useEditorStore.getState();
-                  s.setNodes(newNodes);
-                  s.pushHistory();
-                  s.setMode("preview");
-                  setRightTab("design");
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {/* ── Bottom: AI prompt (dock) ─────────────────────── */}
         <div className={styles.bottomDockCluster}>
-          <button
-            type="button"
-            className={`${styles.aiChatDockBtn} ${aiChatOpen ? styles.aiChatDockBtnActive : ""}`}
-            onClick={() => setAiChatOpen((v) => !v)}
-            aria-expanded={aiChatOpen}
-            aria-controls="editor-ai-chat-sheet"
-          >
-            <MessageSquare size={18} strokeWidth={2} />
-            AI Chat
-          </button>
           <BottomAIPrompt layout="inline" />
         </div>
       </div>
