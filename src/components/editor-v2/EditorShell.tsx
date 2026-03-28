@@ -1111,13 +1111,3 @@ export function EditorShell() {
     </DndContext>
   );
 }
-           .replace(/[^a-z0-9-]/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-|-$/g, "")
-            || "my-tauri-app";
-          await downloadProjectFromSceneNodes(nodes, exportName, settings);
-        }}
-      />
-    </DndContext>
-  );
-}
