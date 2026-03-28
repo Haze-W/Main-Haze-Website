@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, type CSSProperties } from "react";
 import {
   Monitor,
   Apple,
@@ -27,6 +27,7 @@ import {
   type BlockChain,
 } from "@/lib/editor/blocks";
 import type { SceneNode } from "@/lib/editor/types";
+import { useToast } from "@/components/Toast";
 import styles from "./TopBarConfigPanel.module.css";
 
 function findNode(nodes: SceneNode[], id: string): SceneNode | null {
@@ -36,6 +37,164 @@ function findNode(nodes: SceneNode[], id: string): SceneNode | null {
     if (found) return found;
   }
   return null;
+}
+
+function findTitleTextNode(top: SceneNode): SceneNode | undefined {
+  return (
+    top.children?.find((c) => c.type === "TEXT" && c.name === "Window Title") ??
+    top.children?.find((c) => c.type === "TEXT")
+  );
+}
+
+function WindowChromeConfig({ node }: { node: SceneNode }) {
+  const { updateNode, deleteNodes } = useEditorStore();
+  const { show } = useToast();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [bgAnchor, setBgAnchor] = useState<HTMLElement | null>(null);
+
+  const titleChild = findTitleTextNode(node);
+  const title = String((titleChild?.props?.content as string) ?? "");
+  const style = node.props?.style === "windows" ? "windows" : "macos";
+  const bg = (node.props?.backgroundColor as string) ?? "#1a1a1e";
+  const showTitle = node.props?.showTitle !== false;
+  const showControls = node.props?.showControls !== false;
+  const hex = /^#[0-9A-Fa-f]{3,8}$/.test(bg) ? bg : "#1a1a1e";
+
+  const setTitle = (v: string) => {
+    if (!titleChild) return;
+    updateNode(titleChild.id, {
+      props: { ...(titleChild.props ?? {}), content: v },
+    });
+  };
+
+  const patchTop = (props: Record<string, unknown>) => {
+    updateNode(node.id, { props: { ...(node.props ?? {}), ...props } });
+  };
+
+  const removeTopBar = () => {
+    deleteNodes([node.id]);
+    show(
+      "Top bar removed. Drag window controls from Assets to other buttons to add OS-style controls.",
+      "info"
+    );
+    setConfirmRemove(false);
+  };
+
+  return (
+    <div className={styles.configPanel}>
+      <div className={styles.configHeader}>
+        <span>Window Chrome</span>
+      </div>
+      <div className={styles.configContent}>
+        <div className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>Style</span>
+          <div className={styles.chromeStyleRow}>
+            <button
+              type="button"
+              className={`${styles.chromeStyleBtn} ${style === "macos" ? styles.chromeStyleBtnActive : ""}`}
+              onClick={() => patchTop({ style: "macos" })}
+            >
+              macOS
+            </button>
+            <button
+              type="button"
+              className={`${styles.chromeStyleBtn} ${style === "windows" ? styles.chromeStyleBtnActive : ""}`}
+              onClick={() => patchTop({ style: "windows" })}
+            >
+              Windows
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>Title</span>
+          <input
+            type="text"
+            className={styles.textInput}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Window title"
+          />
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>Background</span>
+          <div className={styles.chromeColorRow}>
+            <button
+              type="button"
+              className={styles.chromeSwatch}
+              style={{ "--swatch": hex } as CSSProperties}
+              onClick={(e) => setBgAnchor((a) => (a ? null : e.currentTarget))}
+              aria-label="Pick background color"
+            />
+            <input
+              type="text"
+              className={styles.textInput}
+              value={bg}
+              onChange={(e) => patchTop({ backgroundColor: e.target.value })}
+            />
+          </div>
+          {bgAnchor && (
+            <ColorPickerPopover
+              value={bg}
+              onChange={(v) => patchTop({ backgroundColor: v })}
+              anchor={bgAnchor}
+              onClose={() => setBgAnchor(null)}
+            />
+          )}
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>Height</span>
+          <input
+            type="number"
+            className={styles.numberInput}
+            min={24}
+            max={120}
+            value={node.height}
+            onChange={(e) => updateNode(node.id, { height: Number(e.target.value) })}
+          />
+        </div>
+
+        <label className={styles.chromeToggle}>
+          <input
+            type="checkbox"
+            checked={showTitle}
+            onChange={(e) => patchTop({ showTitle: e.target.checked })}
+          />
+          <span>Show title</span>
+        </label>
+        <label className={styles.chromeToggle}>
+          <input
+            type="checkbox"
+            checked={showControls}
+            onChange={(e) => patchTop({ showControls: e.target.checked })}
+          />
+          <span>Show controls</span>
+        </label>
+
+        <button type="button" className={styles.chromeRemoveBtn} onClick={() => setConfirmRemove(true)}>
+          Remove top bar
+        </button>
+      </div>
+
+      {confirmRemove && (
+        <div className={styles.chromeConfirmOverlay}>
+          <div className={styles.chromeConfirmBox}>
+            <p className={styles.chromeConfirmText}>Remove top bar? Controls will be deleted.</p>
+            <div className={styles.chromeConfirmActions}>
+              <button type="button" className={styles.chromeCancelBtn} onClick={() => setConfirmRemove(false)}>
+                Cancel
+              </button>
+              <button type="button" className={styles.chromeConfirmBtn} onClick={removeTopBar}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ColorField({
@@ -89,6 +248,10 @@ export function TopBarConfigPanel({ nodeId }: TopBarConfigPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!node || node.type !== "TOPBAR") return null;
+
+  if (node.props?.isTopBar === true) {
+    return <WindowChromeConfig node={node} />;
+  }
 
   const stored = node.props?._topBarConfig as TopBarConfig | undefined;
   const layout = (node.props?._topBarLayout as TopBarLayout) ?? "windows";

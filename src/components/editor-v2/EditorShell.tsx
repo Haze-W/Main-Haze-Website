@@ -30,6 +30,7 @@ import {
   PanelLeft,
   X,
   Loader2,
+  Share2,
 } from "lucide-react";
 import { useEditorStore, type EditorPage } from "@/lib/editor/store";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
@@ -39,6 +40,7 @@ import { BackendPanel } from "./BackendPanel";
 import { SettingsPopover } from "./SettingsPopover";
 import { SaveAsModal } from "./SaveAsModal";
 import { ExportModal } from "@/components/editor/ExportModal";
+import { ShareModal } from "./ShareModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -46,6 +48,7 @@ import { AnimationsPanel } from "./AnimationsPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
+import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
 import { useToast } from "@/components/Toast";
 import styles from "./EditorShell.module.css";
 
@@ -279,6 +282,7 @@ function LayerItem({
 export function EditorShell() {
   const { show } = useToast();
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const searchParams = useSearchParams();
   const currentProjectId = searchParams.get("project");
@@ -434,10 +438,16 @@ export function EditorShell() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     const data = active.data.current as
-      | { type?: string; key?: string; iconName?: string; componentId?: string }
+      | { type?: string; key?: string; iconName?: string; componentId?: string; preset?: LayoutPresetId }
       | undefined;
     const pos = getPlacement();
-    if (data?.type === "component" && data.key) {
+    if (data?.type === "layoutPreset" && data.preset) {
+      if (over?.id === "canvas-drop") {
+        addLayoutPresetToCanvas(data.preset, { x: pos.x, y: pos.y });
+      } else {
+        addLayoutPresetToCanvas(data.preset);
+      }
+    } else if (data?.type === "component" && data.key) {
       if (over?.id === "canvas-drop") {
         handleAddComponent(data.key, pos.x, pos.y);
       } else {
@@ -790,8 +800,8 @@ export function EditorShell() {
           {leftTab === "components" && (
             <div className={styles.panelContent}>
               <ComponentsPanel
-                onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
+                onRequestLayersTab={() => setLeftTab("layers")}
               />
             </div>
           )}
@@ -816,24 +826,19 @@ export function EditorShell() {
           <div className={styles.sidebarRightHeader}>
             <button
               type="button"
+              className={styles.shareBtn}
+              title="Share project"
+              onClick={() => setShareOpen(true)}
+            >
+              <Share2 size={16} strokeWidth={2} aria-hidden />
+              Share
+            </button>
+            <button
+              type="button"
               className={styles.exportBtnSidebar}
               onClick={() => setExportOpen(true)}
             >
               Export
-            </button>
-            <button
-              type="button"
-              className={styles.shareBtn}
-              title="Copy editor link"
-              onClick={() => {
-                if (typeof window === "undefined") return;
-                const url = window.location.href;
-                void navigator.clipboard?.writeText?.(url).catch(() => {
-                  window.prompt("Copy this link:", url);
-                });
-              }}
-            >
-              Share
             </button>
           </div>
           <div className={styles.rightTabs}>
@@ -1002,6 +1007,11 @@ export function EditorShell() {
         currentProjectId={currentProjectId}
         currentNodes={nodes as unknown[]}
         currentProjectName={projectName}
+      />
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        projectId={currentProjectId}
       />
       <ExportModal
         isOpen={exportOpen}

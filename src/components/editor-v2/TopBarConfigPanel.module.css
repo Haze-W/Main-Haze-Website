@@ -3,6 +3,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 .configPanel {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -491,4 +492,132 @@
   text-align: center;
   font-size: 11px;
   color: var(--fg-muted);
+}
+
+/* Window chrome (isTopBar) */
+.chromeStyleRow {
+  display: flex;
+  gap: 8px;
+}
+
+.chromeStyleBtn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.chromeStyleBtn:hover {
+  color: var(--fg-primary);
+}
+
+.chromeStyleBtnActive {
+  color: #fff !important;
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+.chromeColorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chromeSwatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  background: var(--swatch, #1a1a1e);
+}
+
+.chromeToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--fg-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chromeToggle input {
+  accent-color: #3b82f6;
+}
+
+.chromeRemoveBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.chromeRemoveBtn:hover {
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.chromeConfirmOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.chromeConfirmBox {
+  background: var(--surface-01, #1a1a1e);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 300px;
+}
+
+.chromeConfirmText {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-primary);
+}
+
+.chromeConfirmActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.chromeCancelBtn,
+.chromeConfirmBtn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-primary);
+}
+
+.chromeConfirmBtn {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
 }

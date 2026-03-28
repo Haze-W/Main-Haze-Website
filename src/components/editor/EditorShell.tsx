@@ -41,6 +41,7 @@ import {
   FolderTree,
 } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
+import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
@@ -352,10 +353,12 @@ export function EditorShell() {
     const { active, over } = event;
     if (!over || over.id !== "canvas-drop") return;
     const data = active.data.current as
-      | { type?: string; key?: string; iconName?: string }
+      | { type?: string; key?: string; iconName?: string; preset?: LayoutPresetId }
       | undefined;
     const pos = getPlacement();
-    if (data?.type === "component" && data.key) {
+    if (data?.type === "layoutPreset" && data.preset) {
+      addLayoutPresetToCanvas(data.preset, { x: pos.x, y: pos.y });
+    } else if (data?.type === "component" && data.key) {
       handleAddComponent(data.key, pos.x, pos.y);
     } else if (data?.type === "icon" && data.iconName) {
       handleAddIcon(data.iconName, pos.x, pos.y);
@@ -815,8 +818,8 @@ export function EditorShell() {
               </div>
             ) : (
               <ComponentsPanel
-                onAddComponent={handleAddComponent}
                 onOpenIconPicker={() => setIconPickerOpen(true)}
+                onRequestLayersTab={() => setLeftTab("explorer")}
               />
             )}
           </aside>

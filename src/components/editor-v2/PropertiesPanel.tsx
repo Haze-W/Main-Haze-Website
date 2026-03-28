@@ -10,6 +10,7 @@ import {
   Trash2,
   ChevronDown,
   Zap,
+  Pencil,
   ArrowLeftRight,
   ArrowUpDown,
   WrapText,
@@ -106,6 +107,17 @@ function findNode(nodes: SceneNode[], id: string): SceneNode | null {
     if (n.id === id) return n;
     const found = findNode(n.children ?? [], id);
     if (found) return found;
+  }
+  return null;
+}
+
+function findAncestorTopBar(nodes: SceneNode[], nodeId: string): SceneNode | null {
+  let cur = findNode(nodes, nodeId);
+  while (cur) {
+    if (cur.type === "TOPBAR") return cur;
+    const pid = cur.parentId;
+    if (!pid) return null;
+    cur = findNode(nodes, pid);
   }
   return null;
 }
@@ -740,7 +752,7 @@ function SceneSwatchColorPicker({
     <>
       <button
         type="button"
-        className={styles.colorSwatchBtn}
+        className={`${styles.colorSwatchBtn} ${styles.swatchSm20}`}
         style={{ background: hex }}
         onClick={(e) => setAnchor((a) => (a ? null : e.currentTarget))}
       />
@@ -800,22 +812,10 @@ function SceneFillsEditor({
         </button>
       </div>
 
-      {fills.length === 0 && (
-        <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>No fills — click Add or use Fill below.</div>
-      )}
+      {fills.length === 0 && <div className={styles.fillsMutedNote}>No fills — click Add or use Fill below.</div>}
 
       {fills.map((fill, i) => (
-        <div
-          key={i}
-          style={{
-            border: "1px solid var(--color-s-02)",
-            borderRadius: 8,
-            padding: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
+        <div key={i} className={styles.sceneFillCard}>
           <div className={styles.row} style={{ alignItems: "center" }}>
             <select
               className={styles.select}
@@ -853,7 +853,7 @@ function SceneFillsEditor({
                   onChange={(e) =>
                     replaceFill(i, { ...fill, opacity: Number(e.target.value) / 100 })
                   }
-                  style={{ width: "100%" }}
+                  className={styles.fillOpacityRange}
                 />
               </div>
             </>
@@ -951,7 +951,7 @@ function SceneEffectsEditor({
 
   return (
     <div className={styles.section}>
-      <div className={styles.interactionsSectionHeader} style={{ position: "relative" }}>
+      <div className={`${styles.interactionsSectionHeader} ${styles.effectsMenuWrap}`}>
         <div className={styles.label}>Effects</div>
         <button
           type="button"
@@ -961,28 +961,10 @@ function SceneEffectsEditor({
           <Plus size={12} /> Add
         </button>
         {menuOpen && (
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: "100%",
-              zIndex: 20,
-              marginTop: 4,
-              background: "var(--surface-03)",
-              border: "1px solid var(--color-s-02)",
-              borderRadius: 8,
-              padding: 4,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              minWidth: 140,
-              boxShadow: "var(--box-shadow-popover)",
-            }}
-          >
+          <div className={styles.effectsAddMenu}>
             <button
               type="button"
-              className={styles.fontItem}
-              style={{ justifyContent: "flex-start" }}
+              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
               onClick={() => {
                 setEffects([...effects, newDropShadowEffect()]);
                 setMenuOpen(false);
@@ -992,8 +974,7 @@ function SceneEffectsEditor({
             </button>
             <button
               type="button"
-              className={styles.fontItem}
-              style={{ justifyContent: "flex-start" }}
+              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
               onClick={() => {
                 setEffects([...effects, newInnerShadowEffect()]);
                 setMenuOpen(false);
@@ -1003,8 +984,7 @@ function SceneEffectsEditor({
             </button>
             <button
               type="button"
-              className={styles.fontItem}
-              style={{ justifyContent: "flex-start" }}
+              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
               onClick={() => {
                 setEffects([...effects, newLayerBlurEffect()]);
                 setMenuOpen(false);
@@ -1091,7 +1071,7 @@ function SceneEffectsEditor({
                   onChange={(e) =>
                     updateEffectAt(i, { ...efx, opacity: Number(e.target.value) / 100 })
                   }
-                  style={{ width: "100%" }}
+                  className={styles.fillOpacityRange}
                 />
               </div>
             </>
@@ -1106,7 +1086,7 @@ function SceneEffectsEditor({
                 max={64}
                 value={efx.radius}
                 onChange={(e) => updateEffectAt(i, { ...efx, radius: Number(e.target.value) })}
-                style={{ width: "100%" }}
+                className={styles.fillOpacityRange}
               />
             </div>
           )}
@@ -1632,9 +1612,11 @@ function uid() {
 }
 
 const TRIGGER_LABELS: Record<string, string> = {
-  ON_CLICK: "On Click",
-  ON_HOVER: "On Hover",
-  ON_CHANGE: "On Change",
+  ON_CLICK: "ON CLICK",
+  ON_HOVER: "ON HOVER",
+  ON_HOVER_END: "ON HOVER END",
+  ON_CHANGE: "ON CHANGE",
+  ON_LOAD: "ON LOAD",
 };
 
 function BlockEditor({
@@ -1905,6 +1887,7 @@ function InteractionsPanel({ node }: { node: SceneNode }) {
   const { nodes, updateNode } = useEditorStore();
   const interactions: InteractionList = (node.props?._interactions as InteractionList) ?? [];
   const hoverPreset: HoverPreset = (node.props?._hoverPreset as HoverPreset) ?? "none";
+  const [expandedInteractionId, setExpandedInteractionId] = useState<string | null>(null);
 
   const save = useCallback((list: InteractionList) => {
     updateNode(node.id, { props: { ...(node.props ?? {}), _interactions: list } });
@@ -1962,30 +1945,58 @@ function InteractionsPanel({ node }: { node: SceneNode }) {
 
       {/* Interactions */}
       <div className={styles.section}>
-        <div className={styles.interactionsSectionHeader}>
-          <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Zap size={11} /> Interactions
-          </div>
-          <button type="button" className={styles.addInteractionBtn} onClick={addInteraction}>
+        <div className={styles.sectionHeaderBar}>
+          <h3 className={styles.sectionHeaderLabel}>
+            <Zap size={11} aria-hidden />
+            Interactions
+          </h3>
+          <button type="button" className={styles.addInteractionBtn} onClick={addInteraction} title="Add interaction">
             <Plus size={12} /> Add
           </button>
         </div>
 
-        {interactions.length === 0 && (
-          <div className={styles.interactionsEmpty}>
-            No interactions yet. Click Add to make this element do something.
-          </div>
-        )}
+        {interactions.length === 0 && <div className={styles.interactionsEmptyNew}>No interactions</div>}
 
-        {interactions.map((interaction, idx) => (
-          <InteractionEditor
-            key={interaction.id}
-            interaction={interaction}
-            nodes={nodes}
-            onChange={(i) => updateInteraction(idx, i)}
-            onRemove={() => removeInteraction(idx)}
-          />
-        ))}
+        <div className={styles.interactionsList}>
+          {interactions.map((interaction, idx) => {
+            const summary =
+              interaction.blocks[0]?.label ??
+              BLOCK_TYPE_OPTIONS.find((o) => o.value === interaction.blocks[0]?.type)?.label ??
+              "Configure action";
+            const open = expandedInteractionId === interaction.id;
+            const badge = TRIGGER_LABELS[interaction.trigger] ?? interaction.trigger;
+            return (
+              <div key={interaction.id}>
+                <div className={styles.interactionSummaryRow}>
+                  <span className={styles.interactionTriggerBadge}>{badge}</span>
+                  <span className={styles.interactionArrow} aria-hidden>
+                    →
+                  </span>
+                  <span className={styles.interactionSummaryText}>{summary}</span>
+                  <button
+                    type="button"
+                    className={styles.interactionRowEdit}
+                    title="Edit interaction"
+                    onClick={() => setExpandedInteractionId(open ? null : interaction.id)}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+                {open && (
+                  <InteractionEditor
+                    interaction={interaction}
+                    nodes={nodes}
+                    onChange={(i) => updateInteraction(idx, i)}
+                    onRemove={() => {
+                      removeInteraction(idx);
+                      setExpandedInteractionId(null);
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );
@@ -2001,8 +2012,9 @@ export function PropertiesPanel() {
     return <CanvasProperties />;
   }
 
-  if (node.type === "TOPBAR") {
-    return <TopBarConfigPanel nodeId={node.id} />;
+  const topBarAncestor = findAncestorTopBar(nodes, selectedId);
+  if (topBarAncestor) {
+    return <TopBarConfigPanel nodeId={topBarAncestor.id} />;
   }
 
   const props = node.props ?? {};

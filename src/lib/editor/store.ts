@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { SceneNode } from "./types";
+import { buildWindowChromeTopBar } from "./window-chrome";
 
 /** Safe deep clone for history - avoids circular refs and non-serializable values (DOM, Window, etc) */
 function serializeNodesForHistory(nodes: SceneNode[]): SceneNode[] {
@@ -593,19 +594,28 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     const height = Math.max(50, Math.abs(y - start.y));
     const fx = Math.min(start.x, x);
     const fy = Math.min(start.y, y);
-    get().addNode(
-      {
-        type: "FRAME",
-        name: "Frame",
-        x: fx,
-        y: fy,
-        width,
-        height,
-        overflow: "HIDDEN",
-      },
-      undefined
-    );
-    set({ isCreatingFrame: false, createFrameStart: null });
+    const frameId = nanoid();
+    const topBar = buildWindowChromeTopBar(frameId, width);
+    const frame: SceneNode = {
+      id: frameId,
+      type: "FRAME",
+      name: "Frame",
+      x: fx,
+      y: fy,
+      width,
+      height,
+      overflow: "HIDDEN",
+      visible: true,
+      locked: false,
+      children: [topBar],
+    };
+    set((s) => ({
+      nodes: [...s.nodes, frame],
+      selectedIds: new Set([frameId]),
+      isCreatingFrame: false,
+      createFrameStart: null,
+    }));
+    get().pushHistory();
   },
   cancelCreateFrame: () => set({ isCreatingFrame: false, createFrameStart: null }),
   setSnapLines: (snapLines) => set({ snapLines }),

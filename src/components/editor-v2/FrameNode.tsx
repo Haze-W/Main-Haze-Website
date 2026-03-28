@@ -192,7 +192,19 @@ function FrameNodeInner({ node, isSelected, zoom, parentHasLayoutMode = false }:
   const dragT = mergeDragTransform(undefined, dragOffset);
   if (dragT) Object.assign(frameOuterBox, dragT);
 
-  const innerLayoutStyle: React.CSSProperties = isFlexLayout
+  const displayGrid = node.props?.display === "grid";
+  const innerLayoutStyle: React.CSSProperties = displayGrid
+    ? {
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: 1,
+        display: "grid",
+        gridTemplateColumns: (node.props?.gridTemplateColumns as string) ?? "1fr 1fr",
+        gridTemplateRows: (node.props?.gridTemplateRows as string) ?? "1fr 1fr",
+        gap: (node.props?.gap as number) ?? 8,
+      }
+    : isFlexLayout
     ? {
         position: "relative",
         width: "100%",

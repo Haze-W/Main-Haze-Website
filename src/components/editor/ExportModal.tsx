@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ExportSettings, TitleBarStyle } from "@/lib/editor/export-settings";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import type { ExportSettings } from "@/lib/editor/export-settings";
 import { useExportSettings } from "@/lib/editor/export-settings";
 import styles from "./ExportModal.module.css";
 
@@ -13,20 +15,17 @@ interface ExportModalProps {
 
 type Tab = "testing" | "production";
 
-export function ExportModal({
-  isOpen,
-  onClose,
-  onDownload,
-}: ExportModalProps) {
+export function ExportModal({ isOpen, onClose, onDownload }: ExportModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>("testing");
   const [copied, setCopied] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const { appName, titleBarStyle, setAppName, setTitleBarStyle } = useExportSettings();
 
-  const projectName = appName;
+  const projectName = appName.trim() || "my-tauri-app";
 
   const testingCommands = `# 1. Extract the downloaded zip
-#    (Right-click → Extract, or: unzip ${projectName}.zip)
+(Right-click → Extract, or: unzip ${projectName}.zip)
 cd ${projectName}
 
 # 2. Install dependencies
@@ -36,19 +35,21 @@ npm install
 npm run tauri dev`;
 
   const productionCommands = `# 1. Extract the downloaded zip
-#    (Right-click → Extract, or: unzip ${projectName}.zip)
+(Right-click → Extract, or: unzip ${projectName}.zip)
 cd ${projectName}
 
 # 2. Install dependencies
 npm install
 
 # 3. Build for production
-npm run tauri build
+npm run tauri build`;
 
-# Output will be in src-tauri/target/release/`;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const copyCommands = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -63,64 +64,79 @@ npm run tauri build
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
-  return (
-    <div className={styles.overlay} onClick={onClose}>
+  const commandPrimary = tab === "testing" ? "npm run tauri dev" : "npm run tauri build";
+
+  return createPortal(
+    <div className={styles.overlay} onClick={onClose} role="presentation">
       <div
         className={styles.modal}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Export project"
+        aria-labelledby="export-modal-title"
       >
         <div className={styles.header}>
-          <h2>Export & Run Tutorial</h2>
-          <button type="button" className={styles.closeBtn} onClick={onClose}>
-            ×
+          <h2 id="export-modal-title" className={styles.title}>
+            Export & Run Tutorial
+          </h2>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
 
         <div className={styles.body}>
-          <div className={styles.settingsSection}>
-            <h3>Window Settings</h3>
-            <div className={styles.settingsRow}>
-              <label>App name</label>
+          <div className={styles.settingsCard}>
+            <h3 className={styles.sectionLabel}>Window Settings</h3>
+            <div className={styles.fieldRow}>
+              <label className={styles.fieldLabel} htmlFor="export-app-name">
+                App name
+              </label>
               <input
+                id="export-app-name"
                 type="text"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value || "my-tauri-app")}
                 placeholder="my-tauri-app"
                 className={styles.appNameInput}
+                autoComplete="off"
               />
             </div>
-            <div className={styles.settingsRow}>
-              <label>Window buttons</label>
-              <div className={styles.radioGroup}>
-                <label>
-                  <input
-                    type="radio"
-                    name="titlebar"
-                    checked={titleBarStyle === "windows"}
-                    onChange={() => setTitleBarStyle("windows")}
-                  />
+            <div className={styles.fieldRow}>
+              <span className={styles.fieldLabel}>Window buttons</span>
+              <div className={styles.radioPillRow} role="radiogroup" aria-label="Window buttons style">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={titleBarStyle === "windows"}
+                  className={`${styles.radioPill} ${titleBarStyle === "windows" ? styles.radioPillActive : ""}`}
+                  onClick={() => setTitleBarStyle("windows")}
+                >
+                  <span className={styles.radioDot}>
+                    <span className={styles.radioDotInner} />
+                  </span>
                   Windows
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="titlebar"
-                    checked={titleBarStyle === "macos"}
-                    onChange={() => setTitleBarStyle("macos")}
-                  />
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={titleBarStyle === "macos"}
+                  className={`${styles.radioPill} ${titleBarStyle === "macos" ? styles.radioPillActive : ""}`}
+                  onClick={() => setTitleBarStyle("macos")}
+                >
+                  <span className={styles.radioDot}>
+                    <span className={styles.radioDotInner} />
+                  </span>
                   macOS
-                </label>
+                </button>
               </div>
             </div>
           </div>
+
           <p className={styles.intro}>
-            Download your Tauri project, extract it, then run the commands below.
-            Make sure you have <a href="https://rustup.rs" target="_blank" rel="noopener noreferrer">Rust</a> installed first.
+            Download your Tauri project, extract it, then run the commands below. Make sure you have Rust installed
+            first.
           </p>
 
           <div className={styles.tabs}>
@@ -143,9 +159,6 @@ npm run tauri build
           <div className={styles.tabContent}>
             {tab === "testing" && (
               <>
-                <p className={styles.description}>
-                  Run your app in development mode with hot reload. Perfect for iterating on your design.
-                </p>
                 <div className={styles.codeBlock}>
                   <div className={styles.codeHeader}>
                     <span className={styles.codeLabel}>Terminal</span>
@@ -161,17 +174,11 @@ npm run tauri build
                     <code>{testingCommands}</code>
                   </pre>
                 </div>
-                <div className={styles.commandHighlight}>
-                  <code>npm run tauri dev</code>
-                </div>
+                <div className={styles.commandCta}>{commandPrimary}</div>
               </>
             )}
             {tab === "production" && (
               <>
-                <p className={styles.description}>
-                  Build a distributable executable for your target platform. Output goes to{" "}
-                  <code>src-tauri/target/release/</code>.
-                </p>
                 <div className={styles.codeBlock}>
                   <div className={styles.codeHeader}>
                     <span className={styles.codeLabel}>Terminal</span>
@@ -187,30 +194,24 @@ npm run tauri build
                     <code>{productionCommands}</code>
                   </pre>
                 </div>
-                <div className={styles.commandHighlight}>
-                  <code>npm run tauri build</code>
-                </div>
+                <div className={styles.commandCta}>{commandPrimary}</div>
               </>
             )}
           </div>
 
-          <div className={styles.runApp}>
-            <h3>Run App</h3>
-            <p>
-              After downloading and extracting, run the commands above in your terminal.
-              Your app will open exactly as you designed it.
+          <div className={styles.runSection}>
+            <h3 className={styles.runTitle}>Run App</h3>
+            <p className={styles.runHelp}>
+              After downloading and extracting, run the commands above in your terminal. Your app will open exactly as
+              you designed it.
             </p>
-            <button
-              type="button"
-              className={styles.downloadBtn}
-              onClick={handleDownload}
-              disabled={downloading}
-            >
-              {downloading ? "Preparing..." : "Download Project"}
+            <button type="button" className={styles.downloadBtn} onClick={handleDownload} disabled={downloading}>
+              {downloading ? "Preparing…" : "Download Project"}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

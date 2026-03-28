@@ -8,6 +8,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import type { AIStyleProps, AIUIElement, AIUILayout, UIComponentType } from "./ui-schema";
 import { getValidIconName } from "@/lib/icon-valid";
 import { createDefaultTopBarConfig } from "@/lib/editor/blocks";
+import { buildWindowChromeTopBar } from "@/lib/editor/window-chrome";
 
 /** Semantic types that map to CONTAINER with variant for proper editor styling */
 const CONTAINER_VARIANT_TYPES: Partial<Record<UIComponentType, string>> = {
@@ -295,17 +296,28 @@ function aiToSceneNode(el: AIUIElement): SceneNode {
   return node;
 }
 
+function withParentIds(node: SceneNode, parentId: string | undefined): SceneNode {
+  return {
+    ...node,
+    parentId,
+    children: (node.children ?? []).map((c) => withParentIds(c, node.id)),
+  };
+}
+
 export function aiLayoutToSceneNodes(layout: AIUILayout): SceneNode[] {
   const { frame } = layout;
+  const rootId = nanoid();
+  const aiChildren = frame.children.map((c) => withParentIds(aiToSceneNode(c), rootId));
+  const topBar = buildWindowChromeTopBar(rootId, frame.width);
   const rootFrame: SceneNode = {
-    id: nanoid(),
+    id: rootId,
     type: "FRAME",
     name: "AI Generated",
     x: 0,
     y: 0,
     width: frame.width,
     height: frame.height,
-    children: frame.children.map(aiToSceneNode),
+    children: [topBar, ...aiChildren],
     visible: true,
     locked: false,
     props: {

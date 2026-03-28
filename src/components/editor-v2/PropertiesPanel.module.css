@@ -1227,3 +1227,267 @@
   background: var(--accent-subtle);
   color: var(--accent);
 }
+
+/* —— Compact property inputs (Figma-style) —— */
+.compactNumInput {
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  color: #f4f4f5;
+  background: #1e1e22;
+  border: 1px solid #2e2e36;
+  border-radius: 4px;
+  outline: none;
+}
+
+.compactNumInput:focus {
+  border-color: #3b82f6;
+}
+
+.inputPairGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.inputWithIconPrefix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inputIconPrefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.sectionHeaderBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 4px;
+  gap: 8px;
+}
+
+.sectionHeaderLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.collapseArrowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: #71717a;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.collapseArrowBtn:hover {
+  color: #e4e4e7;
+  background: #1e1e22;
+}
+
+.sceneFillCard {
+  border: 1px solid #2e2e36;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  background: rgba(30, 30, 34, 0.35);
+}
+
+.sceneFillTypeTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sceneFillTypeTab {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #71717a;
+  background: #1a1a1a;
+  border: 1px solid #2e2e36;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sceneFillTypeTabActive {
+  color: #f4f4f5;
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.fillOpacityRange {
+  width: 100%;
+}
+
+.effectsAddMenu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  margin-top: 4px;
+  background: #1a1a1e;
+  border: 1px solid #2e2e36;
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: var(--box-shadow-popover);
+}
+
+.effectsAddMenuItem {
+  justify-content: flex-start !important;
+}
+
+.effectsMenuWrap {
+  position: relative;
+}
+
+.effectRowCompact {
+  border: 1px solid #2e2e36;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  background: rgba(30, 30, 34, 0.35);
+}
+
+.effectRowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.effectRowTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.interactionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.interactionSummaryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #1e1e22;
+  border: 1px solid #2e2e36;
+  position: relative;
+}
+
+.interactionSummaryRow:hover {
+  border-color: #3f3f46;
+}
+
+.interactionTriggerBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #e4e4e7;
+  background: #27272a;
+  padding: 4px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.interactionArrow {
+  color: #52525b;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.interactionSummaryText {
+  flex: 1;
+  font-size: 12px;
+  color: #a1a1aa;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.interactionRowEdit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #71717a;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.interactionSummaryRow:hover .interactionRowEdit {
+  opacity: 1;
+}
+
+.interactionRowEdit:hover {
+  color: #f4f4f5;
+  background: #27272a;
+}
+
+.interactionsEmptyNew {
+  font-size: 12px;
+  color: #71717a;
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.swatchSm20 {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  border-radius: 6px;
+  border: 1px solid #2e2e36;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.fillsMutedNote {
+  font-size: 11px;
+  color: #71717a;
+}
