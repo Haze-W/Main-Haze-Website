@@ -211,6 +211,7 @@ function DraggableSceneComponent({ node }: { node: SceneNode }) {
 
 export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: ComponentsPanelProps) {
   const nodes = useEditorStore((s) => s.nodes);
+  const addNode = useEditorStore((s) => s.addNode);
   const pushHistory = useEditorStore((s) => s.pushHistory);
   const sceneMasterComponents = useMemo(() => collectSceneMasterComponents(nodes), [nodes]);
   const [search, setSearch] = useState("");
@@ -220,8 +221,39 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
   const layoutFiltered = LAYOUT_ROWS.filter((r) => !q || r.name.toLowerCase().includes(q));
   const framesFiltered = FRAME_PRESETS.filter((r) => !q || r.name.toLowerCase().includes(q));
 
+  const libraryFiltered = useMemo(() => {
+    return Object.entries(COMPONENT_PRESETS)
+      .map(([key, preset]) => ({ key, preset }))
+      .filter(
+        ({ key, preset }) =>
+          !q ||
+          key.toLowerCase().includes(q) ||
+          preset.name.toLowerCase().includes(q) ||
+          preset.type.toLowerCase().includes(q)
+      )
+      .sort((a, b) => a.preset.name.localeCompare(b.preset.name));
+  }, [q]);
+
   const applyLayoutPreset = (preset: LayoutPresetId) => {
     addLayoutPresetToCanvas(preset, getPos());
+  };
+
+  const applyComponentPreset = (presetKey: string) => {
+    const preset = COMPONENT_PRESETS[presetKey];
+    if (!preset) return;
+    const pos = getPos();
+    addNode(
+      {
+        type: preset.type,
+        name: preset.name,
+        ...pos,
+        width: preset.width,
+        height: preset.height,
+        props: preset.props,
+      },
+      undefined
+    );
+    pushHistory();
   };
 
   return (
