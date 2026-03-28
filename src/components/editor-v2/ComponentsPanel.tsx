@@ -258,7 +258,7 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
 
   return (
     <div className={styles.panel}>
-      <div className={styles.pillTabs}>
+      {/* <div className={styles.pillTabs}>
         <button
           type="button"
           className={styles.pillTab}
@@ -269,22 +269,24 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
         <button type="button" className={`${styles.pillTab} ${styles.pillTabActive}`} disabled>
           Assets
         </button>
-      </div>
+      </div> */}
 
-      <div className={styles.searchWrap}>
-        <Search size={14} className={styles.searchIcon} strokeWidth={2} aria-hidden />
-        <input
-          id="components-panel-filter"
-          name="component_filter"
-          type="search"
-          placeholder="Filter components..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className={styles.search}
-          spellCheck={false}
-          autoComplete="off"
-          aria-label="Filter components"
-        />
+      <div className={styles.searchBar}>
+        <form className={styles.searchForm}>
+          <Search size={14} className={styles.searchIcon} strokeWidth={2} aria-hidden />
+          <input
+            id="components-panel-filter"
+            name="component_filter"
+            type="search"
+            placeholder="Filter components..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.searchInput}
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="Filter components"
+          />
+        </form>
       </div>
 
       <button type="button" className={styles.browseIconsRow} onClick={onOpenIconPicker}>

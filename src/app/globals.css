@@ -133,6 +133,54 @@ html.dark {
   --shade-09: #f5f5f7;
 }
 
+/*
+ * Light editor UI: reset Brainwave + foreground tokens on the shell so they stay
+ * readable when html.dark is set (site dark mode) but the user picks a light editor.
+ * Custom properties inherit from this node into all editor-v2 panels.
+ */
+[data-editor-theme="light"] {
+  --shade-01: #fcfcfc;
+  --shade-01_95: #fcfcfcf2;
+  --shade-02: #f8f7f7;
+  --shade-03: #f1f1f1;
+  --shade-04: #ececec;
+  --shade-05: #e2e2e2;
+  --shade-06: #7b7b7b;
+  --shade-06_30: #7b7b7b4d;
+  --shade-06_50: #7b7b7b80;
+  --shade-07: #323232;
+  --shade-07_05: #3232320d;
+  --shade-07_10: #3232321a;
+  --shade-08: #222;
+  --shade-08_05: #2222220d;
+  --shade-08_10: #2222221a;
+  --shade-09: #121212;
+  --shade-09_05: #1212120d;
+  --shade-09_10: #1212121a;
+  --shade-09_35: #12121259;
+  --surface-01: var(--shade-01);
+  --surface-02: var(--shade-02);
+  --surface-03: var(--shade-03);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000013, 0px 8px 16px -12px #00000020;
+  --box-shadow-prompt-input: inset 0 2px 0 0 #fff, 0px 18px 24px -20px #00000020, 0px 8px 16px -12px #00000013;
+  --box-shadow-depth-01: 0 6px 3px 0 #00000003, 0 3px 3px 0 #00000005, 0 1px 1px 0 #00000005;
+  --box-shadow-popover: 0 153px 61px 0 #00000003, 0 86px 52px 0 #0000000a, 0 38px 38px 0 #0000000f, 0 10px 21px 0 #00000012;
+  --toolbar-btn-text: #121212;
+  --editor-bg: #f1f1f1;
+  --sidebar-bg: #fbfbfb;
+  --fg-primary: #121212;
+  --fg-secondary: #5c5c5c;
+  --fg-muted: #6b6b6b;
+  --fg-disabled: #a1a1aa;
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-muted: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.06) inset;
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
 /* Dark theme overrides for editor */
 [data-editor-theme="dark"] {
   --toolbar-btn-text: #121212;
