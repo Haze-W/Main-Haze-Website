@@ -33,6 +33,16 @@ import {
   Share2,
 } from "lucide-react";
 import { useEditorStore, type EditorPage } from "@/lib/editor/store";
+import { useAuth } from "@/lib/auth-context";
+import {
+  resolveCollabRole,
+  ensureProjectShareOwner,
+  getCapabilities,
+  ingestShareTokenFromUrl,
+  loadShareMeta,
+  saveShareMeta,
+  saveCollaborators,
+} from "@/lib/editor/collaboration";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { Canvas } from "./Canvas";
@@ -147,6 +157,7 @@ function LayerItem({
   const deleteNodes = useEditorStore((s) => s.deleteNodes);
   const updateNode = useEditorStore((s) => s.updateNode);
   const pushHistory = useEditorStore((s) => s.pushHistory);
+  const canEditScene = useEditorStore((s) => getCapabilities(s.collabRole).canEditScene);
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isHidden = node.visible === false;
   const isLocked = !!node.locked;
@@ -281,11 +292,16 @@ function LayerItem({
 
 export function EditorShell() {
   const { show } = useToast();
+  const { user } = useAuth();
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const searchParams = useSearchParams();
   const currentProjectId = searchParams.get("project");
+  const shareToken = searchParams.get("token");
+  const setCollabRole = useEditorStore((s) => s.setCollabRole);
+  const collabRole = useEditorStore((s) => s.collabRole);
+  const caps = useMemo(() => getCapabilities(collabRole), [collabRole]);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
@@ -336,6 +352,20 @@ export function EditorShell() {
     setPrototypeMode,
   } = useEditorStore();
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const pid = currentProjectId;
+    ingestShareTokenFromUrl(pid, shareToken);
+    if (pid && user?.email) ensureProjectShareOwner(pid, user.email, user.id);
+    setCollabRole(
+      resolveCollabRole(pid, { userEmail: user?.email ?? null, tokenFromUrl: shareToken })
+    );
+  }, [currentProjectId, user?.email, user?.id, shareToken, setCollabRole, projectName]);
+
+  useEffect(() => {
+    if (!caps.canManageProject) setEditingName(false);
+  }, [caps.canManageProject]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -376,6 +406,22 @@ export function EditorShell() {
       .then(({ getProject }) => {
         const project = getProject(projectId);
         if (!project) return;
+        if (project.shareMeta) {
+          const cur = loadShareMeta(projectId);
+          saveShareMeta(projectId, {
+            ...cur,
+            ...project.shareMeta,
+            linkAccess:
+              project.shareMeta.linkAccess === "view" ||
+              project.shareMeta.linkAccess === "edit" ||
+              project.shareMeta.linkAccess === "off"
+                ? project.shareMeta.linkAccess
+                : cur.linkAccess,
+          });
+        }
+        if (project.collaborators?.length) {
+          saveCollaborators(projectId, project.collaborators);
+        }
         setProjectName(project.name || "Untitled");
         if (project.editorPages && Array.isArray(project.editorPages) && project.editorPages.length > 0) {
           const ep = project.editorPages as EditorPage[];
@@ -562,27 +608,32 @@ export function EditorShell() {
         return;
       }
       if (e.ctrlKey && e.altKey && (e.key === "k" || e.key === "K")) {
+        if (!getCapabilities(useEditorStore.getState().collabRole).canEditScene) return;
         e.preventDefault();
         createComponent([...selectedIds]);
         return;
       }
       const step = e.shiftKey ? 10 : 1;
       if (e.key === "ArrowUp") {
+        if (!getCapabilities(useEditorStore.getState().collabRole).canEditScene) return;
         e.preventDefault();
         moveNodes([...selectedIds], 0, -step);
         pushHistory();
       }
       if (e.key === "ArrowDown") {
+        if (!getCapabilities(useEditorStore.getState().collabRole).canEditScene) return;
         e.preventDefault();
         moveNodes([...selectedIds], 0, step);
         pushHistory();
       }
       if (e.key === "ArrowLeft") {
+        if (!getCapabilities(useEditorStore.getState().collabRole).canEditScene) return;
         e.preventDefault();
         moveNodes([...selectedIds], -step, 0);
         pushHistory();
       }
       if (e.key === "ArrowRight") {
+        if (!getCapabilities(useEditorStore.getState().collabRole).canEditScene) return;
         e.preventDefault();
         moveNodes([...selectedIds], step, 0);
         pushHistory();
@@ -628,6 +679,13 @@ export function EditorShell() {
         data-editor-theme={theme}
         data-sidebar-left-hidden={!sidebarLeftVisible}
       >
+        {collabRole !== "owner" && (
+          <div className={styles.collabBanner} role="status">
+            {collabRole === "viewer"
+              ? "You have view-only access to this project."
+              : "You can edit the canvas. Project settings, export, share, and backend are owner-only."}
+          </div>
+        )}
         {/* ── Left Sidebar ───────────────────────────────────────── */}
         {sidebarLeftVisible && (
         <aside className={styles.sidebarLeft}>
@@ -659,7 +717,7 @@ export function EditorShell() {
                 </button>
               </div>
             </div>
-            {editingName ? (
+            {editingName && caps.canManageProject ? (
               <input
                 id="editor-project-name"
                 name="project_name"
@@ -679,7 +737,9 @@ export function EditorShell() {
               <button
                 type="button"
                 className={styles.projectSelector}
-                onClick={() => setEditingName(true)}
+                onClick={() => caps.canManageProject && setEditingName(true)}
+                disabled={!caps.canManageProject}
+                title={!caps.canManageProject ? "Only the project owner can rename" : undefined}
               >
                 {projectName}
                 <ChevronDown size={16} className={styles.projectChevron} />
@@ -750,7 +810,13 @@ export function EditorShell() {
               <div className={styles.pagesSection}>
                 <div className={styles.pagesSectionHeader}>
                   <span>Pages</span>
-                  <button type="button" className={styles.pagesAddBtn} onClick={addPage} title="Add page">
+                  <button
+                    type="button"
+                    className={styles.pagesAddBtn}
+                    onClick={addPage}
+                    title="Add page"
+                    disabled={!caps.canEditScene}
+                  >
                     <Plus size={12} />
                   </button>
                 </div>
@@ -759,7 +825,7 @@ export function EditorShell() {
                     key={page.id}
                     className={`${styles.pageItem} ${page.id === currentPageId ? styles.pageItemActive : ""}`}
                     onClick={() => switchPage(page.id)}
-                    onDoubleClick={() => setRenamingPage(page.id)}
+                    onDoubleClick={() => caps.canEditScene && setRenamingPage(page.id)}
                   >
                     {renamingPage === page.id ? (
                       <input
@@ -783,6 +849,7 @@ export function EditorShell() {
                         type="button"
                         className={styles.pageItemDelete}
                         title="Delete page"
+                        disabled={!caps.canEditScene}
                         onClick={(e) => {
                           e.stopPropagation();
                           deletePage(page.id);
@@ -827,8 +894,9 @@ export function EditorShell() {
             <button
               type="button"
               className={styles.shareBtn}
-              title="Share project"
-              onClick={() => setShareOpen(true)}
+              title={caps.canShare ? "Share project" : "Only the owner can share"}
+              onClick={() => caps.canShare && setShareOpen(true)}
+              disabled={!caps.canShare}
             >
               <Share2 size={16} strokeWidth={2} aria-hidden />
               Share
@@ -836,7 +904,9 @@ export function EditorShell() {
             <button
               type="button"
               className={styles.exportBtnSidebar}
-              onClick={() => setExportOpen(true)}
+              title={caps.canExport ? "Export" : "Only the owner can export"}
+              onClick={() => caps.canExport && setExportOpen(true)}
+              disabled={!caps.canExport}
             >
               Export
             </button>
@@ -882,8 +952,9 @@ export function EditorShell() {
             <button
               type="button"
               className={`${styles.toolBtn} ${tool === "FRAME" ? styles.toolBtnActive : ""}`}
-              onClick={() => setTool("FRAME")}
-              title="Frame (F)"
+              onClick={() => caps.canEditScene && setTool("FRAME")}
+              title={caps.canEditScene ? "Frame (F)" : "View only"}
+              disabled={!caps.canEditScene}
             >
               <Layout size={20} strokeWidth={2} />
             </button>
@@ -936,6 +1007,8 @@ export function EditorShell() {
           <button
             type="button"
             className={styles.toolbarDarkBtn}
+            title={!caps.canEditCode ? "View only" : undefined}
+            disabled={!caps.canEditCode}
             onClick={() => {
               setMode("code");
               setRightTab("properties");
@@ -946,6 +1019,8 @@ export function EditorShell() {
           <button
             type="button"
             className={`${styles.toolbarDarkBtn} ${mode === "backend" ? styles.toolbarDarkBtnActive : ""}`}
+            title={caps.canBackend ? undefined : "Only the owner can edit backend"}
+            disabled={!caps.canBackend}
             onClick={() => setMode("backend")}
           >
             Backend
@@ -966,13 +1041,15 @@ export function EditorShell() {
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}
-          {mode === "backend" && <BackendPanel />}
+          {mode === "backend" && <BackendPanel projectId={currentProjectId} />}
         </main>
 
         <SettingsPopover
           anchorRef={settingsBtnRef}
           isOpen={settingsPopoverOpen}
           onClose={() => setSettingsPopoverOpen(false)}
+          exportDisabled={!caps.canExport}
+          saveAsDisabled={!caps.canManageProject}
           onExport={() => setExportOpen(true)}
           onSave={() => {
             const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -1025,6 +1102,16 @@ export function EditorShell() {
             .trim()
             .toLowerCase()
             .replace(/[^a-z0-9-]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            || "my-tauri-app";
+          await downloadProjectFromSceneNodes(nodes, exportName, settings);
+        }}
+      />
+    </DndContext>
+  );
+}
+           .replace(/[^a-z0-9-]/g, "-")
             .replace(/-+/g, "-")
             .replace(/^-|-$/g, "")
             || "my-tauri-app";

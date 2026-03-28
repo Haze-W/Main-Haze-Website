@@ -4,53 +4,17 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Copy } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import {
+  type ShareLinkAccess,
+  type CollaboratorRecord,
+  generateShareToken,
+  loadShareMeta,
+  saveShareMeta,
+  loadCollaborators,
+  saveCollaborators,
+} from "@/lib/editor/collaboration";
+import { saveProject } from "@/lib/projects";
 import styles from "./ShareModal.module.css";
-
-export function generateShareToken(projectId: string): string {
-  const key = `haze_share_token_${projectId}`;
-  if (typeof window === "undefined") {
-    return "xxxxxxxxxxxxxxxx".replace(/x/g, () =>
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))
-    );
-  }
-  const existing = localStorage.getItem(key);
-  if (existing && /^[a-zA-Z0-9]{16}$/.test(existing)) return existing;
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let t = "";
-  for (let i = 0; i < 16; i++) t += chars[Math.floor(Math.random() * chars.length)];
-  localStorage.setItem(key, t);
-  return t;
-}
-
-export type CollaboratorPermission = "edit" | "view";
-
-export interface Collaborator {
-  id: string;
-  name: string;
-  email: string;
-  permission: CollaboratorPermission;
-}
-
-function collaboratorsKey(projectId: string) {
-  return `haze_collaborators_${projectId}`;
-}
-
-function loadCollaborators(projectId: string): Collaborator[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(collaboratorsKey(projectId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Collaborator[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCollaborators(projectId: string, list: Collaborator[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(collaboratorsKey(projectId), JSON.stringify(list));
-}
 
 function hashHue(s: string): number {
   let h = 0;
@@ -68,33 +32,55 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [invitePerm, setInvitePerm] = useState<CollaboratorPermission>("edit");
-  const [people, setPeople] = useState<Collaborator[]>([]);
-  const [linkEnabled, setLinkEnabled] = useState(false);
+  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [people, setPeople] = useState<CollaboratorRecord[]>([]);
+  const [linkAccess, setLinkAccess] = useState<ShareLinkAccess>("off");
   const [copiedLink, setCopiedLink] = useState(false);
 
   const pid = projectId ?? "local";
 
   const shareUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
+    if (typeof window === "undefined" || linkAccess === "off") return "";
     const token = generateShareToken(pid);
     const u = new URL(window.location.origin + "/editor");
     u.searchParams.set("project", pid);
     u.searchParams.set("token", token);
     return u.toString();
-  }, [pid]);
+  }, [pid, linkAccess]);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!isOpen) return;
     setPeople(loadCollaborators(pid));
+    setLinkAccess(loadShareMeta(pid).linkAccess);
   }, [isOpen, pid]);
 
   const persistPeople = useCallback(
-    (next: Collaborator[]) => {
+    (next: CollaboratorRecord[]) => {
       setPeople(next);
       saveCollaborators(pid, next);
+      if (pid !== "local") {
+        saveProject(pid, {
+          shareMeta: loadShareMeta(pid),
+          collaborators: next,
+        });
+      }
+    },
+    [pid]
+  );
+
+  const persistLinkAccess = useCallback(
+    (next: ShareLinkAccess) => {
+      setLinkAccess(next);
+      const meta = loadShareMeta(pid);
+      saveShareMeta(pid, { ...meta, linkAccess: next });
+      if (pid !== "local") {
+        saveProject(pid, {
+          shareMeta: loadShareMeta(pid),
+          collaborators: loadCollaborators(pid),
+        });
+      }
     },
     [pid]
   );
@@ -110,13 +96,13 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
     const name = localPart.charAt(0).toUpperCase() + localPart.slice(1);
     persistPeople([
       ...people,
-      { id: `c-${Date.now()}`, name, email, permission: invitePerm },
+      { id: `c-${Date.now()}`, name, email, role: inviteRole },
     ]);
     setInviteEmail("");
   };
 
-  const updatePerm = (id: string, permission: CollaboratorPermission) => {
-    persistPeople(people.map((p) => (p.id === id ? { ...p, permission } : p)));
+  const updateRole = (id: string, role: "editor" | "viewer") => {
+    persistPeople(people.map((p) => (p.id === id ? { ...p, role } : p)));
   };
 
   const removePerson = (id: string) => {
@@ -124,12 +110,8 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
   };
 
   const copyLink = () => {
-    const token = generateShareToken(pid);
-    const u =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/editor?project=${encodeURIComponent(pid)}&token=${encodeURIComponent(token)}`
-        : "";
-    void navigator.clipboard.writeText(u).then(() => {
+    if (!shareUrl) return;
+    void navigator.clipboard.writeText(shareUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     });
@@ -137,12 +119,13 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
 
   const ownerName = user?.name?.trim() || "You";
   const ownerEmail = user?.email?.trim() || "Not signed in";
-  const ownerInitials = ownerName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("") || "?";
+  const ownerInitials =
+    ownerName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "?";
 
   if (!isOpen || !mounted || typeof document === "undefined") return null;
 
@@ -167,11 +150,7 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
         <div className={styles.body}>
           <div className={styles.ownerRow}>
             <div className={styles.avatar}>
-              {user?.image ? (
-                <img src={user.image} alt="" />
-              ) : (
-                ownerInitials
-              )}
+              {user?.image ? <img src={user.image} alt="" /> : ownerInitials}
             </div>
             <div className={styles.ownerMeta}>
               <div className={styles.ownerName}>{ownerName}</div>
@@ -181,6 +160,9 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
           </div>
 
           <h3 className={`${styles.sectionTitle} ${styles.sectionTitleFirst}`}>Invite people</h3>
+          <p className={styles.linkHint}>
+            Editors can change the canvas and prototype links. Viewers can only browse and preview.
+          </p>
           <div className={styles.inviteRow}>
             <input
               type="email"
@@ -192,12 +174,12 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
             />
             <select
               className={styles.permSelect}
-              value={invitePerm}
-              onChange={(e) => setInvitePerm(e.target.value as CollaboratorPermission)}
-              aria-label="Invite permission"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as "editor" | "viewer")}
+              aria-label="Invite role"
             >
-              <option value="edit">Can edit</option>
-              <option value="view">Can view</option>
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
             </select>
             <button type="button" className={styles.inviteBtn} onClick={addInvite} disabled={!inviteEmail.trim()}>
               Invite
@@ -228,12 +210,12 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
                 </div>
                 <select
                   className={styles.collabPerm}
-                  value={p.permission}
-                  onChange={(e) => updatePerm(p.id, e.target.value as CollaboratorPermission)}
-                  aria-label={`Permission for ${p.email}`}
+                  value={p.role}
+                  onChange={(e) => updateRole(p.id, e.target.value as "editor" | "viewer")}
+                  aria-label={`Role for ${p.email}`}
                 >
-                  <option value="edit">Can edit</option>
-                  <option value="view">Can view</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
                 </select>
                 <button
                   type="button"
@@ -252,20 +234,20 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
 
           <h3 className={styles.sectionTitle}>Share link</h3>
           <div className={styles.shareLinkRow}>
-            <span className={styles.toggleLabel}>Anyone with the link can view</span>
-            <button
-              type="button"
-              className={`${styles.switchTrack} ${linkEnabled ? styles.switchTrackOn : ""}`}
-              onClick={() => setLinkEnabled((v) => !v)}
-              role="switch"
-              aria-checked={linkEnabled}
-              aria-label="Anyone with the link can view"
+            <span className={styles.toggleLabel}>Link access</span>
+            <select
+              className={styles.permSelect}
+              value={linkAccess}
+              onChange={(e) => persistLinkAccess(e.target.value as ShareLinkAccess)}
+              aria-label="Anyone with link"
             >
-              <span className={`${styles.switchThumb} ${linkEnabled ? styles.switchThumbOn : ""}`} />
-            </button>
+              <option value="off">Off — link disabled</option>
+              <option value="view">Anyone with link can view</option>
+              <option value="edit">Anyone with link can edit</option>
+            </select>
           </div>
 
-          {linkEnabled ? (
+          {linkAccess !== "off" ? (
             <div className={styles.linkRow}>
               <input type="text" readOnly className={styles.linkInput} value={shareUrl} aria-label="Share URL" />
               <button type="button" className={styles.copyLinkBtn} onClick={copyLink}>
@@ -274,7 +256,7 @@ export function ShareModal({ isOpen, onClose, projectId }: ShareModalProps) {
               </button>
             </div>
           ) : (
-            <p className={styles.linkHint}>Only invited people can access</p>
+            <p className={styles.linkHint}>Turn on link sharing to generate a URL with the project token.</p>
           )}
 
           <button type="button" className={styles.doneBtn} onClick={onClose}>

@@ -1,86 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { getProject, saveProject } from "@/lib/projects";
+import type {
+  ProjectBackendConfig,
+  BackendDbTable,
+  BackendApiRoute,
+  BackendHttpMethod,
+  BackendAuthProvider,
+} from "@/lib/editor/backend-config";
+import { DEFAULT_BACKEND_CONFIG, normalizeBackendConfig } from "@/lib/editor/backend-config";
 import styles from "./BackendPanel.module.css";
 
 type BackendTab = "database" | "api" | "auth";
 
-type TableField = {
-  id: string;
-  name: string;
-  type: string;
-  primaryKey?: boolean;
-  unique?: boolean;
-  nullable?: boolean;
+const METHOD_COLORS: Record<BackendHttpMethod, string> = {
+  GET: "#22c55e",
+  POST: "#3b82f6",
+  PUT: "#f59e0b",
+  DELETE: "#ef4444",
+  PATCH: "#8b5cf6",
 };
 
-type DbTable = {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  fields: TableField[];
-};
-
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-
-type ApiRoute = {
-  id: string;
-  method: HttpMethod;
-  path: string;
-  description: string;
-  generatedCode: string;
-  generating: boolean;
-};
-
-type AuthProvider = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  clientId: string;
-  clientSecret: string;
-};
-
-export function BackendPanel() {
-  const [tab, setTab] = useState<BackendTab>("database");
-  return (
-    <div className={styles.container}>
-      <div className={styles.tabs}>
-        {(["database", "api", "auth"] as BackendTab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={`${styles.tab} ${tab === t ? styles.tabActive : ""}`}
-            onClick={() => setTab(t)}
-          >
-            {t === "database" ? "Database" : t === "api" ? "API Routes" : "Auth"}
-          </button>
-        ))}
-      </div>
-      <div className={styles.content}>
-        {tab === "database" && <DatabasePanel />}
-        {tab === "api" && <ApiPanel />}
-        {tab === "auth" && <AuthPanel />}
-      </div>
-    </div>
-  );
-}
-
-function DatabasePanel() {
-  const [tables, setTables] = useState<DbTable[]>([
-    {
-      id: "users",
-      name: "users",
-      x: 40,
-      y: 40,
-      fields: [
-        { id: "id", name: "id", type: "UUID", primaryKey: true, nullable: false },
-        { id: "email", name: "email", type: "TEXT", unique: true, nullable: false },
-        { id: "created_at", name: "created_at", type: "TIMESTAMP", nullable: false },
-      ],
-    },
-  ]);
-
+function DatabasePanel({
+  tables,
+  setTables,
+}: {
+  tables: BackendDbTable[];
+  setTables: React.Dispatch<React.SetStateAction<BackendDbTable[]>>;
+}) {
   const addTable = () => {
     const id = `table_${Date.now()}`;
     setTables((t) => [
@@ -88,8 +36,8 @@ function DatabasePanel() {
       {
         id,
         name: "new_table",
-        x: 40 + tables.length * 20,
-        y: 40 + tables.length * 20,
+        x: 40 + t.length * 20,
+        y: 40 + t.length * 20,
         fields: [{ id: "id", name: "id", type: "UUID", primaryKey: true, nullable: false }],
       },
     ]);
@@ -335,35 +283,17 @@ function DatabasePanel() {
   );
 }
 
-const METHOD_COLORS: Record<HttpMethod, string> = {
-  GET: "#22c55e",
-  POST: "#3b82f6",
-  PUT: "#f59e0b",
-  DELETE: "#ef4444",
-  PATCH: "#8b5cf6",
-};
-
-function ApiPanel() {
-  const [routes, setRoutes] = useState<ApiRoute[]>([
-    {
-      id: "1",
-      method: "GET",
-      path: "/api/users",
-      description: "Get all users",
-      generatedCode: "",
-      generating: false,
-    },
-    {
-      id: "2",
-      method: "POST",
-      path: "/api/users",
-      description: "Create a new user",
-      generatedCode: "",
-      generating: false,
-    },
-  ]);
-  const [selectedId, setSelectedId] = useState("1");
-
+function ApiPanel({
+  routes,
+  setRoutes,
+  selectedId,
+  setSelectedId,
+}: {
+  routes: BackendApiRoute[];
+  setRoutes: React.Dispatch<React.SetStateAction<BackendApiRoute[]>>;
+  selectedId: string;
+  setSelectedId: (id: string) => void;
+}) {
   const selected = routes.find((r) => r.id === selectedId);
 
   const generateCode = async (routeId: string) => {
@@ -492,7 +422,7 @@ function ApiPanel() {
               onChange={(e) =>
                 setRoutes((rs) =>
                   rs.map((r) =>
-                    r.id === selected.id ? { ...r, method: e.target.value as HttpMethod } : r
+                    r.id === selected.id ? { ...r, method: e.target.value as BackendHttpMethod } : r
                   )
                 )
               }
@@ -587,17 +517,26 @@ function ApiPanel() {
   );
 }
 
-function AuthPanel() {
-  const [providers, setProviders] = useState<AuthProvider[]>([
-    { id: "email", name: "Email + Password", enabled: true, clientId: "", clientSecret: "" },
-    { id: "google", name: "Google OAuth", enabled: false, clientId: "", clientSecret: "" },
-    { id: "github", name: "GitHub OAuth", enabled: false, clientId: "", clientSecret: "" },
-    { id: "discord", name: "Discord OAuth", enabled: false, clientId: "", clientSecret: "" },
-  ]);
-  const [jwtSecret, setJwtSecret] = useState("");
-  const [sessionDays, setSessionDays] = useState(7);
+function AuthPanel({
+  providers,
+  setProviders,
+  jwtSecret,
+  setJwtSecret,
+  sessionDays,
+  setSessionDays,
+  generatedCode,
+  setGeneratedCode,
+}: {
+  providers: BackendAuthProvider[];
+  setProviders: React.Dispatch<React.SetStateAction<BackendAuthProvider[]>>;
+  jwtSecret: string;
+  setJwtSecret: (v: string) => void;
+  sessionDays: number;
+  setSessionDays: (v: number) => void;
+  generatedCode: string;
+  setGeneratedCode: (v: string) => void;
+}) {
   const [generating, setGenerating] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState("");
 
   const generateAuthConfig = async () => {
     setGenerating(true);
@@ -788,6 +727,107 @@ function AuthPanel() {
           {generatedCode}
         </pre>
       )}
+    </div>
+  );
+}
+
+export function BackendPanel({ projectId }: { projectId: string | null }) {
+  const [tab, setTab] = useState<BackendTab>("database");
+  const [config, setConfig] = useState<ProjectBackendConfig>(() => ({
+    ...DEFAULT_BACKEND_CONFIG,
+  }));
+  const skipNextSave = useRef(false);
+
+  useEffect(() => {
+    skipNextSave.current = true;
+    if (!projectId) {
+      setConfig({ ...DEFAULT_BACKEND_CONFIG });
+      return;
+    }
+    const p = getProject(projectId);
+    setConfig(normalizeBackendConfig(p?.backendConfig));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      saveProject(projectId, { backendConfig: config });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [projectId, config]);
+
+  const setTables = useCallback((fn: React.SetStateAction<BackendDbTable[]>) => {
+    setConfig((c) => ({
+      ...c,
+      databaseTables: typeof fn === "function" ? fn(c.databaseTables) : fn,
+    }));
+  }, []);
+
+  const setRoutes = useCallback((fn: React.SetStateAction<BackendApiRoute[]>) => {
+    setConfig((c) => ({
+      ...c,
+      apiRoutes: typeof fn === "function" ? fn(c.apiRoutes) : fn,
+    }));
+  }, []);
+
+  const setSelectedId = useCallback((id: string) => {
+    setConfig((c) => ({ ...c, apiSelectedId: id }));
+  }, []);
+
+  const setProviders = useCallback((fn: React.SetStateAction<BackendAuthProvider[]>) => {
+    setConfig((c) => ({
+      ...c,
+      authProviders: typeof fn === "function" ? fn(c.authProviders) : fn,
+    }));
+  }, []);
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.tabs}>
+        {(["database", "api", "auth"] as BackendTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`${styles.tab} ${tab === t ? styles.tabActive : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {t === "database" ? "Database" : t === "api" ? "API Routes" : "Auth"}
+          </button>
+        ))}
+      </div>
+      <div className={styles.content}>
+        {tab === "database" && (
+          <DatabasePanel tables={config.databaseTables} setTables={setTables} />
+        )}
+        {tab === "api" && (
+          <ApiPanel
+            routes={config.apiRoutes}
+            setRoutes={setRoutes}
+            selectedId={
+              config.apiRoutes.some((r) => r.id === config.apiSelectedId)
+                ? config.apiSelectedId
+                : config.apiRoutes[0]?.id ?? ""
+            }
+            setSelectedId={setSelectedId}
+          />
+        )}
+        {tab === "auth" && (
+          <AuthPanel
+            providers={config.authProviders}
+            setProviders={setProviders}
+            jwtSecret={config.jwtSecret}
+            setJwtSecret={(jwtSecret) => setConfig((c) => ({ ...c, jwtSecret }))}
+            sessionDays={config.sessionDays}
+            setSessionDays={(sessionDays) => setConfig((c) => ({ ...c, sessionDays }))}
+            generatedCode={config.authGeneratedCode}
+            setGeneratedCode={(authGeneratedCode) => setConfig((c) => ({ ...c, authGeneratedCode }))}
+          />
+        )}
+      </div>
     </div>
   );
 }

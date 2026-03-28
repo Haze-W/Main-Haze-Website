@@ -4,6 +4,8 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { SceneNode } from "./types";
 import { buildWindowChromeTopBar } from "./window-chrome";
+import type { CollabRole } from "./collaboration";
+import { getCapabilities } from "./collaboration";
 
 /** Safe deep clone for history - avoids circular refs and non-serializable values (DOM, Window, etc) */
 function serializeNodesForHistory(nodes: SceneNode[]): SceneNode[] {
@@ -103,6 +105,8 @@ interface EditorState {
   prototypeMode: boolean;
   /** In-flight pointer drag: visual = CSS translate; commit applies moveNodes once */
   dragSession: DragSession | null;
+  /** Resolved from share link / account / device (see collaboration.ts) */
+  collabRole: CollabRole;
 }
 
 type EditorActions = {
@@ -170,6 +174,7 @@ type EditorActions = {
   getNode: (id: string) => SceneNode | undefined;
   getNodeBounds: (id: string) => { x: number; y: number; width: number; height: number } | null;
   findNodesInRect: (rect: { x: number; y: number; width: number; height: number }) => string[];
+  setCollabRole: (role: CollabRole) => void;
 };
 
 function createNode(partial: Partial<SceneNode>): SceneNode {
@@ -355,6 +360,16 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   aiBuild: null,
   prototypeMode: false,
   dragSession: null,
+  collabRole: "owner",
+
+  setCollabRole: (role) =>
+    set((s) => {
+      const caps = getCapabilities(role);
+      let mode = s.mode;
+      if (!caps.canBackend && mode === "backend") mode = "design";
+      if (!caps.canEditCode && mode === "code") mode = "design";
+      return { collabRole: role, mode };
+    }),
 
   setPrototypeMode: (v) => set({ prototypeMode: v }),
 
@@ -366,6 +381,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       ),
     })),
   addNode: (partial, parentId) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const node = createNode(partial as Partial<SceneNode>);
     if (parentId) {
       node.parentId = parentId;
@@ -384,6 +400,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   updateNode: (id, updates) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     set((s) => ({ nodes: updateNodeInTree(s.nodes, id, updates) }));
     const compId = findMasterComponentIdForSync(get().nodes, id);
     if (compId) {
@@ -416,6 +433,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   pasteNodes: (nodesToPaste) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     if (!nodesToPaste || nodesToPaste.length === 0) return;
     const pt = get().lastCanvasPoint;
     const offsetX = pt ? pt.x : 20;
@@ -435,6 +453,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   moveNodes: (ids, dx, dy) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const idSet = new Set(ids);
     function moveInTree(
       nodes: SceneNode[],
@@ -453,6 +472,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   },
 
   startDragSession: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     if (ids.length === 0) return;
     if (dragRafId != null) {
       cancelAnimationFrame(dragRafId);
@@ -503,6 +523,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     pendingDragDx = 0;
     pendingDragDy = 0;
     set({ dragSession: null, isDragging: false });
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     if (totalDx !== 0 || totalDy !== 0) {
       get().moveNodes(session.ids, totalDx, totalDy);
     }
@@ -519,6 +540,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ dragSession: null, isDragging: false });
   },
   resizeNode: (id, handle, dx, dy) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const n = findNodeById(get().nodes, id);
     if (!n) return;
     const oldWidth = n.width;
@@ -573,9 +595,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   setMarquee: (marqueeRect) => set({ marqueeRect, isMarqueeSelecting: !!marqueeRect }),
   setIsDragging: (v) => set({ isDragging: v }),
   setIsResizing: (v) => set({ isResizing: v }),
-  startCreateFrame: (x, y) =>
-    set({ isCreatingFrame: true, createFrameStart: { x, y } }),
+  startCreateFrame: (x, y) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
+    set({ isCreatingFrame: true, createFrameStart: { x, y } });
+  },
   updateCreateFrame: (x, y) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const start = get().createFrameStart;
     if (!start) return;
     const nx = Math.min(start.x, x);
@@ -585,6 +610,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set((s) => ({ nodes: [...s.nodes] })); // Trigger re-render; frame rect computed in component
   },
   finishCreateFrame: (x, y) => {
+    if (!getCapabilities(get().collabRole).canEditScene) {
+      set({ isCreatingFrame: false, createFrameStart: null });
+      return;
+    }
     const start = get().createFrameStart;
     if (!start) {
       set({ isCreatingFrame: false, createFrameStart: null });
@@ -619,7 +648,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   },
   cancelCreateFrame: () => set({ isCreatingFrame: false, createFrameStart: null }),
   setSnapLines: (snapLines) => set({ snapLines }),
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => {
+    const caps = getCapabilities(get().collabRole);
+    if (mode === "backend" && !caps.canBackend) return;
+    if (mode === "code" && !caps.canEditCode) return;
+    set({ mode });
+  },
   setCanvasBg: (canvasBg) => set({ canvasBg }),
   setShowGrid: (showGrid) => set({ showGrid }),
   setGridType: (gridType) => set({ gridType }),
@@ -627,14 +661,20 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   enterFrame: (id) => set({ enteredFrameId: id }),
   exitFrame: () => set({ enteredFrameId: null }),
   setLastCanvasPoint: (pt) => set({ lastCanvasPoint: pt }),
-  setAiBuild: (v) => set({ aiBuild: v }),
-  appendAiBuildLine: (line) =>
+  setAiBuild: (v) => {
+    if (v != null && !getCapabilities(get().collabRole).canUseAiBuild) return;
+    set({ aiBuild: v });
+  },
+  appendAiBuildLine: (line) => {
+    if (!getCapabilities(get().collabRole).canUseAiBuild) return;
     set((s) => {
       if (!s.aiBuild) return { aiBuild: { lines: [line] } };
       return { aiBuild: { lines: [...s.aiBuild.lines, line] } };
-    }),
+    });
+  },
   clearAiBuild: () => set({ aiBuild: null }),
   pushHistory: () => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     set((s) => {
       const next = { nodes: serializeNodesForHistory(s.nodes) };
       const past = s.history.slice(0, s.historyIndex + 1);
@@ -645,18 +685,21 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     });
   },
   undo: () => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const { history, historyIndex } = get();
     if (historyIndex <= 0) return;
     const prev = history[historyIndex - 1];
     set({ nodes: serializeNodesForHistory(prev.nodes), historyIndex: historyIndex - 1 });
   },
   redo: () => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const { history, historyIndex } = get();
     if (historyIndex >= history.length - 1) return;
     const next = history[historyIndex + 1];
     set({ nodes: serializeNodesForHistory(next.nodes), historyIndex: historyIndex + 1 });
   },
   bringToFront: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const idSet = new Set(ids);
     function reorderBringFront(nodes: SceneNode[]): SceneNode[] {
       // Reorder at this level if any selected nodes are here
@@ -694,6 +737,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   bringForward: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     function reorderForward(nodes: SceneNode[]): SceneNode[] {
       const result = nodes.map((n) => ({
         ...n,
@@ -710,6 +754,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   sendBackward: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     function reorderBackward(nodes: SceneNode[]): SceneNode[] {
       const result = nodes.map((n) => ({
         ...n,
@@ -726,6 +771,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   groupNodes: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     if (ids.length < 2) return;
     const idSet = new Set(ids);
     const selected = get().nodes.filter((n) => idSet.has(n.id));
@@ -772,6 +818,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   createComponent: (ids) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     if (ids.length === 0) return;
     const idSet = new Set(ids);
     const selected = get().nodes.filter((n) => idSet.has(n.id));
@@ -804,6 +851,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   createInstance: (componentId, at) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const master = findNodeById(get().nodes, componentId);
     if (!master || master.type !== "COMPONENT") return;
     const inst = cloneNode(master);
@@ -839,6 +887,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     get().pushHistory();
   },
   syncInstances: (componentId) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const master = findNodeById(get().nodes, componentId);
     if (!master || master.type !== "COMPONENT") return;
     set((s) => ({
@@ -846,6 +895,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     }));
   },
   addPage: () => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const id = nanoid();
     set((s) => {
       const current = s.currentPageId;
@@ -880,6 +930,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     });
   },
   deletePage: (id) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     const { pages, currentPageId } = get();
     if (pages.length <= 1) return;
     const newPages = pages.filter((p) => p.id !== id);
@@ -893,6 +944,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     });
   },
   renamePage: (id, name) => {
+    if (!getCapabilities(get().collabRole).canEditScene) return;
     set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, name } : p)) }));
   },
   getNode: (id) => findNodeById(get().nodes, id),

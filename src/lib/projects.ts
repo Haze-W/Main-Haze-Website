@@ -4,6 +4,10 @@
  * Ready to swap for a real API when backend is added.
  */
 
+import type { ProjectBackendConfig } from "@/lib/editor/backend-config";
+import type { ShareMeta, CollaboratorRecord } from "@/lib/editor/collaboration";
+import { markDeviceAsProjectOwner } from "@/lib/editor/collaboration";
+
 export interface Project {
   id: string;
   name: string;
@@ -16,6 +20,12 @@ export interface Project {
   template?: string;
   runtimeTarget?: string;
   languageTarget?: string;
+  /** Backend designer (DB / API / auth) — optional */
+  backendConfig?: ProjectBackendConfig;
+  /** Share settings (mirrors localStorage share meta for the same browser session) */
+  shareMeta?: ShareMeta;
+  /** Invited collaborators — optional mirror for portability */
+  collaborators?: CollaboratorRecord[];
 }
 
 const PROJECTS_KEY = "haze-projects";
@@ -64,6 +74,7 @@ export function createProject(
   };
   map[id] = project;
   saveAll(map);
+  markDeviceAsProjectOwner(id);
   return project;
 }
 

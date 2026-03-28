@@ -14,9 +14,20 @@ interface SettingsPopoverProps {
   onExport?: () => void;
   onSave?: () => void;
   onSaveAs?: () => void;
+  exportDisabled?: boolean;
+  saveAsDisabled?: boolean;
 }
 
-export function SettingsPopover({ anchorRef, isOpen, onClose, onExport, onSave, onSaveAs }: SettingsPopoverProps) {
+export function SettingsPopover({
+  anchorRef,
+  isOpen,
+  onClose,
+  onExport,
+  onSave,
+  onSaveAs,
+  exportDisabled,
+  saveAsDisabled,
+}: SettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const { show } = useToast();
   const theme = useEditorStore((s) => s.theme);
@@ -67,11 +78,29 @@ export function SettingsPopover({ anchorRef, isOpen, onClose, onExport, onSave, 
           <Save size={16} strokeWidth={2} />
           <span>Save Changes</span>
         </button>
-        <button type="button" className={`${styles.menuItem} ${styles.menuItemIcon}`} onClick={() => { onSaveAs?.(); onClose(); }}>
+        <button
+          type="button"
+          className={`${styles.menuItem} ${styles.menuItemIcon}`}
+          disabled={saveAsDisabled}
+          onClick={() => {
+            if (saveAsDisabled) return;
+            onSaveAs?.();
+            onClose();
+          }}
+        >
           <Copy size={16} strokeWidth={2} />
           <span>Save As</span>
         </button>
-        <button type="button" className={styles.menuItem} onClick={() => { onExport?.(); onClose(); }}>
+        <button
+          type="button"
+          className={styles.menuItem}
+          disabled={exportDisabled}
+          onClick={() => {
+            if (exportDisabled) return;
+            onExport?.();
+            onClose();
+          }}
+        >
           Export...
           <kbd className={styles.shortcutBadge}>⇧⌘E</kbd>
         </button>

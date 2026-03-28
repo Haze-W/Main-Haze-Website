@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
 import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
 import { shouldUseRefineForBottomBar } from "@/lib/ai/agent/generate-intent";
+import { getCapabilities } from "@/lib/editor/collaboration";
 import styles from "./BottomAIPrompt.module.css";
 
 type BottomAIPromptProps = {
@@ -23,6 +24,8 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const agentRef = useRef<HTMLDivElement>(null);
   const colorMode = useEditorStore((s) => s.theme);
   const canvasNodes = useEditorStore((s) => s.nodes);
+  const collabRole = useEditorStore((s) => s.collabRole);
+  const canAi = getCapabilities(collabRole).canUseAiBuild;
 
   const applyGeneratedLayout = useCallback((newNodes: SceneNode[]) => {
     const s = useEditorStore.getState();
@@ -57,6 +60,10 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const send = useCallback(async () => {
     const text = prompt.trim();
     if (!text || loading) return;
+    if (!getCapabilities(useEditorStore.getState().collabRole).canUseAiBuild) {
+      show("You can’t run AI build with view-only access to this project.", "info");
+      return;
+    }
 
     const stopTicker = startAiBuildTicker(text);
     setLoading(true);
@@ -151,12 +158,15 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
           name="bottom_ai_prompt"
           ref={taRef}
           className={styles.textarea}
-          placeholder="What would you like to build?"
+          placeholder={
+            canAi ? "What would you like to build?" : "View-only — AI build is disabled for your role."
+          }
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
           autoComplete="off"
+          readOnly={!canAi}
           aria-label="What would you like to build"
         />
 
@@ -204,7 +214,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
           type="button"
           className={styles.sendBtn}
           onClick={send}
-          disabled={loading || !prompt.trim()}
+          disabled={loading || !prompt.trim() || !canAi}
           title="Send"
         >
           <ChevronRight size={18} style={{ transform: "rotate(-90deg)" }} />
