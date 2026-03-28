@@ -28,7 +28,7 @@ import { TopBarConfigPanel } from "./TopBarConfigPanel";
 import type { Paint as FigmaPaint } from "@/lib/figma/types";
 import type { Paint as ScenePaint, Effect as SceneEffect, DropShadow, InnerShadow, BlurEffect } from "@/lib/editor/types";
 import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
-import { BLOCK_TYPE_OPTIONS, TRANSITION_OPTIONS, HOVER_PRESETS } from "@/lib/editor/blocks";
+import { BLOCK_TYPE_OPTIONS, TRANSITION_OPTIONS as BLOCK_TRANSITION_OPTIONS, HOVER_PRESETS } from "@/lib/editor/blocks";
 import type { Interaction, Block, BlockType, BlockParams, InteractionList, HoverPreset } from "@/lib/editor/blocks";
 import styles from "./PropertiesPanel.module.css";
 
@@ -1446,7 +1446,8 @@ const ON_CLICK_OPTIONS = [
   { value: "back", label: "Go back" },
 ] as const;
 
-const TRANSITION_OPTIONS = ["Instant", "Dissolve", "Push Left", "Push Right", "Slide Up"] as const;
+/** Prototype “Navigate” transition labels (stored on interactions; distinct from block transition keys). */
+const PROTOTYPE_NAVIGATE_TRANSITIONS = ["Instant", "Dissolve", "Push Left", "Push Right", "Slide Up"] as const;
 
 function PrototypeSection({ node, updateNode }: { node: SceneNode; updateNode: (id: string, p: Partial<SceneNode>) => void }) {
   const nodes = useEditorStore((s) => s.nodes);
@@ -1571,7 +1572,7 @@ function PrototypeSection({ node, updateNode }: { node: SceneNode; updateNode: (
                 ]);
               }}
             >
-              {TRANSITION_OPTIONS.map((t) => (
+              {PROTOTYPE_NAVIGATE_TRANSITIONS.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
@@ -1698,7 +1699,7 @@ function BlockEditor({
               value={(block.params?.transition as string) ?? "fade"}
               onChange={(e) => setParam("transition", e.target.value)}
             >
-              {TRANSITION_OPTIONS.map((o) => (
+              {BLOCK_TRANSITION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
