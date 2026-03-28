@@ -58,7 +58,7 @@
 .browseIconsRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   width: 100%;
   padding: 8px 12px;
   margin-bottom: 12px;
@@ -77,9 +77,11 @@
   background: #1e1e22;
 }
 
-.browseIconsGlyph {
-  color: #a78bfa;
-  flex-shrink: 0;
+.assetGlyphText {
+  font-size: 12px;
+  line-height: 1;
+  color: #a1a1aa;
+  user-select: none;
 }
 
 .unifiedScroll {

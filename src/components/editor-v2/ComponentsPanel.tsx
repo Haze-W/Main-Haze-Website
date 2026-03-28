@@ -5,7 +5,6 @@ import { useDraggable } from "@dnd-kit/core";
 import { nanoid } from "nanoid";
 import {
   Search,
-  Sparkles,
   Monitor,
   AppWindow,
   Smartphone,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { buildWindowChromeTopBar } from "@/lib/editor/window-chrome";
 import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
+import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
@@ -135,6 +135,61 @@ function DraggableLayoutRow({
   );
 }
 
+function presetGlyph(type: string): string {
+  const map: Record<string, string> = {
+    FRAME: "⊞",
+    TEXT: "T",
+    BUTTON: "⬚",
+    INPUT: "▭",
+    RECTANGLE: "▢",
+    ICON: "◇",
+    CONTAINER: "▦",
+    PANEL: "▤",
+    IMAGE: "🖼",
+    COMPONENT: "◫",
+    CHECKBOX: "☐",
+    SELECT: "▾",
+    LIST: "≡",
+    DIVIDER: "—",
+    SPACER: "□",
+    TOPBAR: "▬",
+  };
+  return map[type] ?? "▣";
+}
+
+function DraggableLibraryPreset({
+  presetKey,
+  label,
+  glyph,
+  onActivate,
+}: {
+  presetKey: string;
+  label: string;
+  glyph: string;
+  onActivate: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `component-preset-${presetKey}`,
+    data: { type: "component", key: presetKey },
+  });
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${styles.assetRow} ${isDragging ? styles.dragging : ""}`}
+      onClick={() => onActivate()}
+      title={label}
+    >
+      <span className={styles.assetRowIcon}>
+        <span className={styles.assetGlyphText}>{glyph}</span>
+      </span>
+      <span className={styles.assetRowLabel}>{label}</span>
+    </button>
+  );
+}
+
 function DraggableSceneComponent({ node }: { node: SceneNode }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `scene-component-${node.id}`,
@@ -201,8 +256,7 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
       </div>
 
       <button type="button" className={styles.browseIconsRow} onClick={onOpenIconPicker}>
-        <Sparkles size={14} className={styles.browseIconsGlyph} strokeWidth={2} />
-        <span>Browse Icons</span>
+        Browse Icons
       </button>
 
       <div className={styles.unifiedScroll}>
@@ -231,6 +285,21 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
             onActivate={() => applyLayoutPreset(row.id)}
           />
         ))}
+
+        <div className={styles.sectionLabel}>Library</div>
+        {libraryFiltered.length === 0 ? (
+          <p className={styles.emptyHint}>No matching elements.</p>
+        ) : (
+          libraryFiltered.map(({ key, preset }) => (
+            <DraggableLibraryPreset
+              key={key}
+              presetKey={key}
+              label={preset.name}
+              glyph={presetGlyph(preset.type)}
+              onActivate={() => applyComponentPreset(key)}
+            />
+          ))
+        )}
 
         <div className={styles.sectionLabel}>Components</div>
         {sceneMasterComponents.length === 0 ? (

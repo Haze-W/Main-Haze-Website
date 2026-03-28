@@ -1,25 +1,16 @@
 /**
  * Validates and normalises Lucide icon names.
  * lucide-react DynamicIcon expects kebab-case keys ("layout-dashboard").
- * This module validates against iconNames and returns the correct format.
+ * Uses the same `iconNames` list as IconPickerContent / lucide dynamic API.
  */
+
+import { iconNames } from "lucide-react/dynamic";
 
 let validKebabSet: Set<string> | null = null;
 
 function getValidKebabNames(): Set<string> {
   if (!validKebabSet) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require("lucide-react/dynamic") as { iconNames?: string[] };
-      const names = mod?.iconNames;
-      if (names && Array.isArray(names)) {
-        validKebabSet = new Set(names);
-      } else {
-        validKebabSet = new Set(["circle", "star", "home", "settings", "user"]);
-      }
-    } catch {
-      validKebabSet = new Set(["circle", "star", "home", "settings", "user"]);
-    }
+    validKebabSet = new Set(iconNames);
   }
   return validKebabSet;
 }
@@ -34,34 +25,27 @@ export function kebabToPascal(name: string): string {
 
 /** Convert PascalCase to kebab-case: "ArrowRight" → "arrow-right" */
 export function pascalToKebab(name: string): string {
-  return name
-    .replace(/([A-Z])/g, (match, letter, offset) =>
-      offset > 0 ? `-${letter.toLowerCase()}` : letter.toLowerCase()
-    );
+  return name.replace(/([A-Z])/g, (match, letter, offset) =>
+    offset > 0 ? `-${letter.toLowerCase()}` : letter.toLowerCase()
+  );
 }
 
 /**
  * Returns a valid kebab-case icon name for use with DynamicIcon.
- * DynamicIcon expects keys from dynamicIconImports which are kebab-case.
- * Accepts both kebab-case and PascalCase input.
- * Falls back to "circle" if the name is invalid.
+ * Accepts kebab-case, PascalCase, or mixed case. Falls back to "circle" if unknown.
  */
 export function getValidIconName(name: string | undefined): string {
   if (!name || typeof name !== "string") return "circle";
 
-  // Normalise to kebab for validation
-  const kebab = name.includes("-") ? name : pascalToKebab(name);
+  const raw = name.trim();
+  if (!raw) return "circle";
+
   const valid = getValidKebabNames();
+  const lowerKebab = raw.toLowerCase().replace(/_/g, "-");
+  if (valid.has(lowerKebab)) return lowerKebab;
 
-  if (valid.has(kebab)) {
-    return kebab;
-  }
-
-  // Try direct match (already PascalCase)
-  const asKebab = pascalToKebab(name);
-  if (valid.has(asKebab)) {
-    return asKebab;
-  }
+  const fromPascal = pascalToKebab(raw);
+  if (valid.has(fromPascal)) return fromPascal;
 
   return "circle";
 }
