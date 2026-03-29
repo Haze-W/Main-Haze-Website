@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { getDefaultSystemChromeStyle } from "./window-chrome";
 
 export type TitleBarStyle = "windows" | "macos";
 
@@ -15,7 +16,7 @@ export interface ExportSettings {
 
 const defaultSettings: ExportSettings = {
   appName: "my-tauri-app",
-  titleBarStyle: "windows",
+  titleBarStyle: getDefaultSystemChromeStyle(),
 };
 
 export const useExportSettings = create<ExportSettings & {

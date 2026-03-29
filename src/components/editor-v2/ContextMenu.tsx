@@ -83,7 +83,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               }
             }}
           >
-            <span>{item.label}</span>
+            <span className={styles.itemLabel}>{item.label}</span>
             {item.shortcut && <span className={styles.shortcut}>{item.shortcut}</span>}
           </button>
         )

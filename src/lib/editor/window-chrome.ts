@@ -1,6 +1,26 @@
 import { nanoid } from "nanoid";
 import type { SceneNode } from "./types";
 
+/** Native-style window controls: Windows vs macOS. */
+export type SystemChromeStyle = "windows" | "macos";
+
+/**
+ * Default title-bar control style for the current device.
+ * SSR / non-browser: falls back to Windows (common server default).
+ */
+export function getDefaultSystemChromeStyle(): SystemChromeStyle {
+  if (typeof navigator === "undefined") return "windows";
+  const ua = navigator.userAgent || "";
+  const uad = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = (uad?.platform ?? navigator.platform ?? "").toLowerCase();
+  const isMobileUa = /iPhone|iPad|iPod|Android/i.test(ua);
+  if (platform.includes("win")) return "windows";
+  if (!isMobileUa && platform.includes("mac")) return "macos";
+  if (/Windows/i.test(ua)) return "windows";
+  if (/Mac OS X|Macintosh/i.test(ua)) return "macos";
+  return "windows";
+}
+
 /** Neutral workspace fill for new IDE / Desktop / App / Wide frames and draw-to-create. */
 export const DEFAULT_FRAME_WORKSPACE_BG = "#e4e6eb";
 
@@ -33,6 +53,7 @@ export function defaultTitleColorForChromeBar(barBg: string, explicitTitleColor?
 
 /** Default window title bar prepended to new root frames (manual draw + export). */
 export function buildWindowChromeTopBar(parentFrameId: string, parentWidth: number): SceneNode {
+  const chromeStyle = getDefaultSystemChromeStyle();
   const topBarId = nanoid();
   const d = 12;
 
@@ -52,31 +73,36 @@ export function buildWindowChromeTopBar(parentFrameId: string, parentWidth: numb
   });
   const titleId = nanoid();
 
-  const children: SceneNode[] = [
-    rect("Close", 12, 13, "#ef4444"),
-    rect("Minimize", 30, 13, "#f59e0b"),
-    rect("Maximize", 48, 13, "#22c55e"),
-    {
-      id: titleId,
-      type: "TEXT",
-      name: "Window Title",
-      x: 0,
-      y: 0,
-      width: parentWidth,
-      height: 40,
-      parentId: topBarId,
-      visible: true,
-      locked: false,
-      children: [],
-      props: {
-        content: "My Tauri App",
-        fontSize: 13,
-        fontWeight: "500",
-        textAlign: "center",
-        color: DEFAULT_CHROME_TITLE_COLOR,
-      },
+  const titleNode: SceneNode = {
+    id: titleId,
+    type: "TEXT",
+    name: "Window Title",
+    x: 0,
+    y: 0,
+    width: parentWidth,
+    height: 40,
+    parentId: topBarId,
+    visible: true,
+    locked: false,
+    children: [],
+    props: {
+      content: "My Tauri App",
+      fontSize: 13,
+      fontWeight: "500",
+      textAlign: chromeStyle === "windows" ? "left" : "center",
+      color: DEFAULT_CHROME_TITLE_COLOR,
     },
-  ];
+  };
+
+  const children: SceneNode[] =
+    chromeStyle === "macos"
+      ? [
+          rect("Close", 12, 13, "#ef4444"),
+          rect("Minimize", 30, 13, "#f59e0b"),
+          rect("Maximize", 48, 13, "#22c55e"),
+          titleNode,
+        ]
+      : [titleNode];
 
   return {
     id: topBarId,
@@ -93,7 +119,7 @@ export function buildWindowChromeTopBar(parentFrameId: string, parentWidth: numb
     props: {
       backgroundColor: DEFAULT_CHROME_BAR_BG,
       isTopBar: true,
-      style: "macos",
+      style: chromeStyle,
       showTitle: true,
       showControls: true,
     },

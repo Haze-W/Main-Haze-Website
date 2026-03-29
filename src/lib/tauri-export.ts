@@ -5,6 +5,7 @@ import { sceneNodesToHtml, sceneExportCss, getFrameDimensions } from "./editor/s
 import type { SceneNode } from "./editor/types";
 import type { CanvasNode, Frame } from "./types";
 import type { ExportSettings } from "./editor/export-settings";
+import { getDefaultSystemChromeStyle } from "./editor/window-chrome";
 import { preloadLucideIcons } from "./icon-svg";
 
 const TAURI_CONF = (name: string, frameless = false, width = 1200, height = 800) => JSON.stringify(
@@ -226,7 +227,7 @@ export function getTauriProjectFiles(
   const activeFrame = frames.find((f) => f.id === activeFrameId) ?? frames[0];
   const nodes = activeFrame?.children ?? [];
   const appName = exportSettings?.appName ?? projectName;
-  const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
+  const titleBarStyle = exportSettings?.titleBarStyle ?? getDefaultSystemChromeStyle();
   const frameless = exportSettings?.frameless ?? false;
   const w = activeFrame?.width ?? 1200;
   const h = activeFrame?.height ?? 800;
@@ -265,7 +266,7 @@ export async function createTauriProjectZip(
   const activeFrame = frames.find((f) => f.id === activeFrameId) ?? frames[0];
   const nodes = activeFrame?.children ?? [];
   const appName = exportSettings?.appName ?? projectName;
-  const titleBarStyle = exportSettings?.titleBarStyle ?? "windows";
+  const titleBarStyle = exportSettings?.titleBarStyle ?? getDefaultSystemChromeStyle();
   const frameless = exportSettings?.frameless ?? false;
   const w = activeFrame?.width ?? 1200;
   const h = activeFrame?.height ?? 800;
