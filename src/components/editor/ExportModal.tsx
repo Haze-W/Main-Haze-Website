@@ -95,7 +95,6 @@ npm run tauri build`;
           </p>
 
           <div className={styles.settingsCard}>
-            <h3 className={styles.sectionLabel}>Before you download</h3>
             <div className={styles.fieldRow}>
               <label className={styles.fieldLabel} htmlFor="export-app-name">
                 Folder &amp; app name
@@ -109,7 +108,6 @@ npm run tauri build`;
                 className={styles.appNameInput}
                 autoComplete="off"
               />
-              <p className={styles.fieldHint}>This is the project folder name inside the ZIP.</p>
             </div>
             <div className={styles.fieldRow}>
               <span className={styles.fieldLabel}>Title bar style</span>
