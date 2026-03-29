@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -691,12 +692,12 @@ export function EditorShell() {
         <aside className={styles.sidebarLeft}>
           <div className={styles.sidebarHeader}>
             <div className={styles.sidebarLogoRow}>
-              <div className={styles.sidebarLogoBrand}>
+              <Link href="/dashboard" className={styles.sidebarLogoBrand}>
                 <div className={styles.logoContainer}>
-                  <img src="/haze-logo.png" alt="Haze" className={styles.logoImg} />
+                  <img src="/haze-logo.svg" alt="Haze" className={styles.logoImg} />
                 </div>
                 <span className={styles.logoText}>Haze</span>
-              </div>
+              </Link>
               <div className={styles.sidebarLogoActions}>
                 <button
                   type="button"

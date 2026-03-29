@@ -53,7 +53,7 @@ export function StandaloneHeader() {
     <>
       <header className={styles.standaloneHeader}>
         <Link href="/dashboard" className={styles.standaloneLogo}>
-          <img src="/haze-logo.png" alt="Haze" className={styles.logoImg} />
+          <img src="/haze-logo.svg" alt="Haze" className={styles.logoImg} />
           <span>Haze</span>
         </Link>
         <div className={styles.standaloneRight}>
