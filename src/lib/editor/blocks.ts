@@ -1,3 +1,5 @@
+import { DEFAULT_CHROME_TITLE_COLOR } from "./window-chrome";
+
 /**
  * Block-based action system for window controls and custom behaviors.
  * Each block represents a discrete action that can be triggered by a UI element.
@@ -143,8 +145,8 @@ function makeChain(type: "minimize" | "maximize" | "close"): BlockChain {
 
 export function createDefaultButtons(): TopBarButtonConfig[] {
   return [
-    { id: "btn-min", type: "minimize", hoverColor: "rgba(255,255,255,0.1)", activeColor: "rgba(255,255,255,0.15)", blockChain: makeChain("minimize") },
-    { id: "btn-max", type: "maximize", hoverColor: "rgba(255,255,255,0.1)", activeColor: "rgba(255,255,255,0.15)", blockChain: makeChain("maximize") },
+    { id: "btn-min", type: "minimize", hoverColor: "rgba(0,0,0,0.06)", activeColor: "rgba(0,0,0,0.1)", blockChain: makeChain("minimize") },
+    { id: "btn-max", type: "maximize", hoverColor: "rgba(0,0,0,0.06)", activeColor: "rgba(0,0,0,0.1)", blockChain: makeChain("maximize") },
     { id: "btn-close", type: "close", hoverColor: "#e81123", activeColor: "#f1707a", blockChain: makeChain("close") },
   ];
 }
@@ -154,8 +156,8 @@ export function createDefaultTopBarConfig(layout: TopBarLayout = "windows"): Top
     layout,
     title: "My Application",
     showIcon: true,
-    backgroundColor: "#1c1c1e",
-    textColor: "#e0e0e0",
+    backgroundColor: "#ffffff",
+    textColor: DEFAULT_CHROME_TITLE_COLOR,
     fontSize: 13,
     fontWeight: "400",
     fontFamily: "Inter, system-ui, sans-serif",
@@ -163,7 +165,7 @@ export function createDefaultTopBarConfig(layout: TopBarLayout = "windows"): Top
     height: 36,
     paddingX: 12,
     borderBottom: true,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(15,23,42,0.08)",
     buttons: createDefaultButtons(),
     dragRegion: true,
     doubleClickMaximize: true,

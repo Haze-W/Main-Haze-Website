@@ -6,6 +6,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
 import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { createDefaultTopBarConfig, type TopBarConfig, type TopBarLayout } from "@/lib/editor/blocks";
+import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar } from "@/lib/editor/window-chrome";
 import { ResizeHandles } from "./ResizeHandles";
 import styles from "./TopBarNode.module.css";
 
@@ -136,12 +137,12 @@ function SystemChromeTopBar({
   handlePointerDown: (e: React.PointerEvent) => void;
 }) {
   const variant = node.props?.style === "windows" ? "windows" : "macos";
-  const bg = (node.props?.backgroundColor as string) ?? "#1a1a1e";
+  const bg = (node.props?.backgroundColor as string) ?? DEFAULT_CHROME_BAR_BG;
   const showTitle = node.props?.showTitle !== false;
   const showControls = node.props?.showControls !== false;
   const titleChild = findTitleText(node);
   const title = String((titleChild?.props?.content as string) ?? "My Tauri App");
-  const titleColor = (titleChild?.props?.color as string) ?? "#a1a1aa";
+  const titleColor = defaultTitleColorForChromeBar(bg, titleChild?.props?.color as string | undefined);
   const titleSize = (titleChild?.props?.fontSize as number) ?? 13;
   const titleWeight = (titleChild?.props?.fontWeight as string) ?? "500";
 
@@ -151,6 +152,7 @@ function SystemChromeTopBar({
     width: node.width,
     height: node.height,
     background: bg,
+    borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
     borderRadius: isSelected ? 0 : 2,
     outline: isSelected ? "2px solid var(--accent)" : "none",
     outlineOffset: -1,

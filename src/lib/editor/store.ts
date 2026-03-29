@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { SceneNode } from "./types";
-import { buildWindowChromeTopBar } from "./window-chrome";
+import { buildWindowChromeTopBar, DEFAULT_FRAME_WORKSPACE_BG } from "./window-chrome";
 import type { CollabRole } from "./collaboration";
 import { getCapabilities } from "./collaboration";
 import { resolvePlacementParent } from "./placement";
@@ -638,6 +638,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       visible: true,
       locked: false,
       children: [topBar],
+      props: { backgroundColor: DEFAULT_FRAME_WORKSPACE_BG },
     };
     set((s) => ({
       nodes: [...s.nodes, frame],

@@ -6,6 +6,7 @@
 
 import type { SceneNode } from "./types";
 import { mergeRootOrphansIntoFrames } from "./placement";
+import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
@@ -622,29 +623,42 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 // ── Top Bar Export ────────────────────────────────────────────────────────────
 
 function topBarToHtml(node: SceneNode): string {
+  const titleChild = node.children?.find((c) => c.type === "TEXT");
+  const derivedTitle = String((titleChild?.props?.content as string) ?? "My Application");
+  const barBg = (node.props?.backgroundColor as string) ?? DEFAULT_CHROME_BAR_BG;
+  const derivedTitleColor = defaultTitleColorForChromeBar(barBg, titleChild?.props?.color as string | undefined);
+  const layoutFromNode: "windows" | "mac" =
+    node.props?.style === "windows" ? "windows" : "mac";
+
   const config = (node.props?._topBarConfig as TopBarConfig | undefined) ?? {
-    layout: "windows" as const,
-    title: "My Application",
-    backgroundColor: "#1c1c1e",
-    textColor: "#e0e0e0",
+    layout: layoutFromNode,
+    title: derivedTitle,
+    backgroundColor: barBg,
+    textColor: derivedTitleColor,
     fontSize: 13,
     fontWeight: "400",
     fontFamily: "Inter, system-ui, sans-serif",
-    titleAlign: "left" as const,
+    titleAlign: (layoutFromNode === "mac" ? "center" : "left") as TopBarConfig["titleAlign"],
     paddingX: 12,
-    borderBottom: false,
-    borderColor: "#333",
+    borderBottom: true,
+    borderColor: "rgba(15,23,42,0.08)",
     showIcon: false,
     dragRegion: true,
+    doubleClickMaximize: true,
+    height: node.height || 32,
     buttons: [
-      { id: "min", type: "minimize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
-      { id: "max", type: "maximize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
+      { id: "min", type: "minimize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
+      { id: "max", type: "maximize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
       { id: "close", type: "close" as const, hoverColor: "#e81123", blockChain: { id: "close", label: "Close", blocks: [] } },
     ],
   };
 
   const isMac = config.layout === "mac";
   const h = node.height || 32;
+  const winHoverFallback = (() => {
+    const l = luminanceFromHex(config.backgroundColor);
+    return l != null && l < 0.42 ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)";
+  })();
 
   const tbStyle = [
     `height:${h}px`,
@@ -669,7 +683,7 @@ function topBarToHtml(node: SceneNode): string {
   </div>`;
 
   const winControls = config.buttons.map((btn) => {
-    const hoverBg = btn.hoverColor ?? "rgba(255,255,255,0.1)";
+    const hoverBg = btn.hoverColor ?? winHoverFallback;
     const label = btn.type === "minimize" ? "&#x2212;" : btn.type === "maximize" ? "&#x25A1;" : "&#x2715;";
     const action = btn.type === "minimize" ? "minimize" : btn.type === "maximize" ? "maximize" : "close";
     return `<button data-window-control="${action}" style="width:46px;height:${h}px;border:none;background:transparent;color:${config.textColor};font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='${hoverBg}'" onmouseout="this.style.background='transparent'">${label}</button>`;

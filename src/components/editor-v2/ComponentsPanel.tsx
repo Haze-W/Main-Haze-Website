@@ -20,7 +20,7 @@ import {
   PanelRight,
   Component,
 } from "lucide-react";
-import { buildWindowChromeTopBar } from "@/lib/editor/window-chrome";
+import { buildWindowChromeTopBar, DEFAULT_FRAME_WORKSPACE_BG } from "@/lib/editor/window-chrome";
 import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
 import {
   COMPONENT_PRESETS,
@@ -101,7 +101,7 @@ function addRootFrameWithChrome(
     visible: true,
     locked: false,
     children: [topBar],
-    props: { backgroundColor: "#0f172a" },
+    props: { backgroundColor: DEFAULT_FRAME_WORKSPACE_BG },
   };
   useEditorStore.setState((s) => ({
     nodes: [...s.nodes, frame],
