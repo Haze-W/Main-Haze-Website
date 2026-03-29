@@ -131,20 +131,67 @@ export const COMPONENT_PRESETS: Record<string, ComponentPreset> = {
 };
 
 export const COMPONENT_CATEGORIES: { label: string; keys: string[] }[] = [
-  { label: "Frames", keys: ["FRAME_IDE", "FRAME_DESKTOP", "FRAME_APP", "FRAME_WIDE"] },
-  { label: "Layout", keys: ["CONTAINER", "PANEL", "GRID", "FLEX_ROW", "FLEX_COL", "DIVIDER", "SPACER", "RECTANGLE"] },
-  { label: "Basic", keys: ["TEXT", "HEADING", "PARAGRAPH", "BUTTON", "BUTTON_SECONDARY", "BUTTON_OUTLINE", "BUTTON_GHOST", "BUTTON_ICON", "IMAGE", "ICON", "AVATAR"] },
-  { label: "Form", keys: ["INPUT", "INPUT_PASSWORD", "INPUT_EMAIL", "INPUT_NUMBER", "CHECKBOX", "RADIO", "SWITCH", "SELECT", "DROPDOWN", "TEXTAREA", "LABEL"] },
+  { label: "Frames", keys: ["FRAME", "FRAME_IDE", "FRAME_DESKTOP", "FRAME_APP", "FRAME_WIDE"] },
+  {
+    label: "Layout",
+    keys: ["CONTAINER", "PANEL", "GRID", "FLEX_ROW", "FLEX_COL", "DIVIDER", "SPACER", "RECTANGLE"],
+  },
+  {
+    label: "Text & media",
+    keys: ["TEXT", "HEADING", "PARAGRAPH", "LABEL", "IMAGE", "ICON", "AVATAR"],
+  },
+  {
+    label: "Buttons",
+    keys: ["BUTTON", "BUTTON_SECONDARY", "BUTTON_OUTLINE", "BUTTON_GHOST", "BUTTON_ICON"],
+  },
+  {
+    label: "Forms",
+    keys: [
+      "INPUT",
+      "INPUT_PASSWORD",
+      "INPUT_EMAIL",
+      "INPUT_NUMBER",
+      "TEXTAREA",
+      "CHECKBOX",
+      "RADIO",
+      "SWITCH",
+      "SELECT",
+      "DROPDOWN",
+    ],
+  },
   { label: "Content", keys: ["LIST", "CARD", "CODE_BLOCK", "MARKDOWN"] },
-  { label: "Overlays", keys: ["MODAL", "DRAWER", "TOAST", "NAVBAR", "SIDEBAR", "FOOTER", "TABS", "ACCORDION", "BREADCRUMBS"] },
-  { label: "Feedback", keys: ["BADGE", "TAG", "TOOLTIP", "PROGRESS", "SLIDER", "SPINNER", "SKELETON", "ALERT", "NOTIFICATION"] },
+  { label: "Overlays", keys: ["MODAL", "DRAWER", "TOAST"] },
+  {
+    label: "Navigation",
+    keys: ["NAVBAR", "SIDEBAR", "FOOTER", "TABS", "ACCORDION", "BREADCRUMBS"],
+  },
+  {
+    label: "Feedback",
+    keys: ["BADGE", "TAG", "TOOLTIP", "PROGRESS", "SLIDER", "SPINNER", "SKELETON", "ALERT", "NOTIFICATION"],
+  },
   { label: "Data", keys: ["TABLE", "PAGINATION", "SEARCH_BAR"] },
   { label: "Media", keys: ["VIDEO_PLAYER", "AUDIO_PLAYER", "CAROUSEL"] },
   { label: "Charts", keys: ["CHART_BAR", "CHART_LINE", "CHART_PIE"] },
   { label: "Pickers", keys: ["DATE_PICKER", "TIME_PICKER", "COLOR_PICKER", "FILE_UPLOADER"] },
   { label: "Sections", keys: ["HERO_SECTION", "PRICING_CARD", "CTA_SECTION", "FORM", "LOGIN_FORM"] },
   { label: "Widgets", keys: ["SETTINGS_PANEL", "STATS_WIDGET", "GAUGE", "MAP_PLACEHOLDER"] },
-  { label: "App Blocks", keys: ["TIMELINE", "KANBAN_COLUMN", "CHAT_BUBBLE", "COMMENT_THREAD", "USER_PROFILE"] },
+  { label: "App blocks", keys: ["TIMELINE", "KANBAN_COLUMN", "CHAT_BUBBLE", "COMMENT_THREAD", "USER_PROFILE"] },
   { label: "States", keys: ["EMPTY_STATE", "ERROR_STATE", "SUCCESS_STATE"] },
-  { label: "Window", keys: ["TOPBAR_WIN", "TOPBAR_MAC", "TOPBAR_CUSTOM"] },
+  { label: "Window chrome", keys: ["TOPBAR_WIN", "TOPBAR_MAC", "TOPBAR_CUSTOM"] },
 ];
+
+/** Preset keys already shown in the panel’s quick “Frames” or “Layout” lists — hide from library to avoid duplicates. */
+export const LIBRARY_EXCLUDED_PRESET_KEYS = new Set([
+  "FRAME_IDE",
+  "FRAME_DESKTOP",
+  "FRAME_APP",
+  "FRAME_WIDE",
+  "CONTAINER",
+  "PANEL",
+  "GRID",
+  "FLEX_ROW",
+  "FLEX_COL",
+  "DIVIDER",
+  "SPACER",
+  "RECTANGLE",
+]);
