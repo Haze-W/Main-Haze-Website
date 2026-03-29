@@ -1,10 +1,21 @@
+/* Dark floating menu: colors are fixed here. Do not use --fg-primary / --fg-disabled —
+   they follow editor light/dark and break contrast (e.g. #121212 on dark popover). */
 .menu {
+  --cm-bg: #2a2a32;
+  --cm-border: rgba(255, 255, 255, 0.12);
+  --cm-fg: #f4f4f5;
+  --cm-fg-disabled: #9ca3af;
+  --cm-shortcut: #8b8b94;
+  --cm-shortcut-disabled: #6b7280;
+  --cm-hover: rgba(255, 255, 255, 0.1);
+  --cm-divider: rgba(255, 255, 255, 0.1);
+
   position: fixed;
   z-index: 10000;
   min-width: 180px;
   padding: 4px;
-  background: var(--bg-dropdown, #1c1c24);
-  border: 1px solid var(--border-default, rgba(255,255,255,0.1));
+  background: var(--cm-bg);
+  border: 1px solid var(--cm-border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
   animation: popIn 0.1s ease forwards;
@@ -25,40 +36,47 @@
   text-align: left;
   font-size: 12px;
   font-weight: 500;
-  color: var(--fg-primary, #e6edf3);
+  color: var(--cm-fg);
   border-radius: 5px;
   gap: 8px;
   background: none;
   border: none;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.1s, color 0.1s;
   white-space: nowrap;
 }
 
 .item:hover:not(:disabled) {
-  background: var(--surface-03, rgba(255,255,255,0.08));
-  color: var(--fg-primary, #e6edf3);
+  background: var(--cm-hover);
+  color: var(--cm-fg);
 }
 
 .item:disabled {
-  color: var(--fg-disabled, rgba(255,255,255,0.25));
+  opacity: 1;
+  color: var(--cm-fg-disabled);
   cursor: default;
+  -webkit-text-fill-color: var(--cm-fg-disabled);
 }
 
 .shortcut {
   font-size: 10px;
-  color: var(--fg-muted, #6b7280);
-  font-family: monospace;
+  color: var(--cm-shortcut);
+  font-family: monospace, ui-monospace, monospace;
   margin-left: auto;
   flex-shrink: 0;
 }
 
 .item:hover:not(:disabled) .shortcut {
-  color: var(--fg-muted, #6b7280);
+  color: var(--cm-shortcut);
+}
+
+.item:disabled .shortcut {
+  color: var(--cm-shortcut-disabled);
+  -webkit-text-fill-color: var(--cm-shortcut-disabled);
 }
 
 .divider {
   height: 1px;
   margin: 3px 4px;
-  background: var(--border-muted, rgba(255,255,255,0.07));
+  background: var(--cm-divider);
 }
