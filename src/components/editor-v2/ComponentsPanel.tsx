@@ -258,19 +258,6 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
 
   return (
     <div className={styles.panel}>
-      {/* <div className={styles.pillTabs}>
-        <button
-          type="button"
-          className={styles.pillTab}
-          onClick={() => onRequestLayersTab?.()}
-        >
-          Layers
-        </button>
-        <button type="button" className={`${styles.pillTab} ${styles.pillTabActive}`} disabled>
-          Assets
-        </button>
-      </div> */}
-
       <div className={styles.searchBar}>
         <form className={styles.searchForm}>
           <Search size={14} className={styles.searchIcon} strokeWidth={2} aria-hidden />
