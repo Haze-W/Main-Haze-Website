@@ -173,11 +173,28 @@
   background: #3b82f6;
 }
 
-.intro {
-  margin: 20px 0;
-  font-size: 0.8125rem;
+.lead {
+  margin: 0 0 20px;
+  font-size: 0.875rem;
   line-height: 1.55;
   color: #a1a1aa;
+}
+
+.inlineLink {
+  color: #93c5fd;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.inlineLink:hover {
+  color: #bfdbfe;
+}
+
+.fieldHint {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #71717a;
 }
 
 .settingsCard {
@@ -185,14 +202,21 @@
   background: #1a1a1e;
   border: 1px solid #2e2e36;
   border-radius: 8px;
-  margin-bottom: 0;
+  margin-bottom: 20px;
 }
 
 .tabs {
   display: flex;
   gap: 0;
-  margin-top: 20px;
+  margin-top: 0;
   border-bottom: 1px solid #2e2e36;
+}
+
+.tabHint {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #71717a;
 }
 
 .tab {
@@ -275,53 +299,29 @@
   white-space: pre;
 }
 
-.commandCta {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 16px;
-  font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #f4f4f5;
-  text-align: center;
-  background: #222228;
-  border: 1px solid #2e2e36;
-  border-radius: 8px;
-  cursor: default;
-  user-select: all;
-}
-
-.runSection {
+.footer {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid #2e2e36;
 }
 
-.runTitle {
-  font-size: 0.6875rem;
-  font-weight: 600;
+.footerNote {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
   color: #71717a;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0 0 8px;
-}
-
-.runHelp {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #a1a1aa;
-  margin: 0 0 16px;
+  text-align: center;
 }
 
 .downloadBtn {
   width: 100%;
-  padding: 12px 16px;
-  font-size: 0.875rem;
+  padding: 14px 16px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #fff;
   background: #3b82f6;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
