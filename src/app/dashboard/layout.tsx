@@ -211,7 +211,7 @@ function DashboardFullLayout({ children }: { children: React.ReactNode }) {
       <div className={styles.container}>
         <aside className={`${styles.sidebar} ${!sidebarOpen ? styles.sidebarHidden : ""}`}>
           <Link href="/dashboard" className={styles.logo}>
-            <img src="/haze-logo.png" alt="Haze" className={styles.logoImg} />
+            <img src="/haze-logo.svg" alt="Haze" className={styles.logoImg} />
             <span>Haze</span>
           </Link>
 

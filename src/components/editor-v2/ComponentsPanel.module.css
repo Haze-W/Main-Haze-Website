@@ -7,7 +7,7 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #111113;
+  background: var(--editor-bg);
   margin: 0 calc(var(--space-3) * -1);
   padding: 0 var(--space-3) var(--space-3);
 }
@@ -16,9 +16,9 @@
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  background: #1a1a1e;
+  background: var(--editor-bg);
   border-radius: 999px;
-  border: 1px solid #2e2e36;
+  border: 1px solid var(--color-s-02);
   margin-bottom: 12px;
   flex-shrink: 0;
 }
@@ -28,7 +28,7 @@
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
-  color: #71717a;
+  color: var(--shade-09);
   background: transparent;
   border: none;
   border-radius: 999px;
@@ -37,7 +37,7 @@
 }
 
 .pillTab:hover:not(:disabled) {
-  color: #e4e4e7;
+  color: var(--shade-07);
 }
 
 .pillTab:disabled {
@@ -45,8 +45,8 @@
 }
 
 .pillTabActive {
-  color: #fafafa !important;
-  background: #27272a !important;
+  color: var(--shade-09);
+  background: var(--shade-04);
 }
 
 .searchWrap {
@@ -59,14 +59,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  /* Match .searchForm width: same horizontal inset as .searchBar padding */
+  width: calc(100% - 2 * var(--space-3));
+  margin: 0 var(--space-3) 12px;
   padding: 8px 12px;
-  margin-bottom: 12px;
   font-size: 13px;
   font-weight: 500;
-  color: #f4f4f5;
-  background: #1a1a1e;
-  border: 1px solid #2e2e36;
+  color: var(--shade-09);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s;
@@ -74,13 +75,13 @@
 }
 
 .browseIconsRow:hover {
-  background: #1e1e22;
+  background: var(--shade-07_05);
 }
 
 .assetGlyphText {
   font-size: 12px;
   line-height: 1;
-  color: #a1a1aa;
+  color: var(--shade-06);
   user-select: none;
 }
 
@@ -95,7 +96,7 @@
 .sectionLabel {
   font-size: 10px;
   font-weight: 600;
-  color: #52525b;
+  color: var(--shade-06);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 12px 12px 4px;
@@ -110,7 +111,7 @@
   padding: 0 12px;
   margin: 0;
   font-size: 13px;
-  color: #e4e4e7;
+  color: var(--shade-09);
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -121,7 +122,7 @@
 }
 
 .assetRow:hover {
-  background: #1e1e22;
+  background: var(--shade-07_05);
 }
 
 .assetRowIcon {
@@ -129,7 +130,7 @@
   align-items: center;
   justify-content: center;
   width: 22px;
-  color: #71717a;
+  color: var(--shade-06);
   flex-shrink: 0;
 }
 
@@ -142,7 +143,7 @@
 
 .emptyHint {
   font-size: 13px;
-  color: #71717a;
+  color: var(--shade-06);
   text-align: center;
   padding: 16px 12px;
   margin: 0;
@@ -152,16 +153,6 @@
 .searchContainer {
   position: relative;
   padding: var(--space-3) var(--space-3) var(--space-2);
-  flex-shrink: 0;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--shade-06);
-  pointer-events: none;
   flex-shrink: 0;
 }
 
@@ -178,12 +169,66 @@
   transition: all var(--transition-fast);
 }
 
+/* Search bar */
+.searchBar {
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-s-01);
+}
+
+.searchForm {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 10px 0 36px;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+
+.searchForm:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
+}
+
+.searchInput {
+  flex: 1;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+  min-width: 0;
+}
+
+.searchInput::placeholder {
+  color: var(--shade-06);
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--shade-06);
+  pointer-events: none;
+}
+
 .search::placeholder {
   color: var(--shade-06);
 }
 
 .search:focus {
-  border-color: #3b82f6;
+  border-color: var(--accent);
 }
 
 .aiSection {
@@ -215,8 +260,8 @@
   border-radius: 999px;
   font-size: 11px;
   color: var(--fg-secondary);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--shade-07_05);
+  border: 1px solid var(--color-s-02);
 }
 .aiInput {
   width: 100%;
@@ -224,7 +269,7 @@
   font-size: 13px;
   font-family: inherit;
   color: var(--fg-primary);
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-02);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-sm);
   outline: none;
@@ -272,7 +317,7 @@
 }
 .aiToggle {
   display: flex;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-02);
   border-radius: var(--radius-sm);
   padding: 2px;
 }
@@ -295,7 +340,7 @@
   padding: 4px 8px;
   font-size: 11px;
   color: var(--fg-primary);
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-02);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -350,7 +395,7 @@
   display: flex;
   gap: 2px;
   margin-bottom: var(--space-2);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--shade-07_05);
   border-radius: var(--radius-sm);
   padding: 2px;
 }
@@ -372,7 +417,7 @@
 }
 .aiModeTab:hover {
   color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--shade-07_05);
 }
 .aiModeTabActive {
   color: #fff;
@@ -390,7 +435,7 @@
   justify-content: center;
   padding: 6px;
   color: var(--fg-muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--shade-07_05);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -398,7 +443,7 @@
 }
 .viewportBtn:hover {
   color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-02);
 }
 .viewportBtnActive {
   color: var(--accent);
@@ -434,7 +479,7 @@
   margin-bottom: var(--space-2);
   font-size: 13px;
   color: var(--fg-muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--shade-07_05);
   border: 2px dashed var(--border-muted);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -463,13 +508,13 @@
   width: 100%;
   max-height: 120px;
   object-fit: contain;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-02);
 }
 .screenshotActions {
   display: flex;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--shade-07_05);
 }
 .aiBtnSecondary {
   flex: 1;
@@ -477,14 +522,14 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-03);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: opacity 0.15s;
 }
 .aiBtnSecondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--shade-07_05);
 }
 .aiBtnSecondary:disabled {
   opacity: 0.6;
