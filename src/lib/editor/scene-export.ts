@@ -5,6 +5,7 @@
  */
 
 import type { SceneNode } from "./types";
+import { mergeRootOrphansIntoFrames } from "./placement";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
@@ -692,7 +693,8 @@ function topBarToHtml(node: SceneNode): string {
  * If no FRAME exists, renders all canvas nodes directly.
  * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
+export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
+  const nodes = mergeRootOrphansIntoFrames(rawNodes);
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");

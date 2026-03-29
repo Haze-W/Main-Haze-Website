@@ -1,4 +1,5 @@
 import { useEditorStore } from "./store";
+import { resolvePlacementParent } from "./placement";
 
 export type LayoutPresetId =
   | "container"
@@ -16,6 +17,9 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
   const offset = get.nodes.length * 24;
   const pos = at ?? lastCanvasPoint ?? { x: 120 + offset, y: 120 + offset };
   const addNode = get.addNode;
+  const resolved = resolvePlacementParent(get.nodes, pos.x, pos.y, get.enteredFrameId);
+  const xy = resolved ? { x: resolved.x, y: resolved.y } : pos;
+  const parentId = resolved?.parentId;
 
   switch (preset) {
     case "container":
@@ -23,7 +27,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "FRAME",
           name: "Container",
-          ...pos,
+          ...xy,
           width: 300,
           height: 200,
           layoutMode: "HORIZONTAL",
@@ -36,7 +40,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
           counterAxisAlignItems: "MIN",
           props: { backgroundColor: "rgba(30,30,34,0.65)" },
         },
-        undefined
+        parentId
       );
       break;
     case "panel":
@@ -44,12 +48,12 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "FRAME",
           name: "Panel",
-          ...pos,
+          ...xy,
           width: 400,
           height: 300,
           props: { backgroundColor: "rgba(30,30,34,0.85)" },
         },
-        undefined
+        parentId
       );
       break;
     case "grid":
@@ -57,7 +61,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "FRAME",
           name: "Grid",
-          ...pos,
+          ...xy,
           width: 400,
           height: 300,
           layoutMode: "NONE",
@@ -69,7 +73,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
             gap: 8,
           },
         },
-        undefined
+        parentId
       );
       break;
     case "flex-row":
@@ -77,7 +81,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "FRAME",
           name: "Flex Row",
-          ...pos,
+          ...xy,
           width: 300,
           height: 60,
           layoutMode: "HORIZONTAL",
@@ -86,7 +90,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
           counterAxisAlignItems: "CENTER",
           props: { backgroundColor: "rgba(30,30,34,0.35)" },
         },
-        undefined
+        parentId
       );
       break;
     case "flex-col":
@@ -94,7 +98,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "FRAME",
           name: "Flex Col",
-          ...pos,
+          ...xy,
           width: 120,
           height: 300,
           layoutMode: "VERTICAL",
@@ -103,7 +107,7 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
           counterAxisAlignItems: "MIN",
           props: { backgroundColor: "rgba(30,30,34,0.35)" },
         },
-        undefined
+        parentId
       );
       break;
     case "divider":
@@ -111,12 +115,12 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "DIVIDER",
           name: "Divider",
-          ...pos,
+          ...xy,
           width: 200,
           height: 1,
           props: { backgroundColor: "#2e2e36" },
         },
-        undefined
+        parentId
       );
       break;
     case "spacer":
@@ -124,11 +128,11 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "SPACER",
           name: "Spacer",
-          ...pos,
+          ...xy,
           width: 16,
           height: 16,
         },
-        undefined
+        parentId
       );
       break;
     case "rectangle":
@@ -136,12 +140,12 @@ export function addLayoutPresetToCanvas(preset: LayoutPresetId, at?: { x: number
         {
           type: "RECTANGLE",
           name: "Rectangle",
-          ...pos,
+          ...xy,
           width: 100,
           height: 100,
           props: { backgroundColor: "#3f3f46", borderRadius: 4 },
         },
-        undefined
+        parentId
       );
       break;
     default:

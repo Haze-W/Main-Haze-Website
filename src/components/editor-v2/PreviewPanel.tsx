@@ -5,6 +5,7 @@ import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import { Play, Monitor, Laptop, Smartphone, RefreshCw, Plus, Minus, RotateCcw, ArrowLeft } from "lucide-react";
 import { clampZoom } from "@/lib/editor/viewport";
+import { mergeRootOrphansIntoFrames } from "@/lib/editor/placement";
 import styles from "./PreviewPanel.module.css";
 
 type DeviceSize = "desktop" | "tablet" | "mobile";
@@ -120,7 +121,8 @@ export function PreviewPanel() {
       setHtml("");
       return;
     }
-    const frame = findFrameById(currentNodes, frameId);
+    const merged = mergeRootOrphansIntoFrames(currentNodes);
+    const frame = findFrameById(merged, frameId);
     if (!frame) {
       setHtml("");
       setError("Frame not found");
@@ -131,7 +133,7 @@ export function PreviewPanel() {
         try {
           const { preloadLucideIcons } = await import("@/lib/icon-svg");
           await preloadLucideIcons();
-          const rules = buildPrototypeRules(currentNodes);
+          const rules = buildPrototypeRules(merged);
           const body = sceneNodesToHtml([frame], "Preview", bg);
           const css = sceneExportCss(bg);
           const protoScript = `<script>(function(){var R=${JSON.stringify(rules)};document.addEventListener('click',function(e){var el=e.target;while(el&&el!==document.documentElement){var id=el.getAttribute&&el.getAttribute('data-node-id');if(id&&R[id]){var r=R[id];if(r.action==='NAVIGATE'&&r.targetId){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'NAVIGATE',targetId:r.targetId,transition:r.transition||'Instant',duration:typeof r.duration==='number'?r.duration:300},'*');}return;}if(r.action==='BACK'){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'BACK'},'*');}return;}}el=el.parentElement;}},true);})();</script>`;

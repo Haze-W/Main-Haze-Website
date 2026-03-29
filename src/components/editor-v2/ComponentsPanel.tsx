@@ -29,6 +29,7 @@ import {
 } from "@/lib/editor/component-presets";
 import { getComponentPresetIcon } from "@/lib/editor/component-preset-icons";
 import { useEditorStore } from "@/lib/editor/store";
+import { resolvePlacementParent } from "@/lib/editor/placement";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
@@ -242,18 +243,20 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
     const preset = COMPONENT_PRESETS[presetKey];
     if (!preset) return;
     const pos = getPos();
+    const s = useEditorStore.getState();
+    const resolved = resolvePlacementParent(s.nodes, pos.x, pos.y, s.enteredFrameId);
     addNode(
       {
         type: preset.type,
         name: preset.name,
-        ...pos,
+        x: resolved?.x ?? pos.x,
+        y: resolved?.y ?? pos.y,
         width: preset.width,
         height: preset.height,
         props: preset.props,
       },
-      undefined
+      resolved?.parentId
     );
-    pushHistory();
   };
 
   return (

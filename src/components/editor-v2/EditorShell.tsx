@@ -46,6 +46,7 @@ import {
 } from "@/lib/editor/collaboration";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
+import { resolvePlacementParent } from "@/lib/editor/placement";
 import { Canvas } from "./Canvas";
 import { BackendPanel } from "./BackendPanel";
 import { SettingsPopover } from "./SettingsPopover";
@@ -460,26 +461,32 @@ export function EditorShell() {
     const preset = COMPONENT_PRESETS[key];
     if (!preset) return;
     const pos = x != null && y != null ? { x, y } : getPlacement();
+    const s = useEditorStore.getState();
+    const resolved = resolvePlacementParent(s.nodes, pos.x, pos.y, s.enteredFrameId);
     addNode({
       type: preset.type,
       name: preset.name,
-      ...pos,
+      x: resolved?.x ?? pos.x,
+      y: resolved?.y ?? pos.y,
       width: preset.width,
       height: preset.height,
       props: preset.props,
-    });
+    }, resolved?.parentId);
   };
 
   const handleAddIcon = (iconName: string, x?: number, y?: number) => {
     const pos = x != null && y != null ? { x, y } : getPlacement();
+    const s = useEditorStore.getState();
+    const resolved = resolvePlacementParent(s.nodes, pos.x, pos.y, s.enteredFrameId);
     addNode({
       type: "ICON",
       name: "Icon",
-      ...pos,
+      x: resolved?.x ?? pos.x,
+      y: resolved?.y ?? pos.y,
       width: 24,
       height: 24,
       props: { iconName },
-    });
+    }, resolved?.parentId);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
