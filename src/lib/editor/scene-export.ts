@@ -653,13 +653,16 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
 // ── Top Bar Export ────────────────────────────────────────────────────────────
 
-/** Stroke-style window glyphs (Lucide-like) for exported / preview HTML. */
+/**
+ * Windows caption glyphs (24×24 artboard) for preview / export.
+ * Tuned for crisp, modern geometry at small control sizes.
+ */
 const HAZE_WIN_SVG_MIN =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 5h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.5 15.25h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const HAZE_WIN_SVG_MAX =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.15"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="5.25" y="5.25" width="13.5" height="13.5" rx="2.25" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5.25 9.25h13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const HAZE_WIN_SVG_CLOSE =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function topBarToHtml(node: SceneNode): string {
   const titleChild = node.children?.find((c) => c.type === "TEXT");
@@ -1094,8 +1097,8 @@ html, body {
 }
 
 .haze-win-ctrl svg {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 
@@ -1225,21 +1228,29 @@ html, body {
   background: #FFFFFF;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   border: 1px solid #B0B0B0;
   border-radius: 4px;
+  padding: 0 12px;
+  min-height: 36px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .inputPlaceholder,
 .textareaPlaceholder {
-  padding: 8px 12px;
+  padding: 0;
   color: #808080;
   font-size: 14px;
   width: 100%;
+  line-height: 1.4;
 }
 
 .textareaPlaceholder {
   white-space: pre-wrap;
   line-height: 1.5;
+  align-self: stretch;
+  padding: 10px 0;
 }
 
 /* Checkbox */
