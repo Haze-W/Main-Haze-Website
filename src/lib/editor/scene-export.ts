@@ -5,6 +5,8 @@
  */
 
 import type { SceneNode } from "./types";
+import { buildPresetEmptyContainerHtml } from "./scene-export-presets";
+import { buildHazeComponentRootStyle } from "./component-content-tokens";
 import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
@@ -597,6 +599,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(frameStyle)}">\n${childHtml || ""}\n${pad}</div>`;
     }
 
+    // CONTAINER library presets with no children — same chrome as SceneNodeRenderer (not an empty dark box)
+    if (node.type === "CONTAINER") {
+      const presetBlock = buildPresetEmptyContainerHtml(node, pad, extraAttrs, cursorStyle, styleStr);
+      if (presetBlock) return presetBlock;
+    }
+
     // CONTAINER / PANEL / generic — render background + children
     const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
     const radius = (props.borderRadius as number) ?? 6;
@@ -1000,7 +1008,8 @@ export function getFrameDimensions(nodes: SceneNode[]): { width: number; height:
  * Generate minimal CSS for exported app - no centering, fills viewport.
  */
 export function sceneExportCss(canvasBg = "#0d0f12"): string {
-  return `* {
+  return `${buildHazeComponentRootStyle()}
+* {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -1012,7 +1021,7 @@ html, body {
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: ${canvasBg};
-  color: #e6edf3;
+  color: var(--haze-comp-text);
 }
 
 .app-layout {
@@ -1130,6 +1139,10 @@ html, body {
 
 .haze-mac-dot--max {
   background: #28c840;
+}
+
+@keyframes haze-spin {
+  to { transform: rotate(360deg); }
 }
 `;
 }
