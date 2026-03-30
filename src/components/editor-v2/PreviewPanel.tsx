@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
-import { Play, Monitor, Laptop, Smartphone, RefreshCw, Plus, Minus, RotateCcw, ArrowLeft } from "lucide-react";
+import { MonitorPlay, Monitor, Laptop, Smartphone, RefreshCw, Plus, Minus, RotateCcw, ArrowLeft } from "lucide-react";
 import { clampZoom } from "@/lib/editor/viewport";
 import { mergeRootOrphansIntoFrames } from "@/lib/editor/placement";
 import styles from "./PreviewPanel.module.css";
@@ -87,6 +87,7 @@ export function PreviewPanel() {
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const areaRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -146,6 +147,7 @@ export function PreviewPanel() {
             inlined += protoScript;
           }
           setHtml(inlined);
+          setIframeReady(false);
           setFrameKey((k) => k + 1);
           setStatus("");
         } catch (e) {
@@ -218,7 +220,6 @@ export function PreviewPanel() {
     (e: React.PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return;
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
       const target = e.currentTarget as HTMLElement;
       target.setPointerCapture(e.pointerId);
       setIsPanning(true);
@@ -301,9 +302,9 @@ export function PreviewPanel() {
               type="button"
               className={`${styles.playBtn} ${optionsOpen ? styles.playBtnActive : ""}`}
               onClick={() => setOptionsOpen((o) => !o)}
-              title="Preview options"
+              title="Device, zoom & refresh"
             >
-              <Play size={14} strokeWidth={2.5} fill="currentColor" />
+              <MonitorPlay size={16} strokeWidth={2} aria-hidden />
             </button>
             {optionsOpen && (
               <div className={styles.optionsDropdown}>
@@ -389,7 +390,7 @@ export function PreviewPanel() {
           <div
             className={styles.previewTransform}
             style={{
-              transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+              transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
               transformOrigin: "0 0",
             }}
           >
@@ -405,11 +406,12 @@ export function PreviewPanel() {
               key={`${previewFrameId}-${frameKey}`}
             >
               <iframe
-                className={styles.iframe}
+                className={`${styles.iframe} ${iframeReady ? styles.iframeVisible : ""}`}
                 srcDoc={html}
                 title="Preview"
                 sandbox="allow-scripts"
                 referrerPolicy="no-referrer"
+                onLoad={() => setIframeReady(true)}
                 style={{ width, height, border: "none", display: "block" }}
               />
             </div>

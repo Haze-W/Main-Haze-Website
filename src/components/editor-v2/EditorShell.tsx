@@ -18,7 +18,7 @@ import {
   Hand,
   Minus,
   Plus,
-  Play,
+  MonitorPlay,
   ChevronRight,
   ChevronDown,
   Eye,
@@ -978,9 +978,9 @@ export function EditorShell() {
               type="button"
               className={`${styles.toolBtn} ${mode === "preview" ? styles.toolBtnActive : ""}`}
               onClick={() => setMode(mode === "preview" ? "design" : "preview")}
-              title="Preview"
+              title="Preview prototype"
             >
-              <Play size={20} strokeWidth={2} />
+              <MonitorPlay size={20} strokeWidth={2} />
             </button>
           </div>
           <div className={styles.toolbarDivider} />
