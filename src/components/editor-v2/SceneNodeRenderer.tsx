@@ -393,6 +393,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   // ── CHECKBOX ──────────────────────────────────────────────────────────────
   if (node.type === "CHECKBOX") {
     const isSwitch = (props.switch as boolean) ?? false;
+    const isRadio = (props.radio as boolean) ?? false;
     const checked = (props.checked as boolean) ?? false;
     const label = (props.label as string) ?? "";
     const toggle = (e: React.MouseEvent) => {
@@ -410,11 +411,20 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
         </div>
       );
     }
+    if (isRadio) {
+      return (
+        <div className={styles.radioNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={`${styles.radioBox} ${checked ? styles.checked : ""}`} />
+          {label && <span style={{ fontSize: 14, color: "#000000" }}>{label}</span>}
+        </div>
+      );
+    }
     return (
       <div className={styles.checkboxNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <div className={`${styles.checkboxBox} ${checked ? styles.checked : ""}`}>{checked && "✓"}</div>
-        {label && <span style={{ fontSize: 14, color: "var(--fg-primary)" }}>{label}</span>}
+        {label && <span style={{ fontSize: 14, color: "#000000" }}>{label}</span>}
       </div>
     );
   }

@@ -332,9 +332,8 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
       style={topBarStyle}
       onClick={handleClick}
       onPointerDown={handlePointerDown}
+      title=""
     >
-      <span className={styles.badge}>Top Bar</span>
-
       {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
 
       {isMac && <MacControls />}

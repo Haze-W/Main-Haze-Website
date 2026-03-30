@@ -475,18 +475,20 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     const props = node.props ?? {};
     const variant = (props.variant as string) ?? "";
 
-    // BUTTON
+    // BUTTON - Uses CSS classes from sceneExportCss()
     if (node.type === "BUTTON") {
       const label = (props.label as string) ?? "Button";
-      const bg = (props.backgroundColor as string) ||
-        (variant === "primary" ? "#5e5ce6" :
-         variant === "secondary" ? "#2d2d35" :
-         variant === "danger" ? "#dc2626" :
-         variant === "outline" ? "transparent" : "#5e5ce6");
-      const color = (props.color as string) || "white";
-      const border = variant === "outline" ? "border:1px solid rgba(255,255,255,0.2);" : "";
-      const btnStyle = `${styleStr};background:${bg};color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;border-radius:6px;${border}`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(btnStyle)}">${escapeHtml(label)}</div>`;
+      const btnClass = [
+        "button",
+        variant === "primary" ? "btnPrimary" :
+        variant === "secondary" ? "btnSecondary" :
+        variant === "danger" ? "btnDanger" :
+        variant === "outline" ? "btnOutline" :
+        variant === "ghost" ? "btnGhost" :
+        variant === "icon" ? "btnIcon" : "btnPrimary"
+      ].filter(Boolean).join(" ");
+      const style = styleStr ? `style="${escapeHtml(styleStr)}"` : "";
+      return `${pad}<div ${extraAttrs} class="${btnClass}" ${style}>${escapeHtml(label)}</div>`;
     }
 
     // TEXT / HEADING / PARAGRAPH
@@ -494,24 +496,18 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const content = (props.content as string) ?? "Text";
       const fontSize = (props.fontSize as number) ?? 14;
       const fontWeight = (props.fontWeight as string) ?? "normal";
-      const color = (props.color as string) || "#e6edf3";
+      const color = (props.color as string) || "#000000";
       const textAlign = (props.textAlign as string) ?? "left";
       const fontFamily = (props.fontFamily as string) ? `font-family:"${props.fontFamily}",sans-serif;` : "";
       const txtStyle = `${styleStr};color:${color};font-size:${fontSize}px;font-weight:${fontWeight};text-align:${textAlign};${fontFamily}overflow:visible;white-space:pre-wrap;`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(txtStyle)}">${escapeHtml(content)}</div>`;
     }
 
-    // INPUT — render as real <input> so user can type in preview
+    // INPUT — render as real <input> with CSS classes
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
       const inputType = (props.type as string) === "password" ? "password" : "text";
-      const inBg = (props.backgroundColor as string) || "rgba(20,20,24,0.9)";
-      const inFg = (props.color as string) || "rgba(255,255,255,0.9)";
-      const inRadius = (props.borderRadius as number) ?? 6;
-      const bCol = (props.borderColor as string) || "rgba(255,255,255,0.1)";
-      const bW = (props.borderWidth as number) ?? 1;
-      const inputStyle = `${styleStr};background:${inBg};color:${inFg};font-size:14px;padding:0 12px;border:${bW}px solid ${bCol};border-radius:${inRadius}px;display:flex;align-items:center;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
+      return `${pad}<div ${extraAttrs} class="inputNode" style="${escapeHtml(styleStr)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
     // RECTANGLE
@@ -529,22 +525,26 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const label = (props.label as string) ?? "";
       const checked = (props.checked as boolean) ?? false;
       const isSwitch = (props.switch as boolean) ?? false;
+      const isRadio = (props.radio as boolean) ?? false;
       if (isSwitch) {
-        const trackBg = checked ? "#5e5ce6" : "rgba(255,255,255,0.15)";
-        const chkStyle = `${styleStr};display:flex;align-items:center;`;
-        return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:44px;height:24px;background:${trackBg};border-radius:12px;position:relative;"><div style="position:absolute;top:2px;left:${checked ? "22px" : "2px"};width:20px;height:20px;background:white;border-radius:50%;"></div></div></div>`;
+        // SWITCH - Uses switchTrack/switchThumb classes
+        const switchOn = checked ? " switchOn" : "";
+        return `${pad}<div ${extraAttrs} class="switchTrack${switchOn}" style="${escapeHtml(styleStr)}"><div class="switchThumb"></div></div>`;
       }
-      const boxBg = checked ? "#5e5ce6" : "transparent";
-      const boxBorder = checked ? "#5e5ce6" : "rgba(255,255,255,0.3)";
-      const chkStyle = `${styleStr};display:flex;align-items:center;gap:8px;color:#e6edf3;font-size:14px;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:18px;height:18px;border:2px solid ${boxBorder};border-radius:4px;background:${boxBg};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">${checked ? "✓" : ""}</div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
+      if (isRadio) {
+        // RADIO - Uses radioNode/radioBox classes
+        const checkedClass = checked ? " checked" : "";
+        return `${pad}<div ${extraAttrs} class="radioNode" style="${escapeHtml(styleStr)}"><div class="radioBox${checkedClass}"></div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
+      }
+      // CHECKBOX - Uses checkboxNode/checkboxBox classes
+      const checkedClass = checked ? " checked" : "";
+      return `${pad}<div ${extraAttrs} class="checkboxNode" style="${escapeHtml(styleStr)}"><div class="checkboxBox${checkedClass}">${checked ? "✓" : ""}</div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
     }
 
-    // SELECT
+    // SELECT - Uses selectNode class
     if (node.type === "SELECT") {
       const ph = (props.placeholder as string) ?? "Select...";
-      const selStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.6);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:space-between;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(selStyle)}"><span>${escapeHtml(ph)}</span><span style="font-size:10px;">▼</span></div>`;
+      return `${pad}<div ${extraAttrs} class="selectNode" style="${escapeHtml(styleStr)}"><span>${escapeHtml(ph)}</span><span class="selectArrow">▼</span></div>`;
     }
 
     // IMAGE / VECTOR (same img pipeline; VECTOR without src uses surface fills below)
@@ -552,7 +552,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
       const rounded = (props.rounded as boolean) ?? false;
       const radius = rounded ? "border-radius:50%;" : "border-radius:6px;";
-      const imgStyle = `${styleStr};overflow:hidden;${radius}background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;`;
+      const imgStyle = `${styleStr};overflow:hidden;${radius}background:#F0F0F0;display:flex;align-items:center;justify-content:center;`;
       if (src) {
         return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><img src="${escapeHtml(src)}" style="width:100%;height:100%;object-fit:cover;" /></div>`;
       }
@@ -564,31 +564,30 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(vRect)}"></div>`;
     }
 
-    // DIVIDER
+    // DIVIDER - Uses dividerNode class
     if (node.type === "DIVIDER") {
-      const divStyle = `position:absolute;left:${node.x}px;top:${node.y}px;width:${node.width}px;height:2px;background:rgba(255,255,255,0.1);`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(divStyle)}"></div>`;
+      const divStyle = `position:absolute;left:${node.x}px;top:${node.y}px;width:${node.width}px;${styleStr}`;
+      return `${pad}<div ${extraAttrs} class="dividerNode" style="${escapeHtml(divStyle)}"></div>`;
     }
 
-    // ICON
+    // ICON - Uses iconNode class
     if (node.type === "ICON") {
       const iconName = ((props.iconName as string) ?? "circle").trim() || "circle";
-      const color = (props.color as string) || "#e6edf3";
+      const color = (props.color as string) || "#000000";
       const size = Math.max(12, Math.min(node.width, node.height) - 4);
-      const iconStyle = `${styleStr};display:flex;align-items:center;justify-content:center;color:${color};`;
       const iconSvg = getIconSvg(iconName, size, color, 1.8);
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">${iconSvg}</div>`;
+      return `${pad}<div ${extraAttrs} class="iconNode" style="${escapeHtml(styleStr)}">${iconSvg}</div>`;
     }
 
     // FRAME (non-Figma) — must paint background; otherwise preview looks like a flat white sheet
     if (node.type === "FRAME") {
-      const bg = (props.backgroundColor as string) || "transparent";
+      const bg = (props.backgroundColor as string) || "#FFFFFF";
       const radius = (props.borderRadius as number) ?? 0;
       const boxShadow = (props.boxShadow as string) || "";
       const bW = props.borderWidth as number | undefined;
       const bCol = props.borderColor as string | undefined;
       const border =
-        bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:none;";
+        bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid #D0D0D0;";
       const padT = (props.paddingTop as number) ?? (props.padding as number) ?? 0;
       const padR = (props.paddingRight as number) ?? (props.padding as number) ?? 0;
       const padB = (props.paddingBottom as number) ?? (props.padding as number) ?? 0;
@@ -606,7 +605,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     }
 
     // CONTAINER / PANEL / generic — render background + children
-    const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
+    const bg = (props.backgroundColor as string) || "#F8F8F8";
     const radius = (props.borderRadius as number) ?? 6;
     const boxShadow = (props.boxShadow as string) || "";
     const isChatMessages = (props._previewBehavior as string) === "chat-messages";
@@ -620,7 +619,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     const bW = props.borderWidth as number | undefined;
     const bCol = props.borderColor as string | undefined;
     const borderExtra =
-      bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid rgba(255,255,255,0.06);";
+      bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid #D0D0D0;";
     const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;${borderExtra}${boxShadow ? `box-shadow:${boxShadow};` : ""}${padCss}${overflow}`;
     return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
   }
@@ -891,7 +890,7 @@ ${framesHtml}
         var text = (input.value || '').trim();
         if (!text) return;
         var userDiv = document.createElement('div');
-        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#e6edf3;margin-bottom:8px;';
+        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#000000;margin-bottom:8px;';
         userDiv.textContent = text;
         var aiDiv = document.createElement('div');
         aiDiv.style.cssText = 'position:relative;left:24px;top:12px;width:700px;font-size:14px;color:#8b949e;line-height:1.5;margin-bottom:24px;';
@@ -1143,6 +1142,732 @@ html, body {
 
 @keyframes haze-spin {
   to { transform: rotate(360deg); }
+}
+
+/* ════════════════════════════════════════════════════════════ */
+/* Component Styles - Used by both Desktop and Preview modes  */
+/* ════════════════════════════════════════════════════════════ */
+
+/* Base */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
+}
+
+.btnSecondary {
+  background: #A0A0A0;
+  color: #FFFFFF;
+  border: 1px solid #808080;
+}
+
+.btnOutline {
+  background: transparent;
+  border: 1.5px solid #404040;
+  color: #000000;
+}
+
+.btnGhost {
+  background: transparent;
+  color: #000000;
+  border: 1px solid #D0D0D0;
+}
+
+.btnGhost:hover {
+  background: #E8E8E8;
+}
+
+.btnDanger {
+  background: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
+}
+
+.btnIcon {
+  background: #E0E0E0;
+  color: #000000;
+  padding: 0;
+  border: 1px solid #B0B0B0;
+}
+
+/* Input */
+.inputNode {
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  border: 1px solid #B0B0B0;
+  border-radius: 4px;
+}
+
+.inputPlaceholder,
+.textareaPlaceholder {
+  padding: 8px 12px;
+  color: #808080;
+  font-size: 14px;
+  width: 100%;
+}
+
+.textareaPlaceholder {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Checkbox */
+.checkboxNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #000000;
+}
+
+.checkboxBox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #404040;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.checkboxBox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Radio Button */
+.radioNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #000000;
+}
+
+.radioBox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #404040;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.radioBox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.radioBox.checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+}
+
+/* Select */
+.selectNode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  font-size: 14px;
+  color: #000000;
+  border: 1px solid #B0B0B0;
+  border-radius: 4px;
+}
+
+.selectArrow {
+  font-size: 10px;
+  margin-left: 8px;
+  color: #000000;
+}
+
+/* Progress */
+.progressNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 8px;
+  background: #E0E0E0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #606060;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--haze-comp-accent);
+  border-radius: 4px;
+  transition: width 0.2s;
+}
+
+/* Slider */
+.sliderNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.sliderTrack {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: #E0E0E0;
+  border-radius: 3px;
+  border: 1px solid #B0B0B0;
+}
+
+.sliderFill {
+  height: 100%;
+  background: var(--haze-comp-accent);
+  border-radius: 3px;
+}
+
+.sliderThumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: #FFFFFF;
+  border: 2px solid var(--haze-comp-accent);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Skeleton */
+.skeletonNode {
+  background: linear-gradient(
+    90deg,
+    #E0E0E0 25%,
+    #F0F0F0 50%,
+    #E0E0E0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  border: 1px solid #D0D0D0;
+  min-height: 40px;
+}
+
+@keyframes skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Badge */
+.badgeNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: none;
+  min-height: 24px;
+}
+
+/* Alert */
+.alertNode {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid;
+  min-height: 48px;
+}
+
+.alertInfo {
+  background: #E3F2FD;
+  border-color: #2196F3;
+  color: #1565C0;
+}
+
+.alertSuccess {
+  background: #E8F5E9;
+  border-color: #4CAF50;
+  color: #2E7D32;
+}
+
+.alertWarning {
+  background: #FFF3E0;
+  border-color: #FF9800;
+  color: #E65100;
+}
+
+.alertError {
+  background: #FFEBEE;
+  border-color: #F44336;
+  color: #C62828;
+}
+
+/* Spinner */
+.spinnerNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #D0D0D0;
+  border-top-color: var(--haze-comp-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Divider */
+.dividerNode {
+  background: #404040;
+  border: none;
+  height: 2px !important;
+  min-height: 2px;
+}
+
+/* Text */
+.textNode {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Icon */
+.iconNode {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image */
+.imageNode {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.imageNode.rounded {
+  border-radius: 50%;
+}
+
+.imageNode img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F0F0F0;
+  font-size: 32px;
+}
+
+/* Rectangle */
+.rectNode {
+  background: #F0F0F0;
+  border: 1px dashed #D0D0D0;
+  border-radius: 6px;
+}
+
+/* Spacer */
+.spacerNode {
+  background: #D3D3D3;
+  border: 1px dashed #808080;
+}
+
+/* Generic */
+.genericNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #EEEEEE;
+  border: 1px dashed #D0D0D0;
+  min-height: 40px;
+}
+
+/* Panel */
+.panelNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 80px;
+}
+
+.panelHeader {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000000;
+  background: #F5F5F5;
+  border-bottom: 1px solid #D0D0D0;
+  flex-shrink: 0;
+}
+
+.panelBody {
+  flex: 1;
+  padding: 8px 12px;
+  color: #000000;
+  display: flex;
+  flex-direction: column;
+  min-height: 40px;
+}
+
+/* List */
+.listNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 100px;
+}
+
+.listItem {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #000000;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+/* Tooltip */
+.tooltipNode {
+  background: #333333;
+  border: 1px solid #505050;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Tabs */
+.tabsNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.tabsHeader {
+  display: flex;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tabItem {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #000000;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabsBody {
+  flex: 1;
+  padding: 10px;
+  color: #000000;
+  min-height: 60px;
+}
+
+/* Card */
+.cardNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.cardHeader {
+  padding: 12px 14px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.cardBody {
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  color: #000000;
+  flex: 1;
+  min-height: 60px;
+}
+
+/* Modal */
+.modalNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  min-height: 200px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #D0D0D0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.modalClose {
+  font-size: 16px;
+  color: #808080;
+  cursor: pointer;
+}
+
+.modalBody {
+  flex: 1;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #000000;
+  min-height: 100px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #D0D0D0;
+}
+
+.modalBtn {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: #F0F0F0;
+  color: #000000;
+  border: 1px solid #D0D0D0;
+  cursor: pointer;
+}
+
+.modalBtnPrimary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Table */
+.tableNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.tableHeader {
+  display: flex;
+  background: #F5F5F5;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tableRow {
+  display: flex;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableCell {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #000000;
+}
+
+.tableHeader .tableCell {
+  font-weight: 600;
+  color: #000000;
+}
+
+/* Pagination */
+.paginationNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  min-height: 40px;
+}
+
+.pageBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #000000;
+  border-radius: 5px;
+  background: #F0F0F0;
+  border: 1px solid #D0D0D0;
+  cursor: pointer;
+}
+
+.pageActive {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Breadcrumbs */
+.breadcrumbsNode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.breadcrumbLink {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.breadcrumbActive {
+  font-size: 12px;
+  color: #000000;
+  font-weight: 500;
+}
+
+/* Accordion */
+.accordionNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 100px;
+}
+
+.accordionItem {
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.accordionItem:last-child {
+  border-bottom: none;
+}
+
+.accordionHeader {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #000000;
+  cursor: pointer;
+  background: #FAFAFA;
+}
+
+.accordionBody {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #000000;
+  border-top: 1px solid #D0D0D0;
+}
+
+/* Stats */
+.statsNode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 80px;
 }
 `;
 }
