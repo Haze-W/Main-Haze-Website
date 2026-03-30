@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { nanoid } from "nanoid";
+import type { LucideIcon } from "lucide-react";
 import {
   Search,
   Monitor,
@@ -16,13 +17,19 @@ import {
   Rows3,
   Minus,
   SquareStack,
-  Box,
   PanelRight,
+  Component,
 } from "lucide-react";
-import { buildWindowChromeTopBar } from "@/lib/editor/window-chrome";
+import { buildWindowChromeTopBar, DEFAULT_FRAME_WORKSPACE_BG } from "@/lib/editor/window-chrome";
 import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
-import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
+import {
+  COMPONENT_PRESETS,
+  COMPONENT_CATEGORIES,
+  LIBRARY_EXCLUDED_PRESET_KEYS,
+} from "@/lib/editor/component-presets";
+import { getComponentPresetIcon } from "@/lib/editor/component-preset-icons";
 import { useEditorStore } from "@/lib/editor/store";
+import { resolvePlacementParent } from "@/lib/editor/placement";
 import type { SceneNode } from "@/lib/editor/types";
 import styles from "./ComponentsPanel.module.css";
 
@@ -94,7 +101,7 @@ function addRootFrameWithChrome(
     visible: true,
     locked: false,
     children: [topBar],
-    props: { backgroundColor: "#0f172a" },
+    props: { backgroundColor: DEFAULT_FRAME_WORKSPACE_BG },
   };
   useEditorStore.setState((s) => ({
     nodes: [...s.nodes, frame],
@@ -135,37 +142,15 @@ function DraggableLayoutRow({
   );
 }
 
-function presetGlyph(type: string): string {
-  const map: Record<string, string> = {
-    FRAME: "⊞",
-    TEXT: "T",
-    BUTTON: "⬚",
-    INPUT: "▭",
-    RECTANGLE: "▢",
-    ICON: "◇",
-    CONTAINER: "▦",
-    PANEL: "▤",
-    IMAGE: "🖼",
-    COMPONENT: "◫",
-    CHECKBOX: "☐",
-    SELECT: "▾",
-    LIST: "≡",
-    DIVIDER: "—",
-    SPACER: "□",
-    TOPBAR: "▬",
-  };
-  return map[type] ?? "▣";
-}
-
 function DraggableLibraryPreset({
   presetKey,
   label,
-  glyph,
+  Icon,
   onActivate,
 }: {
   presetKey: string;
   label: string;
-  glyph: string;
+  Icon: LucideIcon;
   onActivate: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -183,7 +168,7 @@ function DraggableLibraryPreset({
       title={label}
     >
       <span className={styles.assetRowIcon}>
-        <span className={styles.assetGlyphText}>{glyph}</span>
+        <Icon size={15} strokeWidth={2} aria-hidden />
       </span>
       <span className={styles.assetRowLabel}>{label}</span>
     </button>
@@ -203,7 +188,9 @@ function DraggableSceneComponent({ node }: { node: SceneNode }) {
       className={`${styles.sceneComponentTile} ${isDragging ? styles.dragging : ""}`}
       title={node.name}
     >
-      <span className={styles.sceneComponentGlyph}>⊞</span>
+      <span className={styles.sceneComponentIcon}>
+        <Component size={20} strokeWidth={2} aria-hidden />
+      </span>
       <span className={styles.sceneComponentLabel}>{node.name}</span>
     </div>
   );
@@ -221,18 +208,32 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
   const layoutFiltered = LAYOUT_ROWS.filter((r) => !q || r.name.toLowerCase().includes(q));
   const framesFiltered = FRAME_PRESETS.filter((r) => !q || r.name.toLowerCase().includes(q));
 
-  const libraryFiltered = useMemo(() => {
-    return Object.entries(COMPONENT_PRESETS)
-      .map(([key, preset]) => ({ key, preset }))
-      .filter(
-        ({ key, preset }) =>
-          !q ||
-          key.toLowerCase().includes(q) ||
-          preset.name.toLowerCase().includes(q) ||
-          preset.type.toLowerCase().includes(q)
-      )
-      .sort((a, b) => a.preset.name.localeCompare(b.preset.name));
+  const librarySections = useMemo(() => {
+    const ql = q;
+    const presetMatches = (key: string) => {
+      const preset = COMPONENT_PRESETS[key];
+      if (!preset) return false;
+      if (!ql) return true;
+      return (
+        key.toLowerCase().includes(ql) ||
+        preset.name.toLowerCase().includes(ql) ||
+        preset.type.toLowerCase().includes(ql)
+      );
+    };
+
+    return COMPONENT_CATEGORIES.map((cat) => {
+      const categoryHit = !ql || cat.label.toLowerCase().includes(ql);
+      const keys = cat.keys.filter((key) => {
+        if (LIBRARY_EXCLUDED_PRESET_KEYS.has(key)) return false;
+        if (!COMPONENT_PRESETS[key]) return false;
+        if (categoryHit) return true;
+        return presetMatches(key);
+      });
+      return { label: cat.label, keys };
+    }).filter((s) => s.keys.length > 0);
   }, [q]);
+
+  const libraryHasAny = librarySections.length > 0;
 
   const applyLayoutPreset = (preset: LayoutPresetId) => {
     addLayoutPresetToCanvas(preset, getPos());
@@ -242,18 +243,20 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
     const preset = COMPONENT_PRESETS[presetKey];
     if (!preset) return;
     const pos = getPos();
+    const s = useEditorStore.getState();
+    const resolved = resolvePlacementParent(s.nodes, pos.x, pos.y, s.enteredFrameId);
     addNode(
       {
         type: preset.type,
         name: preset.name,
-        ...pos,
+        x: resolved?.x ?? pos.x,
+        y: resolved?.y ?? pos.y,
         width: preset.width,
         height: preset.height,
         props: preset.props,
       },
-      undefined
+      resolved?.parentId
     );
-    pushHistory();
   };
 
   return (
@@ -265,7 +268,7 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
             id="components-panel-filter"
             name="component_filter"
             type="search"
-            placeholder="Filter components..."
+            placeholder="Filter by name or category..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
@@ -308,17 +311,27 @@ export function ComponentsPanel({ onOpenIconPicker, onRequestLayersTab }: Compon
         ))}
 
         <div className={styles.sectionLabel}>Library</div>
-        {libraryFiltered.length === 0 ? (
+        {!libraryHasAny ? (
           <p className={styles.emptyHint}>No matching elements.</p>
         ) : (
-          libraryFiltered.map(({ key, preset }) => (
-            <DraggableLibraryPreset
-              key={key}
-              presetKey={key}
-              label={preset.name}
-              glyph={presetGlyph(preset.type)}
-              onActivate={() => applyComponentPreset(key)}
-            />
+          librarySections.map((section) => (
+            <div key={section.label} className={styles.libraryCategory}>
+              <div className={styles.libraryCategoryLabel}>{section.label}</div>
+              {section.keys.map((key) => {
+                const preset = COMPONENT_PRESETS[key];
+                if (!preset) return null;
+                const Icon = getComponentPresetIcon(key, preset.type);
+                return (
+                  <DraggableLibraryPreset
+                    key={key}
+                    presetKey={key}
+                    label={preset.name}
+                    Icon={Icon}
+                    onActivate={() => applyComponentPreset(key)}
+                  />
+                );
+              })}
+            </div>
           ))
         )}
 

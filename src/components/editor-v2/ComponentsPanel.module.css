@@ -78,11 +78,17 @@
   background: var(--shade-07_05);
 }
 
-.assetGlyphText {
-  font-size: 12px;
-  line-height: 1;
+.libraryCategory {
+  margin-bottom: 2px;
+}
+
+.libraryCategoryLabel {
+  font-size: 10px;
+  font-weight: 600;
   color: var(--shade-06);
-  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 12px 4px;
 }
 
 .unifiedScroll {
@@ -669,9 +675,11 @@
   opacity: 0.55;
 }
 
-.sceneComponentGlyph {
-  font-size: 1.25rem;
-  color: #3b82f6;
+.sceneComponentIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
   line-height: 1;
 }
 

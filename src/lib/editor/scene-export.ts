@@ -5,6 +5,8 @@
  */
 
 import type { SceneNode } from "./types";
+import { mergeRootOrphansIntoFrames } from "./placement";
+import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
@@ -620,35 +622,56 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
 // ── Top Bar Export ────────────────────────────────────────────────────────────
 
+/** Stroke-style window glyphs (Lucide-like) for exported / preview HTML. */
+const HAZE_WIN_SVG_MIN =
+  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 5h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>';
+const HAZE_WIN_SVG_MAX =
+  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.15"/></svg>';
+const HAZE_WIN_SVG_CLOSE =
+  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
 function topBarToHtml(node: SceneNode): string {
+  const titleChild = node.children?.find((c) => c.type === "TEXT");
+  const derivedTitle = String((titleChild?.props?.content as string) ?? "My Application");
+  const barBg = (node.props?.backgroundColor as string) ?? DEFAULT_CHROME_BAR_BG;
+  const derivedTitleColor = defaultTitleColorForChromeBar(barBg, titleChild?.props?.color as string | undefined);
+  const layoutFromNode: "windows" | "mac" =
+    node.props?.style === "windows" ? "windows" : "mac";
+
   const config = (node.props?._topBarConfig as TopBarConfig | undefined) ?? {
-    layout: "windows" as const,
-    title: "My Application",
-    backgroundColor: "#1c1c1e",
-    textColor: "#e0e0e0",
+    layout: layoutFromNode,
+    title: derivedTitle,
+    backgroundColor: barBg,
+    textColor: derivedTitleColor,
     fontSize: 13,
     fontWeight: "400",
     fontFamily: "Inter, system-ui, sans-serif",
-    titleAlign: "left" as const,
+    titleAlign: (layoutFromNode === "mac" ? "center" : "left") as TopBarConfig["titleAlign"],
     paddingX: 12,
-    borderBottom: false,
-    borderColor: "#333",
+    borderBottom: true,
+    borderColor: "rgba(15,23,42,0.08)",
     showIcon: false,
     dragRegion: true,
+    doubleClickMaximize: true,
+    height: node.height || 32,
     buttons: [
-      { id: "min", type: "minimize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
-      { id: "max", type: "maximize" as const, hoverColor: "rgba(255,255,255,0.1)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
+      { id: "min", type: "minimize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
+      { id: "max", type: "maximize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
       { id: "close", type: "close" as const, hoverColor: "#e81123", blockChain: { id: "close", label: "Close", blocks: [] } },
     ],
   };
 
   const isMac = config.layout === "mac";
   const h = node.height || 32;
+  const lumBar = luminanceFromHex(config.backgroundColor);
+  const ctrlHover =
+    lumBar != null && lumBar < 0.42 ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.07)";
 
   const tbStyle = [
     `height:${h}px`,
     `background:${config.backgroundColor}`,
     `color:${config.textColor}`,
+    `--haze-ctrl-hover:${ctrlHover}`,
     `font-size:${config.fontSize}px`,
     `font-weight:${config.fontWeight}`,
     `font-family:${config.fontFamily}`,
@@ -661,26 +684,32 @@ function topBarToHtml(node: SceneNode): string {
     isMac ? "justify-content:center" : `padding:0 ${config.paddingX ?? 12}px`,
   ].filter(Boolean).join(";");
 
-  const macControls = `<div style="display:flex;gap:8px;position:absolute;left:12px;top:50%;transform:translateY(-50%);">
-    <button data-window-control="close" style="width:12px;height:12px;border-radius:50%;background:#ff5f57;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"></button>
-    <button data-window-control="minimize" style="width:12px;height:12px;border-radius:50%;background:#febc2e;border:none;cursor:pointer;"></button>
-    <button data-window-control="maximize" style="width:12px;height:12px;border-radius:50%;background:#28c840;border:none;cursor:pointer;"></button>
+  const macControls = `<div class="haze-mac-traffic" aria-hidden="true">
+    <button type="button" class="haze-mac-dot haze-mac-dot--close" data-window-control="close" title="Close"></button>
+    <button type="button" class="haze-mac-dot haze-mac-dot--min" data-window-control="minimize" title="Minimize"></button>
+    <button type="button" class="haze-mac-dot haze-mac-dot--max" data-window-control="maximize" title="Zoom"></button>
   </div>`;
 
-  const winControls = config.buttons.map((btn) => {
-    const hoverBg = btn.hoverColor ?? "rgba(255,255,255,0.1)";
-    const label = btn.type === "minimize" ? "&#x2212;" : btn.type === "maximize" ? "&#x25A1;" : "&#x2715;";
-    const action = btn.type === "minimize" ? "minimize" : btn.type === "maximize" ? "maximize" : "close";
-    return `<button data-window-control="${action}" style="width:46px;height:${h}px;border:none;background:transparent;color:${config.textColor};font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='${hoverBg}'" onmouseout="this.style.background='transparent'">${label}</button>`;
-  }).join("\n    ");
+  const winControls = config.buttons
+    .map((btn) => {
+      const action = btn.type === "minimize" ? "minimize" : btn.type === "maximize" ? "maximize" : "close";
+      const mod =
+        btn.type === "close" ? "haze-win-ctrl--close" : btn.type === "maximize" ? "haze-win-ctrl--max" : "haze-win-ctrl--min";
+      const svg =
+        btn.type === "minimize" ? HAZE_WIN_SVG_MIN : btn.type === "maximize" ? HAZE_WIN_SVG_MAX : HAZE_WIN_SVG_CLOSE;
+      const title =
+        btn.type === "minimize" ? "Minimize" : btn.type === "maximize" ? "Maximize" : "Close";
+      return `<button type="button" class="haze-win-ctrl ${mod}" data-window-control="${action}" title="${title}">${svg}</button>`;
+    })
+    .join("\n    ");
 
-  const titleSpan = `<span style="font-size:${config.fontSize}px;font-weight:${config.fontWeight};color:${config.textColor};flex:1;text-align:${config.titleAlign ?? "left"};">${escapeHtml(config.title ?? "My Application")}</span>`;
+  const titleSpan = `<span class="haze-titlebar-title" style="font-size:${config.fontSize}px;font-weight:${config.fontWeight};color:${config.textColor};flex:1;text-align:${config.titleAlign ?? "left"};">${escapeHtml(config.title ?? "My Application")}</span>`;
 
   const inner = isMac
     ? `${macControls}${titleSpan}`
-    : `${titleSpan}<div style="display:flex;align-items:center;margin-left:auto;">${winControls}</div>`;
+    : `${titleSpan}<div class="haze-win-ctrl-row">${winControls}</div>`;
 
-  return `  <div data-tauri-drag-region style="${escapeHtml(tbStyle)};position:relative;" ondblclick="(function(){const w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(w)w.isMaximized().then(m=>m?w.unmaximize():w.maximize())})()">
+  return `  <div data-haze-titlebar data-tauri-drag-region style="${escapeHtml(tbStyle)};position:relative;" ondblclick="(function(){const w=window.__TAURI_INTERNALS__?.getCurrentWindow?.();if(w)w.isMaximized().then(m=>m?w.unmaximize():w.maximize())})()">
     ${inner}
   </div>`;
 }
@@ -692,7 +721,8 @@ function topBarToHtml(node: SceneNode): string {
  * If no FRAME exists, renders all canvas nodes directly.
  * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
-export function sceneNodesToHtml(nodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
+export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
+  const nodes = mergeRootOrphansIntoFrames(rawNodes);
   const frames = nodes.filter((n) => n.type === "FRAME");
   const topBarNode = nodes.find((n) => n.type === "TOPBAR")
     ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
@@ -996,6 +1026,110 @@ html, body {
   flex: 1;
   overflow: hidden;
   position: relative;
+}
+
+/* Exported title bar (preview + Tauri) — modern controls, OS layout from node */
+[data-haze-titlebar] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.haze-titlebar-title {
+  letter-spacing: 0.02em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.haze-win-ctrl-row {
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.haze-win-ctrl {
+  box-sizing: border-box;
+  min-width: 44px;
+  padding: 0 10px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.88;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.14s ease, opacity 0.14s ease, color 0.14s ease;
+}
+
+.haze-win-ctrl svg {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+.haze-win-ctrl:hover {
+  opacity: 1;
+}
+
+.haze-win-ctrl--min:hover,
+.haze-win-ctrl--max:hover {
+  background: var(--haze-ctrl-hover, rgba(0, 0, 0, 0.07));
+}
+
+.haze-win-ctrl--close:hover {
+  background: #e81123;
+  color: #fff;
+  opacity: 1;
+}
+
+.haze-mac-traffic {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.haze-mac-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: default;
+  flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.38),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.haze-mac-dot:hover {
+  transform: scale(1.08);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.14);
+}
+
+.haze-mac-dot--close {
+  background: #ff5f57;
+}
+
+.haze-mac-dot--min {
+  background: #febc2e;
+}
+
+.haze-mac-dot--max {
+  background: #28c840;
 }
 `;
 }

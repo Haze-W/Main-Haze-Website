@@ -6,6 +6,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
+import { getContextMenuShortcutLabels } from "@/lib/editor/context-menu-shortcuts";
 import { screenToCanvas, clampZoom, clampPan } from "@/lib/editor/viewport";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
@@ -36,6 +37,7 @@ function buildContextMenuItems(
   selectedIds: Set<string>,
   store: ReturnType<typeof useEditorStore.getState>
 ): ContextMenuItem[] {
+  const sc = getContextMenuShortcutLabels();
   const ids = [...selectedIds];
   const hasSelection = ids.length > 0;
   const multiSelect = ids.length > 1;
@@ -53,7 +55,7 @@ function buildContextMenuItems(
 
   return [
     {
-      id: "copy", label: "Copy", shortcut: "⌃C", disabled: !hasSelection,
+      id: "copy", label: "Copy", shortcut: sc.copy, disabled: !hasSelection,
       onClick: () => {
         const nodes = ids.map((id) => store.getNode(id)).filter(Boolean);
         if (nodes.length > 0) {
@@ -62,7 +64,7 @@ function buildContextMenuItems(
       },
     },
     {
-      id: "paste", label: "Paste", shortcut: "⌃V",
+      id: "paste", label: "Paste", shortcut: sc.paste,
       onClick: async () => {
         try {
           const text = await navigator.clipboard.readText();
@@ -71,12 +73,12 @@ function buildContextMenuItems(
       },
     },
     {
-      id: "duplicate", label: "Duplicate", shortcut: "⌃D", disabled: !hasSelection,
+      id: "duplicate", label: "Duplicate", shortcut: sc.duplicate, disabled: !hasSelection,
       onClick: () => store.duplicateNodes(ids),
     },
     { id: "div1", divider: true },
     {
-      id: "bring-front", label: "Bring to Front", shortcut: "]", disabled: !hasSelection,
+      id: "bring-front", label: "Bring to Front", shortcut: sc.bringFront, disabled: !hasSelection,
       onClick: () => store.bringToFront(ids),
     },
     {
@@ -88,16 +90,16 @@ function buildContextMenuItems(
       onClick: () => store.sendBackward(ids),
     },
     {
-      id: "send-back", label: "Send to Back", shortcut: "[", disabled: !hasSelection,
+      id: "send-back", label: "Send to Back", shortcut: sc.sendBack, disabled: !hasSelection,
       onClick: () => store.sendToBack(ids),
     },
     { id: "div2", divider: true },
     {
-      id: "group", label: "Group", shortcut: "⌃G", disabled: !multiSelect,
+      id: "group", label: "Group", shortcut: sc.group, disabled: !multiSelect,
       onClick: () => store.groupNodes(ids),
     },
     {
-      id: "ungroup", label: "Ungroup", shortcut: "⌃⇧G", disabled: !hasSelection,
+      id: "ungroup", label: "Ungroup", shortcut: sc.ungroup, disabled: !hasSelection,
       onClick: () => store.ungroupNodes(ids),
     },
     { id: "div-comp", divider: true },
@@ -152,7 +154,7 @@ function buildContextMenuItems(
     },
     { id: "div4", divider: true },
     {
-      id: "flip-h", label: "Flip Horizontal", shortcut: "⇧H", disabled: !hasSelection,
+      id: "flip-h", label: "Flip Horizontal", shortcut: sc.flipH, disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
@@ -165,7 +167,7 @@ function buildContextMenuItems(
       },
     },
     {
-      id: "flip-v", label: "Flip Vertical", shortcut: "⇧V", disabled: !hasSelection,
+      id: "flip-v", label: "Flip Vertical", shortcut: sc.flipV, disabled: !hasSelection,
       onClick: () => {
         for (const id of ids) {
           const n = store.getNode(id);
@@ -179,7 +181,7 @@ function buildContextMenuItems(
     },
     { id: "div5", divider: true },
     {
-      id: "delete", label: "Delete", shortcut: "⌫", disabled: !hasSelection,
+      id: "delete", label: "Delete", shortcut: sc.delete, disabled: !hasSelection,
       onClick: () => store.deleteNodes(ids),
     },
   ];

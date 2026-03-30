@@ -1,6 +1,7 @@
 import type { CanvasNode, Frame } from "./types";
 import { getIconSvg } from "./icon-svg";
 import type { TitleBarStyle } from "./editor/export-settings";
+import { getDefaultSystemChromeStyle } from "./editor/window-chrome";
 
 function escapeHtml(str: string): string {
   return str
@@ -108,7 +109,7 @@ export function generateHtml(
   options?: GenerateHtmlOptions
 ): string {
   const appName = options?.appName ?? "my-tauri-app";
-  const titleBarStyle = options?.titleBarStyle ?? "windows";
+  const titleBarStyle = options?.titleBarStyle ?? getDefaultSystemChromeStyle();
   const titleBar = generateTitleBar(appName, titleBarStyle);
 
   const inner = nodes.map((n) => nodeToHtml(n, 2)).join("\n");
@@ -137,7 +138,7 @@ ${body}
 `;
 }
 
-export function generateCss(titleBarStyle: TitleBarStyle = "windows"): string {
+export function generateCss(titleBarStyle: TitleBarStyle = getDefaultSystemChromeStyle()): string {
   const titleBarCss =
     titleBarStyle === "macos"
       ? `

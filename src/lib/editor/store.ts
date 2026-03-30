@@ -3,9 +3,10 @@
 import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { SceneNode } from "./types";
-import { buildWindowChromeTopBar } from "./window-chrome";
+import { buildWindowChromeTopBar, DEFAULT_FRAME_WORKSPACE_BG } from "./window-chrome";
 import type { CollabRole } from "./collaboration";
 import { getCapabilities } from "./collaboration";
+import { resolvePlacementParent } from "./placement";
 
 /** Safe deep clone for history - avoids circular refs and non-serializable values (DOM, Window, etc) */
 function serializeNodesForHistory(nodes: SceneNode[]): SceneNode[] {
@@ -637,6 +638,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       visible: true,
       locked: false,
       children: [topBar],
+      props: { backgroundColor: DEFAULT_FRAME_WORKSPACE_BG },
     };
     set((s) => ({
       nodes: [...s.nodes, frame],
@@ -860,17 +862,26 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     inst.name = `${master.name} instance`;
     inst.props = { ...(inst.props ?? {}) };
     (inst.props as Record<string, unknown>).isComponent = false;
-    if (at) {
-      inst.x = at.x;
-      inst.y = at.y;
+    const pos = at ?? { x: master.x + 24, y: master.y + 24 };
+    const roots = get().nodes;
+    const resolved = resolvePlacementParent(roots, pos.x, pos.y, get().enteredFrameId);
+    inst.x = resolved?.x ?? pos.x;
+    inst.y = resolved?.y ?? pos.y;
+    inst.parentId = resolved?.parentId;
+    if (resolved?.parentId) {
+      set((s) => ({
+        nodes: updateNodeInTree(s.nodes, resolved.parentId, {
+          children: [...(findNodeById(s.nodes, resolved.parentId)?.children ?? []), inst],
+        }),
+        selectedIds: new Set([inst.id]),
+      }));
     } else {
-      inst.x = master.x + 24;
-      inst.y = master.y + 24;
+      inst.parentId = undefined;
+      set((s) => ({
+        nodes: [...s.nodes, inst],
+        selectedIds: new Set([inst.id]),
+      }));
     }
-    set((s) => ({
-      nodes: [...s.nodes, inst],
-      selectedIds: new Set([inst.id]),
-    }));
     get().pushHistory();
   },
   detachInstance: (id) => {
