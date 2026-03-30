@@ -441,11 +441,14 @@ export function buildPresetEmptyContainerHtml(
   }
 
   // —— Listbox ——
-  if (nm === "Listbox" || nm === "Dropdown") {
+  if (nm === "Listbox" || nm === "Dropdown" || nm === "Dropdown Menu") {
     const items = ["Option 1", "Option 2", "Option 3"]
-      .map((item) => `<div class="listItem">${item}</div>`)
+      .map(
+        (item, i) =>
+          `<div style="padding:8px 12px;font-size:12px;color:${i === 0 ? H.accent : H.text};background:${i === 0 ? H.accentSoftBg : "transparent"};cursor:pointer;">${item}</div>`
+      )
       .join("");
-    return `${pad}<div ${extraAttrs} class="listNode" style="${escAttr(styleStr)}">${items}</div>`;
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:6px;overflow:hidden`, "display:flex;flex-direction:column;", items);
   }
 
   // —— Slider ——
@@ -457,10 +460,10 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Timeline ——
   if (nm === "Timeline") {
-    const events = ["Event 1", "Event 2", "Event 3"]
+    const events = ["Project started", "First release", "Version 2.0"]
       .map(
         (e, i) =>
-          `<div style="display:flex;gap:12px;padding:8px 0;"><div style="width:12px;height:12px;background:${H.accent};border-radius:50%;flex-shrink:0;margin-top:4px;"></div><div><div style="font-size:12px;font-weight:600;color:${H.text};">${e}</div><div style="font-size:11px;color:${H.textMuted};">Just now</div></div></div>`
+          `<div style="display:flex;gap:12px;padding:8px 0;"><div style="width:12px;height:12px;background:${H.accent};border-radius:50%;flex-shrink:0;margin-top:4px;"></div><div style="font-size:12px;font-weight:600;color:${H.text};">${e}</div></div>`
       )
       .join("");
     return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;padding:12px 14px;", events);
@@ -468,31 +471,29 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Gauge / Meter ——
   if (nm === "Gauge") {
-    const inner = `<div style="font-size:28px;font-weight:700;color:${H.accent};">72%</div><div style="width:100%;height:6px;background:${H.progressTrack};border-radius:3px;margin-top:6px;"><div style="width:72%;height:100%;background:${H.accent};border-radius:3px;"></div></div>`;
+    const inner = `<svg viewBox="0 0 100 60" style="width:80%"><path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="#e0e0e0" stroke-width="8" stroke-linecap="round" /><path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="${H.accent}" stroke-width="8" stroke-linecap="round" stroke-dasharray="75 126" /></svg><div style="font-size:13px;font-weight:600;color:${H.text};margin-top:-8px;">75%</div>`;
     return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 12px;", inner);
   }
 
   // —— Comment ——
   if (nm === "Comment") {
-    const inner = `<div style="display:flex;gap:8px;"><div style="width:32px;height:32px;background:${H.accent};border-radius:50%;flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:${H.text};">User Name</div><div style="font-size:12px;color:${H.textSecondary};margin-top:2px;">This is a great component!</div><div style="font-size:11px;color:${H.textMuted};margin-top:4px;">2 hours ago</div></div></div>`;
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "padding:10px 12px;", inner);
+    const inner = `<div style="width:24px;height:24px;background:${H.accent};border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;">+</div><div style="flex:1;background:${H.inputBg};border:1px solid ${H.border};border-radius:20px;padding:6px 12px;font-size:12px;color:${H.textMuted};">Add comment...</div>`;
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:transparent;border:none`, "display:flex;align-items:center;gap:8px;padding:8px 0;", inner);
   }
 
   // —— User Profile ——
   if (nm === "User Profile") {
-    const inner = `<div style="display:flex;align-items:center;gap:10px;"><div style="width:40px;height:40px;background:${H.accent};border-radius:50%;flex-shrink:0;"></div><div><div style="font-size:13px;font-weight:600;color:${H.text};">John Doe</div><div style="font-size:11px;color:${H.textMuted};">@johndoe</div></div></div>`;
-    return box(pad, extraAttrs, cursorStyle, base, "display:flex;align-items:center;padding:12px 14px;", inner);
+    const inner = `<div style="width:40px;height:40px;background:${H.accent};border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:white;">U</div><div><div style="font-size:13px;font-weight:600;color:${H.text};">John Doe</div><div style="font-size:11px;color:${H.textMuted};">john@example.com</div></div>`;
+    return box(pad, extraAttrs, cursorStyle, base, "display:flex;align-items:center;gap:10px;padding:12px 14px;", inner);
   }
 
   // —— Carousel ——
   if (nm === "Carousel") {
-    const slides = [1, 2, 3]
-      .map((n, i) => `<div style="width:100%;height:100%;background:${i === 0 ? H.accent : H.accentSoftBg};display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600;${i > 0 ? "display:none;" : ""}">Slide ${n}</div>`)
-      .join("");
-    const dots = [1, 2, 3]
-      .map((n) => `<div style="width:8px;height:8px;background:${n === 1 ? H.accent : H.border};border-radius:50%;"></div>`)
-      .join("");
-    const inner = `<div style="position:relative;width:100%;height:100%;overflow:hidden;">${slides}</div><div style="display:flex;justify-content:center;gap:6px;padding:8px;background:rgba(0,0,0,0.1);">${dots}</div>`;
+    const slides = ["Slide 1", "Slide 2", "Slide 3"];
+    const activeSlide = 0;
+    const slidesHtml = `<div style="width:100%;height:100%;background:${H.accent};display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600;">${slides[activeSlide]}</div>`;
+    const nav = `<div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:8px;background:rgba(0,0,0,0.1);"><span style="font-size:14px;color:#fff;cursor:pointer;">‹</span>${[0,1,2].map((i) => `<div style="width:6px;height:6px;background:${i === activeSlide ? H.accent : H.border};border-radius:50%;"></div>`).join('')}<span style="font-size:14px;color:#fff;cursor:pointer;">›</span></div>`;
+    const inner = `${slidesHtml}${nav}`;
     return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;overflow:hidden;", inner);
   }
 
@@ -518,10 +519,11 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Color Picker ——
   if (nm === "Color Picker") {
-    const colors = ["#5e5ce6", "#ec4899", "#f59e0b", "#10b981", "#3b82f6"]
+    const colors = ["#5e5ce6", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"]
       .map((c) => `<div style="width:24px;height:24px;background:${c};border-radius:4px;border:2px solid #fff;box-shadow:0 0 0 1px ${H.border};cursor:pointer;"></div>`)
       .join("");
-    return box(pad, extraAttrs, cursorStyle, base, "display:flex;gap:6px;padding:8px;", colors);
+    const hexValue = `<div style="padding:6px 10px;background:${H.inputBg};border:1px solid ${H.border};border-radius:4px;font-size:12px;color:${H.text};font-family:monospace;">#5e5ce6</div>`;
+    return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;gap:8px;padding:8px;", `${colors}${hexValue}`);
   }
 
   // —— Settings Panel ——
@@ -529,16 +531,16 @@ export function buildPresetEmptyContainerHtml(
     const settings = ["Dark Mode", "Notifications", "Privacy"]
       .map(
         (s) =>
-          `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid ${H.border};"><span style="font-size:13px;color:${H.text};">${s}</span><div style="width:32px;height:18px;background:${H.accent};border-radius:9px;"></div></div>`
+          `<div style="padding:10px 12px;border-bottom:1px solid ${H.border};font-size:13px;color:${H.text};">${s}</div>`
       )
       .join("");
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;", settings);
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;", `<div style="font-size:12px;font-weight:600;color:${H.text};padding:8px 12px;">${nm}</div>${settings}`);
   }
 
   // —— Map ——
   if (nm === "Map") {
-    const inner = `<div style="width:100%;height:100%;background:linear-gradient(135deg,#e0f2fe 0%,#cffafe 50%,#a5f3fc 100%);display:flex;align-items:center;justify-content:center;font-size:24px;">🗺️</div>`;
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "overflow:hidden;", inner);
+    const inner = `<div style="font-size:32px;">🗺</div><div style="font-size:12px;color:${H.textMuted};margin-top:4px;">Map placeholder</div>`;
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;", inner);
   }
 
   // —— Date Picker ——
@@ -555,32 +557,21 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Search Box ——
   if (nm === "Search" || nm === "Search Box") {
-    const inner = `<span style="font-size:14px;color:${H.textMuted};flex-shrink:0;">🔍</span><input type="text" placeholder="Search..." style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:${H.text};"/>`;
+    const inner = `<span style="font-size:14px;color:${H.textMuted};flex-shrink:0;">🔍</span><input type="text" placeholder="Search..." style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:${H.text};padding:8px 0;" />`;
     return box(
       pad,
       extraAttrs,
       cursorStyle,
       `${styleStr};background:${H.inputBg};border:1px solid ${H.border};border-radius:6px`,
-      "display:flex;align-items:center;gap:8px;padding:0 10px;",
+      "display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;",
       inner
     );
   }
 
   // —— Footer ——
   if (nm === "Footer") {
-    const cols = [
-      { title: "Product", items: ["Features", "Pricing", "Security"] },
-      { title: "Company", items: ["About", "Blog", "Careers"] },
-      { title: "Legal", items: ["Privacy", "Terms", "Contact"] },
-    ];
-    const colsHtml = cols
-      .map(
-        (col) =>
-          `<div><div style="font-size:13px;font-weight:600;color:${H.text};margin-bottom:6px;">${col.title}</div>${col.items.map((item) => `<div style="font-size:12px;color:${H.textMuted};margin-bottom:4px;">${item}</div>`).join("")}</div>`
-      )
-      .join("");
-    const inner = `<div style="display:flex;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid ${H.border};">${colsHtml}</div><div style="font-size:11px;color:${H.textMuted};">© 2026 Your Company. All rights reserved.</div>`;
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surfaceSubtle};border-top:1px solid ${H.border}`, "padding:16px 20px;", inner);
+    const inner = `<span style="font-size:12px;color:${H.textMuted};">© 2026 App</span><div style="display:flex;gap:16px;font-size:12px;color:${H.textMuted};"><span>Privacy</span><span>Terms</span><span>Contact</span></div>`;
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:6px`, "display:flex;align-items:center;justify-content:space-between;padding:12px 16px;", inner);
   }
 
   // —— Section ——
@@ -590,8 +581,8 @@ export function buildPresetEmptyContainerHtml(
       pad,
       extraAttrs,
       cursorStyle,
-      `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`,
-      "padding:16px",
+      `${styleStr};background:transparent;border:none`,
+      "padding:0",
       inner
     );
   }
