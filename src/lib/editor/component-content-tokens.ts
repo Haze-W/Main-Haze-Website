@@ -38,6 +38,13 @@ export const HAZE_COMP = {
 export function buildHazeComponentRootStyle(): string {
   const c = HAZE_COMP;
   return `:root {
+  --accent: ${c.accent};
+  --fg-primary: ${c.text};
+  --fg-secondary: ${c.textSecondary};
+  --fg-muted: ${c.textMuted};
+  --bg-input: ${c.inputBg};
+  --border-default: ${c.border};
+  --border-muted: ${c.borderStrong};
   --haze-comp-surface: ${c.surface};
   --haze-comp-surface-subtle: ${c.surfaceSubtle};
   --haze-comp-header-bar: ${c.headerBar};

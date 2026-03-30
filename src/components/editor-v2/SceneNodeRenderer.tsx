@@ -570,6 +570,19 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
   // ── PANEL ─────────────────────────────────────────────────────────────────
   if (node.type === "PANEL") {
+    if (node.name === "Settings") {
+      return (
+        <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.panelHeader}>Settings</div>
+          <div className={styles.panelBody}>
+            {["Dark Mode", "Notifications", "Privacy"].map((s, i) => (
+              <div key={i} style={{ padding: "10px 12px", fontSize: 13, color: "var(--haze-comp-text)", borderBottom: i < 2 ? "1px solid var(--haze-comp-border)" : "none" }}>{s}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     const title = (props.title as string) ?? "Panel";
     return (
       <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>

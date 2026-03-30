@@ -295,8 +295,8 @@ export function buildPresetEmptyContainerHtml(
       pad,
       extraAttrs,
       cursorStyle,
-      `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:6px;box-shadow:${H.shadowMd}`,
-      `display:flex;align-items:center;justify-content:center;padding:6px 12px;font-size:12px;color:${H.text};`,
+      `${styleStr};background:#333333;border:1px solid #505050;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3)`,
+      `display:flex;align-items:center;justify-content:center;padding:6px 12px;font-size:12px;color:#FFFFFF;`,
       t.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     );
   }
@@ -344,26 +344,19 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Markdown / Code block ——
   if (nm === "Markdown") {
-    const inner = `<div style="font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;color:${H.textOnDarkMuted};"><div><span style="color:#f97316;">const</span> <span style="color:#60a5fa;">app</span> = <span style="color:#a3e635;">"Haze"</span></div><div><span style="color:#f97316;">export</span> <span style="color:#f97316;">default</span> app</div></div>`;
-    return box(
-      pad,
-      extraAttrs,
-      cursorStyle,
-      `${styleStr};background:${H.surfaceCode};border:1px solid ${H.borderOnDark};border-radius:8px`,
-      "padding:12px 14px;",
-      inner
-    );
+    const inner = `<div class="codeLine"># Getting Started</div><div class="codeLine">Write clean UI blocks with reusable components.</div><div class="codeLine">- Buttons</div><div class="codeLine">- Forms</div><div class="codeLine">- Charts</div>`;
+    return `${pad}<div ${extraAttrs} class="codeNode" style="${escAttr(styleStr)}">${inner}</div>`;
   }
 
   if (nm === "Code Block") {
-    const lang = (props.language as string) ?? "javascript";
-    const inner = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.2);border-bottom:1px solid ${H.borderOnDark};font-size:11px;color:${H.textOnDarkMuted};font-weight:600;">${lang.toUpperCase()}</div><div style="padding:12px 14px;font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;color:${H.textOnDarkMuted};"><div><span style="color:#f97316;">const</span> <span style="color:#60a5fa;">value</span> = <span style="color:#a3e635;">42</span></div><div><span style="color:#f97316;">return</span> value</div></div>`;
+    const lang = ((props.language as string) ?? "javascript").toUpperCase();
+    const inner = `<div style="font-size:11px;font-weight:600;color:var(--haze-comp-text-on-dark-muted);border-bottom:1px solid var(--haze-comp-border-on-dark);margin:-10px -12px 8px;padding:8px 12px;">${lang}</div><div class="codeLine"><span style="color:#f97316;">const</span> <span style="color:#60a5fa;">value</span> = <span style="color:#a3e635;">42</span></div><div class="codeLine"><span style="color:#f97316;">return</span> value</div>`;
     return box(
       pad,
       extraAttrs,
       cursorStyle,
-      `${styleStr};background:${H.surfaceCode};border:1px solid ${H.borderOnDark};border-radius:8px`,
-      "display:flex;flex-direction:column;",
+      `${styleStr};background:#1F1F1F;border:1px solid #404040;border-radius:8px`,
+      "display:flex;flex-direction:column;padding:10px 12px;gap:4px;font-family:'IBM Plex Mono',monospace;",
       inner
     );
   }
@@ -561,15 +554,16 @@ export function buildPresetEmptyContainerHtml(
     return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;gap:8px;padding:10px;", `<div style="display:flex;gap:6px;flex-wrap:wrap;">${colors}</div><div style="display:flex;gap:8px;align-items:center;">${hexValue}</div>`);
   }
 
-  // —— Settings Panel ——
+  // —— Settings Panel (PANEL preset — must match SceneNodeRenderer panelNode) ——
   if (nm === "Settings") {
     const settings = ["Dark Mode", "Notifications", "Privacy"]
       .map(
         (s, i) =>
-          `<div style="padding:10px 12px;border-bottom:${i < 2 ? `1px solid ${H.border}` : "none"};font-size:13px;color:${H.text};">${s}</div>`
+          `<div style="padding:10px 12px;margin:0 -12px;border-bottom:${i < 2 ? `1px solid ${H.border}` : "none"};font-size:13px;color:${H.text};">${s}</div>`
       )
       .join("");
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;", `<div style="font-size:12px;font-weight:600;color:${H.text};padding:8px 12px;">${nm}</div>${settings}`);
+    const full = `${cursorStyle}${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px;display:flex;flex-direction:column;overflow:hidden;min-height:80px`;
+    return `${pad}<div ${extraAttrs} class="panelNode" style="${escAttr(full)}"><div class="panelHeader">Settings</div><div class="panelBody" style="padding:0 12px;">${settings}</div></div>`;
   }
 
   // —— Map ——

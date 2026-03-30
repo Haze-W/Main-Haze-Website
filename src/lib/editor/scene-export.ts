@@ -11,7 +11,8 @@ import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
-import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
+import type { TopBarConfig, TopBarLayout, InteractionList, Block, HoverPreset } from "./blocks";
+import { createDefaultTopBarConfig } from "./blocks";
 import { getIconSvg } from "@/lib/icon-svg";
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -515,11 +516,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const isSearch = (props.search as boolean) ?? false;
       if (node.name === "Date Picker") {
         const inner = `<div style="font-size:12px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: Mar 31, 2026</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">M</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">W</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">F</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-text);">15</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-accent);background:var(--haze-comp-accent-soft-bg);border-radius:3px;font-weight:600;">31</div></div>`;
-        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px")}"><div class="panelBody">${inner}</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px")}" >${inner}</div>`;
       }
       if (node.name === "Time Picker") {
         const inner = `<div style="font-size:14px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: 14:30</div><div style="display:flex;gap:8px;align-items:center;"><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">14</div><div style="font-size:16px;color:var(--haze-comp-text);">:</div><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">30</div></div>`;
-        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px 12px")}"><div class="panelBody">${inner}</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px 12px")}" >${inner}</div>`;
       }
       const icon = isSearch ? `<span style="padding:0 8px;color:var(--haze-comp-text-muted);font-size:14px;line-height:1;">🔍</span>` : "";
       return `${pad}<div ${extraAttrs} class="inputNode" style="${escapeHtml(styleStr)}">${icon}<input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
@@ -542,9 +543,9 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const isSwitch = (props.switch as boolean) ?? false;
       const isRadio = (props.radio as boolean) ?? false;
       if (isSwitch) {
-        // SWITCH - Uses switchTrack/switchThumb classes
+        // SWITCH - match desktop structure
         const switchOn = checked ? " switchOn" : "";
-        return `${pad}<div ${extraAttrs} class="switchTrack${switchOn}" style="${escapeHtml(styleStr)}"><div class="switchThumb"></div></div>`;
+        return `${pad}<div ${extraAttrs} class="switchNode" style="${escapeHtml(styleStr)}"><div class="switchTrack${switchOn}"><div class="switchThumb"></div></div></div>`;
       }
       if (isRadio) {
         // RADIO - Uses radioNode/radioBox classes
@@ -605,25 +606,24 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
     // FRAME (non-Figma) — must paint background; otherwise preview looks like a flat white sheet
     if (node.type === "FRAME") {
-      const bg = (props.backgroundColor as string) || "#FFFFFF";
       const radius = (props.borderRadius as number) ?? 0;
       const boxShadow = (props.boxShadow as string) || "";
       const bW = props.borderWidth as number | undefined;
       const bCol = props.borderColor as string | undefined;
-      const border =
-        bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid #D0D0D0;";
       const padT = (props.paddingTop as number) ?? (props.padding as number) ?? 0;
       const padR = (props.paddingRight as number) ?? (props.padding as number) ?? 0;
       const padB = (props.paddingBottom as number) ?? (props.padding as number) ?? 0;
       const padL = (props.paddingLeft as number) ?? (props.padding as number) ?? 0;
       const padCss =
         padT || padR || padB || padL ? `padding:${padT}px ${padR}px ${padB}px ${padL}px;` : "";
-      const frameStyle = `${styleStr};background:${bg};${radius ? `border-radius:${radius}px;` : ""}${boxShadow ? `box-shadow:${boxShadow};` : ""}${border}${padCss}overflow:hidden;`;
+      const fallbackBg = (props.backgroundColor as string) || "rgba(30,30,34,0.95)";
+      const fallbackBorder = bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid rgba(255,255,255,0.06);";
+      const frameStyle = `${styleStr};background:${fallbackBg};${radius ? `border-radius:${radius}px;` : ""}${boxShadow ? `box-shadow:${boxShadow};` : ""}${fallbackBorder}${padCss}overflow:${node.overflow === "HIDDEN" ? "hidden" : "visible"};`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(frameStyle)}">\n${childHtml || ""}\n${pad}</div>`;
     }
 
-    // CONTAINER library presets with no children — same chrome as SceneNodeRenderer (not an empty dark box)
-    if (node.type === "CONTAINER") {
+    // CONTAINER / PANEL library presets with no children — same chrome as SceneNodeRenderer (e.g. Settings is PANEL)
+    if (node.type === "CONTAINER" || node.type === "PANEL") {
       const presetBlock = buildPresetEmptyContainerHtml(node, pad, extraAttrs, cursorStyle, styleStr);
       if (presetBlock) return presetBlock;
     }
@@ -666,30 +666,15 @@ function topBarToHtml(node: SceneNode): string {
   const derivedTitle = String((titleChild?.props?.content as string) ?? "My Application");
   const barBg = (node.props?.backgroundColor as string) ?? DEFAULT_CHROME_BAR_BG;
   const derivedTitleColor = defaultTitleColorForChromeBar(barBg, titleChild?.props?.color as string | undefined);
-  const layoutFromNode: "windows" | "mac" =
-    node.props?.style === "windows" ? "windows" : "mac";
-
-  const config = (node.props?._topBarConfig as TopBarConfig | undefined) ?? {
-    layout: layoutFromNode,
-    title: derivedTitle,
-    backgroundColor: barBg,
-    textColor: derivedTitleColor,
-    fontSize: 13,
-    fontWeight: "400",
-    fontFamily: "Inter, system-ui, sans-serif",
-    titleAlign: (layoutFromNode === "mac" ? "center" : "left") as TopBarConfig["titleAlign"],
-    paddingX: 12,
-    borderBottom: true,
-    borderColor: "rgba(15,23,42,0.08)",
-    showIcon: false,
-    dragRegion: true,
-    doubleClickMaximize: true,
-    height: node.height || 32,
-    buttons: [
-      { id: "min", type: "minimize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
-      { id: "max", type: "maximize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
-      { id: "close", type: "close" as const, hoverColor: "#e81123", blockChain: { id: "close", label: "Close", blocks: [] } },
-    ],
+  const layoutPreset = (node.props?._topBarLayout as TopBarLayout) ?? "windows";
+  const stored = node.props?._topBarConfig as TopBarConfig | undefined;
+  const base = stored ?? createDefaultTopBarConfig(layoutPreset);
+  const config: TopBarConfig = {
+    ...base,
+    title: stored?.title ?? derivedTitle,
+    backgroundColor: stored?.backgroundColor ?? barBg,
+    textColor: stored?.textColor ?? derivedTitleColor,
+    height: node.height || base.height || 32,
   };
 
   const isMac = config.layout === "mac";
@@ -752,11 +737,21 @@ function topBarToHtml(node: SceneNode): string {
  * If no FRAME exists, renders all canvas nodes directly.
  * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
+function findFirstTopBarNode(list: SceneNode[]): SceneNode | undefined {
+  for (const n of list) {
+    if (n.type === "TOPBAR") return n;
+    const c = findFirstTopBarNode(n.children ?? []);
+    if (c) return c;
+  }
+  return undefined;
+}
+
 export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
   const nodes = mergeRootOrphansIntoFrames(rawNodes);
   const frames = nodes.filter((n) => n.type === "FRAME");
-  const topBarNode = nodes.find((n) => n.type === "TOPBAR")
-    ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
+  const topBarNode =
+    findFirstTopBarNode(nodes) ??
+    (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
 
   const topBarHtml = topBarNode ? topBarToHtml(topBarNode) : "";
 
@@ -1219,10 +1214,10 @@ html, body {
 }
 
 .btnIcon {
-  background: #E0E0E0;
-  color: #000000;
+  background: var(--accent);
+  color: #FFFFFF;
   padding: 0;
-  border: 1px solid #B0B0B0;
+  border: 1px solid var(--accent);
 }
 
 /* Input */
@@ -1313,6 +1308,43 @@ html, body {
   height: 6px;
   background: #0f172a;
   border-radius: 50%;
+}
+
+/* Switch */
+.switchNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.switchTrack {
+  width: 44px;
+  height: 24px;
+  background: #B0B0B0;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.switchTrack.switchOn {
+  background: var(--accent);
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.switchOn .switchThumb {
+  transform: translateX(20px);
 }
 
 /* Select */
@@ -1892,6 +1924,23 @@ html, body {
   padding: 12px 14px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   min-height: 80px;
+}
+
+/* Code block / Markdown */
+.codeNode {
+  background: #1F1F1F;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.codeLine {
+  font-size: 12px;
+  color: #E0E0E0;
 }
 `;
 }
