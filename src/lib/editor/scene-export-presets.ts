@@ -43,8 +43,8 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Card ——
   if (variant === "card" || nm === "Card") {
-    const inner = `<div style="padding:12px 14px 0;font-size:14px;font-weight:600;color:${H.text};">Card Title</div><div style="padding:8px 14px 12px;font-size:12px;color:${H.textMuted};flex:1;">Card content goes here</div>`;
-    return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;overflow:hidden;", inner);
+    const inner = `<div class="cardHeader">Card Title</div><div class="cardBody">Card content goes here</div>`;
+    return `${pad}<div ${extraAttrs} class="cardNode" style="${escAttr(styleStr)}">${inner}</div>`;
   }
 
   // —— Toast ——
@@ -102,18 +102,12 @@ export function buildPresetEmptyContainerHtml(
   if (nm === "Alert") {
     const content = (props.content as string) ?? "Alert message";
     const v = (props.variant as string) ?? "info";
-    const borderC =
-      v === "success" ? "rgba(34,197,94,0.35)" : v === "warning" ? "rgba(245,158,11,0.35)" : v === "error" ? "rgba(239,68,68,0.35)" : "rgba(59,130,246,0.35)";
-    const bgA =
-      v === "success" ? "rgba(34,197,94,0.12)" : v === "warning" ? "rgba(245,158,11,0.12)" : v === "error" ? "rgba(239,68,68,0.12)" : "rgba(59,130,246,0.12)";
-    return box(
-      pad,
-      extraAttrs,
-      cursorStyle,
-      `${styleStr};background:${bgA};border:1px solid ${borderC};border-radius:8px`,
-      `padding:10px 14px;font-size:13px;color:${H.text};`,
-      content.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const alertClass = (
+      v === "success" ? "alertSuccess" :
+      v === "warning" ? "alertWarning" :
+      v === "error" ? "alertError" : "alertInfo"
     );
+    return `${pad}<div ${extraAttrs} class="alertNode ${alertClass}" style="${escAttr(styleStr)}">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
   }
 
   // —— Modal ——
@@ -314,11 +308,11 @@ export function buildPresetEmptyContainerHtml(
     const header = tabs
       .map(
         (t, i) =>
-          `<div style="padding:8px 12px;font-size:12px;color:${i === active ? H.accent : H.textMuted};border-bottom:2px solid ${i === active ? H.accent : "transparent"};font-weight:${i === active ? "600" : "400"};">${t}</div>`
+          `<div class="tabItem${i === active ? " tabActive" : ""}">${t}</div>`
       )
       .join("");
-    const inner = `<div style="display:flex;border-bottom:1px solid ${H.border};">${header}</div><div style="padding:10px 12px;font-size:11px;color:${H.textMuted};">${tabs[active] ?? tabs[0]}</div>`;
-    return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;overflow:hidden;", inner);
+    const inner = `<div class="tabsHeader">${header}</div><div class="tabsBody">${tabs[active] ?? tabs[0]}</div>`;
+    return `${pad}<div ${extraAttrs} class="tabsNode" style="${escAttr(styleStr)}">${inner}</div>`;
   }
 
   // —— Spinner ——
@@ -404,10 +398,10 @@ export function buildPresetEmptyContainerHtml(
     const inner = ["‹", "1", "2", "3", "›"]
       .map(
         (p, i) =>
-          `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:5px;background:${p === "1" ? H.accent : H.surfaceSubtle};color:${p === "1" ? "#fff" : H.textSecondary};border:1px solid ${p === "1" ? H.accent : H.border};">${p}</div>`
+          `<div class="pageBtn${p === "1" ? " pageActive" : ""}">${p}</div>`
       )
       .join("");
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:transparent;border:none`, "display:flex;align-items:center;justify-content:center;gap:4px;", inner);
+    return `${pad}<div ${extraAttrs} class="paginationNode" style="${escAttr(styleStr)}">${inner}</div>`;
   }
 
   // —— Breadcrumbs ——
@@ -449,9 +443,9 @@ export function buildPresetEmptyContainerHtml(
   // —— Listbox ——
   if (nm === "Listbox" || nm === "Dropdown") {
     const items = ["Option 1", "Option 2", "Option 3"]
-      .map((item) => `<div style="padding:8px 12px;font-size:13px;color:${H.textSecondary};border-bottom:1px solid ${H.border};">${item}</div>`)
+      .map((item) => `<div class="listItem">${item}</div>`)
       .join("");
-    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:6px`, "display:flex;flex-direction:column;overflow:hidden;", items);
+    return `${pad}<div ${extraAttrs} class="listNode" style="${escAttr(styleStr)}">${items}</div>`;
   }
 
   // —— Slider ——
