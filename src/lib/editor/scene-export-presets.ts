@@ -30,7 +30,7 @@ export function buildPresetEmptyContainerHtml(
   cursorStyle: string,
   styleStr: string
 ): string | null {
-  if (node.type !== "CONTAINER" || (node.children?.length ?? 0) > 0) return null;
+  if ((node.type !== "CONTAINER" && node.type !== "PANEL") || (node.children?.length ?? 0) > 0) return null;
 
   const props = node.props ?? {};
   const variant = (props.variant as string) ?? "";
@@ -315,6 +315,19 @@ export function buildPresetEmptyContainerHtml(
     return `${pad}<div ${extraAttrs} class="tabsNode" style="${escAttr(styleStr)}">${inner}</div>`;
   }
 
+  // —— Accordion ——
+  if (nm === "Accordion") {
+    const sections = ((props.sections as string[]) ?? ["Section 1", "Section 2", "Section 3"]).slice(0, 3);
+    const openIndex = Math.max(-1, Math.min(sections.length - 1, Number(props.openIndex ?? 0)));
+    const inner = sections
+      .map((s, i) => {
+        const isOpen = i === openIndex;
+        return `<div style="border-bottom:${i < sections.length - 1 ? `1px solid ${H.border}` : "none"};"><div style="display:flex;justify-content:space-between;padding:10px 12px;font-size:13px;color:${H.text};"><span>${s}</span><span style="transform:${isOpen ? "rotate(0deg)" : "rotate(-90deg)"};">▼</span></div>${isOpen ? `<div style="padding:8px 12px;font-size:12px;color:${H.textMuted};border-top:1px solid ${H.border};">Content for ${s}</div>` : ""}</div>`;
+      })
+      .join("");
+    return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;overflow:hidden;", inner);
+  }
+
   // —— Spinner ——
   if (nm === "Spinner") {
     return `${pad}<div ${extraAttrs} class="spinnerNode" style="${escAttr(styleStr)}"><div class="spinner"></div></div>`;
@@ -445,7 +458,7 @@ export function buildPresetEmptyContainerHtml(
     const items = ["Option 1", "Option 2", "Option 3"]
       .map(
         (item, i) =>
-          `<div style="padding:8px 12px;font-size:12px;color:${i === 0 ? H.accent : H.text};background:${i === 0 ? H.accentSoftBg : "transparent"};cursor:pointer;">${item}</div>`
+          `<div style="padding:8px 12px;font-size:12px;color:${i === 0 ? H.accent : H.text};background:${i === 0 ? H.accentSoftBg : "transparent"};cursor:pointer;border-bottom:${i < 2 ? `1px solid ${H.border}` : "none"};">${item}</div>`
       )
       .join("");
     return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:6px;overflow:hidden`, "display:flex;flex-direction:column;", items);
@@ -490,17 +503,20 @@ export function buildPresetEmptyContainerHtml(
   // —— Carousel ——
   if (nm === "Carousel") {
     const slides = ["Slide 1", "Slide 2", "Slide 3"];
-    const activeSlide = 0;
+    const activeSlide = Math.max(0, Math.min(2, Number(props.activeSlide ?? 0)));
     const slidesHtml = `<div style="width:100%;height:100%;background:${H.accent};display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600;">${slides[activeSlide]}</div>`;
-    const nav = `<div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:8px;background:rgba(0,0,0,0.1);"><span style="font-size:14px;color:#fff;cursor:pointer;">‹</span>${[0,1,2].map((i) => `<div style="width:6px;height:6px;background:${i === activeSlide ? H.accent : H.border};border-radius:50%;"></div>`).join('')}<span style="font-size:14px;color:#fff;cursor:pointer;">›</span></div>`;
+    const nav = `<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:${H.surface};border-top:1px solid ${H.border};"><span style="font-size:14px;color:${H.text};cursor:pointer;">‹</span>${[0,1,2].map((i) => `<div style="width:6px;height:6px;background:${i === activeSlide ? H.accent : H.borderStrong};border-radius:50%;"></div>`).join("")}<span style="font-size:14px;color:${H.text};cursor:pointer;">›</span></div>`;
     const inner = `${slidesHtml}${nav}`;
     return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;overflow:hidden;", inner);
   }
 
   // —— Line Chart ——
   if (nm === "Line Chart") {
-    const points = "<polyline points='10,60 40,40 70,50 100,30 130,45 160,20' style='fill:none;stroke:" + H.accent + ";stroke-width:2;'></polyline>";
-    const inner = `<svg width="100%" height="100%" viewBox="0 0 170 80" style="overflow:visible;">${points}</svg>`;
+    const rawData = (props.data as string) ?? "50,35,45,20,30,15,25";
+    const values = rawData.split(",").map((v) => Math.max(0, Math.min(100, Number(v.trim()) || 50)));
+    const pts = values.map((v, i) => `${(i / Math.max(1, values.length - 1)) * 100},${v}`).join(" ");
+    const area = `${pts} 100,100 0,100`;
+    const inner = `<svg width="100%" height="80%" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${H.accent}" stroke-width="2"></polyline><polygon points="${area}" fill="rgba(94,92,230,0.15)"></polygon></svg>`;
     return box(
       pad,
       extraAttrs,
@@ -513,25 +529,44 @@ export function buildPresetEmptyContainerHtml(
 
   // —— Pie Chart ——
   if (nm === "Pie Chart") {
-    const inner = `<svg width="80" height="80" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="${H.accent}"/><circle cx="50" cy="50" r="40" fill="${H.surface}"/><path d="M50,50 L50,10 A40,40 0 0,1 85,78 Z" fill="${H.accent}"/><circle cx="50" cy="50" r="15" fill="${H.surface}"/></svg>`;
+    const rawData = (props.data as string) ?? "50,30,20";
+    const values = rawData.split(",").map((v) => Math.max(1, Number(v.trim()) || 10));
+    const total = values.reduce((a, b) => a + b, 0);
+    const colors = [H.accent, "#22c55e", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"];
+    let cumulative = 0;
+    const slices = values
+      .map((v, i) => {
+        const pct = v / total;
+        const start = cumulative * 2 * Math.PI - Math.PI / 2;
+        cumulative += pct;
+        const end = cumulative * 2 * Math.PI - Math.PI / 2;
+        const x1 = 16 + 16 * Math.cos(start);
+        const y1 = 16 + 16 * Math.sin(start);
+        const x2 = 16 + 16 * Math.cos(end);
+        const y2 = 16 + 16 * Math.sin(end);
+        const large = pct > 0.5 ? 1 : 0;
+        return `<path d="M16,16 L${x1},${y1} A16,16 0 ${large},1 ${x2},${y2} Z" fill="${colors[i % colors.length]}"></path>`;
+      })
+      .join("");
+    const inner = `<svg viewBox="0 0 32 32" style="width:70%;height:70%;">${slices}</svg>`;
     return box(pad, extraAttrs, cursorStyle, base, "display:flex;align-items:center;justify-content:center;", inner);
   }
 
   // —— Color Picker ——
   if (nm === "Color Picker") {
     const colors = ["#5e5ce6", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"]
-      .map((c) => `<div style="width:24px;height:24px;background:${c};border-radius:4px;border:2px solid #fff;box-shadow:0 0 0 1px ${H.border};cursor:pointer;"></div>`)
+      .map((c) => `<div style="width:22px;height:22px;background:${c};border-radius:50%;cursor:pointer;"></div>`)
       .join("");
     const hexValue = `<div style="padding:6px 10px;background:${H.inputBg};border:1px solid ${H.border};border-radius:4px;font-size:12px;color:${H.text};font-family:monospace;">#5e5ce6</div>`;
-    return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;gap:8px;padding:8px;", `${colors}${hexValue}`);
+    return box(pad, extraAttrs, cursorStyle, base, "display:flex;flex-direction:column;gap:8px;padding:10px;", `<div style="display:flex;gap:6px;flex-wrap:wrap;">${colors}</div><div style="display:flex;gap:8px;align-items:center;">${hexValue}</div>`);
   }
 
   // —— Settings Panel ——
   if (nm === "Settings") {
     const settings = ["Dark Mode", "Notifications", "Privacy"]
       .map(
-        (s) =>
-          `<div style="padding:10px 12px;border-bottom:1px solid ${H.border};font-size:13px;color:${H.text};">${s}</div>`
+        (s, i) =>
+          `<div style="padding:10px 12px;border-bottom:${i < 2 ? `1px solid ${H.border}` : "none"};font-size:13px;color:${H.text};">${s}</div>`
       )
       .join("");
     return box(pad, extraAttrs, cursorStyle, `${styleStr};background:${H.surface};border:1px solid ${H.border};border-radius:8px`, "display:flex;flex-direction:column;", `<div style="font-size:12px;font-weight:600;color:${H.text};padding:8px 12px;">${nm}</div>${settings}`);
@@ -575,7 +610,7 @@ export function buildPresetEmptyContainerHtml(
   }
 
   // —— Section ——
-  if (nm === "Section") {
+  if (nm === "Section" || nm === "Section Content") {
     const inner = `<div style="font-size:16px;font-weight:700;color:${H.text};margin-bottom:8px;">Section Title</div><div style="font-size:13px;color:${H.textSecondary};">This is a content section with some descriptive text and information.</div>`;
     return box(
       pad,
@@ -583,6 +618,19 @@ export function buildPresetEmptyContainerHtml(
       cursorStyle,
       `${styleStr};background:transparent;border:none`,
       "padding:0",
+      inner
+    );
+  }
+
+  // —— Top Bar / Header ——
+  if (nm === "Top Bar" || nm === "Header") {
+    const inner = `<div style="font-size:14px;font-weight:600;color:${H.text};">App Name</div><div style="display:flex;gap:12px;font-size:12px;color:${H.textMuted};"><span>Home</span><span>About</span><span>Contact</span></div>`;
+    return box(
+      pad,
+      extraAttrs,
+      cursorStyle,
+      `${styleStr};background:${H.surface};border-bottom:1px solid ${H.border};border-radius:0`,
+      "display:flex;align-items:center;justify-content:space-between;padding:12px 16px;",
       inner
     );
   }

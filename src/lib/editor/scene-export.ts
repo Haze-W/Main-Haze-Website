@@ -477,7 +477,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
     // BUTTON - Uses CSS classes from sceneExportCss()
     if (node.type === "BUTTON") {
-      const label = (props.label as string) ?? "Button";
+      const label = (props.label as string) ?? (variant === "icon" ? "" : "Button");
       const btnClass = [
         "button",
         variant === "primary" ? "btnPrimary" :
@@ -488,6 +488,11 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
         variant === "icon" ? "btnIcon" : "btnPrimary"
       ].filter(Boolean).join(" ");
       const style = styleStr ? `style="${escapeHtml(styleStr)}"` : "";
+      if (variant === "icon") {
+        const iconName = ((props.iconName as string) ?? "plus").trim() || "plus";
+        const iconSvg = getIconSvg(iconName, 18, "currentColor", 2);
+        return `${pad}<div ${extraAttrs} class="${btnClass}" ${style}>${iconSvg}</div>`;
+      }
       return `${pad}<div ${extraAttrs} class="${btnClass}" ${style}>${escapeHtml(label)}</div>`;
     }
 
@@ -507,7 +512,17 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
       const inputType = (props.type as string) === "password" ? "password" : "text";
-      return `${pad}<div ${extraAttrs} class="inputNode" style="${escapeHtml(styleStr)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
+      const isSearch = (props.search as boolean) ?? false;
+      if (node.name === "Date Picker") {
+        const inner = `<div style="font-size:12px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: Mar 31, 2026</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">M</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">W</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">F</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-text);">15</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-accent);background:var(--haze-comp-accent-soft-bg);border-radius:3px;font-weight:600;">31</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px")}"><div class="panelBody">${inner}</div></div>`;
+      }
+      if (node.name === "Time Picker") {
+        const inner = `<div style="font-size:14px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: 14:30</div><div style="display:flex;gap:8px;align-items:center;"><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">14</div><div style="font-size:16px;color:var(--haze-comp-text);">:</div><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">30</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px 12px")}"><div class="panelBody">${inner}</div></div>`;
+      }
+      const icon = isSearch ? `<span style="padding:0 8px;color:var(--haze-comp-text-muted);font-size:14px;line-height:1;">🔍</span>` : "";
+      return `${pad}<div ${extraAttrs} class="inputNode" style="${escapeHtml(styleStr)}">${icon}<input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
     // RECTANGLE
@@ -544,7 +559,16 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     // SELECT - Uses selectNode class
     if (node.type === "SELECT") {
       const ph = (props.placeholder as string) ?? "Select...";
-      return `${pad}<div ${extraAttrs} class="selectNode" style="${escapeHtml(styleStr)}"><span>${escapeHtml(ph)}</span><span class="selectArrow">▼</span></div>`;
+      const isDropdown = node.name === "Dropdown";
+      const text = isDropdown ? "Menu" : ph;
+      const arrow = isDropdown ? "▾▾" : "▼";
+      return `${pad}<div ${extraAttrs} class="selectNode" style="${escapeHtml(styleStr)}"><span>${escapeHtml(text)}</span><span class="selectArrow">${arrow}</span></div>`;
+    }
+
+    // LIST
+    if (node.type === "LIST") {
+      const items = ["Item one", "Item two", "Item three"].map((item) => `<div class="listItem">${item}</div>`).join("");
+      return `${pad}<div ${extraAttrs} class="listNode" style="${escapeHtml(styleStr)}">${items}</div>`;
     }
 
     // IMAGE / VECTOR (same img pipeline; VECTOR without src uses surface fills below)
@@ -1244,7 +1268,7 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: white;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -1274,7 +1298,7 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: white;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -1287,7 +1311,7 @@ html, body {
   content: '';
   width: 6px;
   height: 6px;
-  background: white;
+  background: #0f172a;
   border-radius: 50%;
 }
 

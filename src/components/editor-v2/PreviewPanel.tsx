@@ -151,7 +151,8 @@ export function PreviewPanel() {
           const { preloadLucideIcons } = await import("@/lib/icon-svg");
           await preloadLucideIcons();
           const rules = buildPrototypeRules(merged);
-          const body = sceneNodesToHtml([frame], "Preview", bg);
+          const topBars = merged.filter((n) => n.type === "TOPBAR");
+          const body = sceneNodesToHtml([frame, ...topBars], "Preview", bg);
           const css = sceneExportCss(bg);
           const protoScript = `<script>(function(){var R=${JSON.stringify(rules)};document.addEventListener('click',function(e){var el=e.target;while(el&&el!==document.documentElement){var id=el.getAttribute&&el.getAttribute('data-node-id');if(id&&R[id]){var r=R[id];if(r.action==='NAVIGATE'&&r.targetId){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'NAVIGATE',targetId:r.targetId,transition:r.transition||'Instant',duration:typeof r.duration==='number'?r.duration:300},'*');}return;}if(r.action==='BACK'){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'BACK'},'*');}return;}}el=el.parentElement;}},true);})();</script>`;
           let inlined = body
