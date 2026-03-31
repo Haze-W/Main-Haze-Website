@@ -287,6 +287,42 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     const label = (props.label as string) ?? (variant === "icon" ? "" : "Button");
     const btnColor = (props.color as string) || undefined;
     const btnBg = (props.backgroundColor as string) || undefined;
+    
+    // Icon button needs special styling
+    if (variant === "icon") {
+      return (
+        <div
+          className={styles.button}
+          style={{
+            ...merged,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "var(--accent)",
+            border: "1px solid var(--accent)",
+            color: "#fff",
+            cursor: "pointer",
+            borderRadius: "6px",
+            ...(btnColor && { color: btnColor }),
+            ...(!fillBackground && btnBg ? { backgroundColor: btnBg } : {}),
+          }}
+          onClick={handleClick}
+          onPointerDown={drag}
+          {...hoverHandlers}
+        >
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {(props.iconName as string) ? (
+            <DynamicIcon
+              name={getValidIconName(props.iconName as string) as never}
+              size={20}
+              strokeWidth={2}
+              fallback={() => <span style={{ fontSize: 20 }}>◆</span>}
+            />
+          ) : <span style={{ fontSize: 16 }}>+</span>}
+        </div>
+      );
+    }
+    
     const btnClass = [
       styles.button,
       variant === "primary"   && styles.btnPrimary,
@@ -294,7 +330,6 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
       variant === "outline"   && styles.btnOutline,
       variant === "ghost"     && styles.btnGhost,
       variant === "danger"    && styles.btnDanger,
-      variant === "icon"      && styles.btnIcon,
     ].filter(Boolean).join(" ");
     return (
       <div
@@ -309,14 +344,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
         {...hoverHandlers}
       >
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-        {variant === "icon" && (props.iconName as string) ? (
-          <DynamicIcon
-            name={getValidIconName(props.iconName as string) as never}
-            size={20}
-            strokeWidth={2}
-            fallback={() => <span style={{ fontSize: 20 }}>◆</span>}
-          />
-        ) : label}
+        {label}
       </div>
     );
   }
@@ -373,6 +401,34 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     const multiline = (props.multiline as boolean) ?? false;
     const ph = (props.placeholder as string) ?? "Input";
     const isSearch = (props.search as boolean) ?? false;
+    if (node.name === "Date Picker") {
+      return (
+        <div className={styles.panelNode} style={{ ...merged, padding: 10 }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 12, color: "var(--haze-comp-text-muted)", marginBottom: 4 }}>Selected: Mar 31, 2026</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              <div key={i} style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "var(--haze-comp-text-muted)" }}>{d}</div>
+            ))}
+            <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--haze-comp-text)" }}>15</div>
+            <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--haze-comp-accent)", background: "var(--haze-comp-accent-soft-bg)", borderRadius: 3, fontWeight: 600 }}>31</div>
+          </div>
+        </div>
+      );
+    }
+    if (node.name === "Time Picker") {
+      return (
+        <div className={styles.panelNode} style={{ ...merged, padding: "10px 12px" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 14, color: "var(--haze-comp-text-muted)", marginBottom: 4 }}>Selected: 14:30</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ width: 40, padding: "4px 0", border: "1px solid var(--haze-comp-border)", borderRadius: 4, textAlign: "center", fontSize: 12, color: "var(--haze-comp-text)", background: "var(--haze-comp-input-bg)" }}>14</div>
+            <div style={{ fontSize: 16, color: "var(--haze-comp-text)" }}>:</div>
+            <div style={{ width: 40, padding: "4px 0", border: "1px solid var(--haze-comp-border)", borderRadius: 4, textAlign: "center", fontSize: 12, color: "var(--haze-comp-text)", background: "var(--haze-comp-input-bg)" }}>30</div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         className={styles.inputNode}
@@ -393,6 +449,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   // ── CHECKBOX ──────────────────────────────────────────────────────────────
   if (node.type === "CHECKBOX") {
     const isSwitch = (props.switch as boolean) ?? false;
+    const isRadio = (props.radio as boolean) ?? false;
     const checked = (props.checked as boolean) ?? false;
     const label = (props.label as string) ?? "";
     const toggle = (e: React.MouseEvent) => {
@@ -410,11 +467,20 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
         </div>
       );
     }
+    if (isRadio) {
+      return (
+        <div className={styles.radioNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={`${styles.radioBox} ${checked ? styles.checked : ""}`} />
+          {label && <span style={{ fontSize: 14, color: "#000000" }}>{label}</span>}
+        </div>
+      );
+    }
     return (
       <div className={styles.checkboxNode} style={merged} onClick={toggle} onPointerDown={drag} {...hoverHandlers}>
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
         <div className={`${styles.checkboxBox} ${checked ? styles.checked : ""}`}>{checked && "✓"}</div>
-        {label && <span style={{ fontSize: 14, color: "var(--fg-primary)" }}>{label}</span>}
+        {label && <span style={{ fontSize: 14, color: "#000000" }}>{label}</span>}
       </div>
     );
   }
@@ -422,11 +488,12 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
   // ── SELECT ────────────────────────────────────────────────────────────────
   if (node.type === "SELECT") {
     const ph = (props.placeholder as string) ?? "Select...";
+    const isDropdown = node.name === "Dropdown";
     return (
       <div className={styles.selectNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
         {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-        <span>{ph}</span>
-        <span className={styles.selectArrow}>▼</span>
+        <span>{isDropdown ? "Menu" : ph}</span>
+        <span className={styles.selectArrow}>{isDropdown ? "▾▾" : "▼"}</span>
       </div>
     );
   }
@@ -503,6 +570,19 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
 
   // ── PANEL ─────────────────────────────────────────────────────────────────
   if (node.type === "PANEL") {
+    if (node.name === "Settings") {
+      return (
+        <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div className={styles.panelHeader}>Settings</div>
+          <div className={styles.panelBody}>
+            {["Dark Mode", "Notifications", "Privacy"].map((s, i) => (
+              <div key={i} style={{ padding: "10px 12px", fontSize: 13, color: "var(--haze-comp-text)", borderBottom: i < 2 ? "1px solid var(--haze-comp-border)" : "none" }}>{s}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     const title = (props.title as string) ?? "Panel";
     return (
       <div className={styles.panelNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
@@ -1037,7 +1117,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
               <div key={c} className={styles.colorSwatch} style={{ background: c }} />
             ))}
           </div>
-          <div className={styles.colorHexRow}><div className={styles.colorHexInput}>#5e5ce6</div></div>
+          <div className={styles.colorHexRow}><div className={styles.colorHexInput} style={{ padding: "6px 10px", background: "var(--bg-input)", border: "1px solid var(--border-muted)", borderRadius: "4px", fontSize: 12, color: "var(--fg-primary)", fontFamily: "monospace" }}>#5e5ce6</div></div>
         </div>
       );
     }
@@ -1072,9 +1152,9 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
         <div className={styles.timelineNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
           {["Project started", "First release", "Version 2.0"].map((e, i) => (
-            <div key={i} className={styles.timelineItem}>
-              <div className={styles.timelineDot} />
-              <div className={styles.timelineContent}>{e}</div>
+            <div key={i} className={styles.timelineItem} style={{ display: "flex", gap: 12, padding: "8px 0" }}>
+              <div className={styles.timelineDot} style={{ width: 12, height: 12, background: "var(--accent)", borderRadius: "50%", flexShrink: 0, marginTop: 4 }} />
+              <div className={styles.timelineContent} style={{ fontSize: 12, fontWeight: 600, color: "var(--fg-primary)" }}>{e}</div>
             </div>
           ))}
         </div>
@@ -1086,8 +1166,8 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
       return (
         <div className={styles.userProfileNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.userAvatar}>U</div>
-          <div className={styles.userInfo}><div className={styles.userName}>John Doe</div><div className={styles.userEmail}>john@example.com</div></div>
+          <div className={styles.userAvatar} style={{ width: 40, height: 40, background: "var(--accent)", borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 600, color: "white" }}>U</div>
+          <div className={styles.userInfo}><div className={styles.userName} style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-primary)" }}>John Doe</div><div className={styles.userEmail} style={{ fontSize: 11, color: "var(--fg-muted)" }}>john@example.com</div></div>
         </div>
       );
     }
@@ -1164,10 +1244,10 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     // COMMENT - Add comment style (icon + pill input)
     if (node.name === "Comment") {
       return (
-        <div className={styles.commentNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        <div className={styles.commentNode} style={{ ...merged, background: "transparent", border: "none", display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.commentIconBtn}>+</div>
-          <div className={styles.commentInputWrap}>
+          <div className={styles.commentIconBtn} style={{ width: 24, height: 24, background: "var(--accent)", borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: "white" }}>+</div>
+          <div className={styles.commentInputWrap} style={{ flex: 1, background: "var(--bg-input)", border: "1px solid var(--border-muted)", borderRadius: 20, padding: "6px 12px", fontSize: 12, color: "var(--fg-muted)" }}>
             <span className={styles.commentPlaceholder}>Add comment...</span>
           </div>
         </div>
@@ -1191,20 +1271,20 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
         setSelectedIds([node.id]);
       };
       return (
-        <div className={styles.carouselNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        <div className={styles.carouselNode} style={{ ...merged, background: "var(--bg-surface)", border: "1px solid var(--border-muted)", borderRadius: "8px", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.carouselSlide}>{slides[activeSlide]}</div>
-          <div className={styles.carouselNav}>
-            <span className={styles.carouselArrow} onPointerDown={prev}>‹</span>
+          <div className={styles.carouselSlide} style={{ width: "100%", flex: 1, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", fontWeight: 600 }}>{slides[activeSlide]}</div>
+          <div className={styles.carouselNav} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 8, background: "var(--haze-comp-surface)", borderTop: "1px solid var(--haze-comp-border)" }}>
+            <span className={styles.carouselArrow} onPointerDown={prev} style={{ fontSize: 14, color: "var(--haze-comp-text)", cursor: "pointer" }}>‹</span>
             {slides.map((_, i) => (
               <span
                 key={i}
                 className={styles.carouselDot}
-                style={{ opacity: i === activeSlide ? 1 : 0.35 }}
+                style={{ width: 6, height: 6, background: i === activeSlide ? "var(--haze-comp-accent)" : "var(--haze-comp-border-strong)", borderRadius: "50%", cursor: "pointer" }}
                 onPointerDown={(e) => { e.stopPropagation(); updateNode(node.id, { props: { ...props, activeSlide: i } }); setSelectedIds([node.id]); }}
               />
             ))}
-            <span className={styles.carouselArrow} onPointerDown={next}>›</span>
+            <span className={styles.carouselArrow} onPointerDown={next} style={{ fontSize: 14, color: "var(--haze-comp-text)", cursor: "pointer" }}>›</span>
           </div>
         </div>
       );
@@ -1213,21 +1293,39 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
     // FOOTER
     if (node.name === "Footer") {
       return (
-        <div className={styles.footerNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+        <div className={styles.footerNode} style={{ ...merged, background: "var(--bg-surface)", border: "1px solid var(--border-muted)", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <span className={styles.footerBrand}>© 2026 App</span>
-          <div className={styles.footerLinks}><span>Privacy</span><span>Terms</span><span>Contact</span></div>
+          <span className={styles.footerBrand} style={{ fontSize: 12, color: "var(--fg-muted)" }}>© 2026 App</span>
+          <div className={styles.footerLinks} style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--fg-muted)" }}><span>Privacy</span><span>Terms</span><span>Contact</span></div>
         </div>
       );
     }
 
-    // MARKDOWN / CODE BLOCK
-    if (node.name === "Markdown" || node.name === "Code Block") {
+    // MARKDOWN
+    if (node.name === "Markdown") {
       return (
         <div className={styles.codeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
-          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>app</span> = <span style={{ color: "#a3e635" }}>"Haze"</span></div>
-          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>export</span> <span style={{ color: "#f97316" }}>default</span> app</div>
+          <div className={styles.codeLine}># Getting Started</div>
+          <div className={styles.codeLine}>Write clean UI blocks with reusable components.</div>
+          <div className={styles.codeLine}>- Buttons</div>
+          <div className={styles.codeLine}>- Forms</div>
+          <div className={styles.codeLine}>- Charts</div>
+        </div>
+      );
+    }
+
+    // CODE BLOCK
+    if (node.name === "Code Block") {
+      const lang = ((props.language as string) ?? "javascript").toUpperCase();
+      return (
+        <div className={styles.codeNode} style={merged} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--haze-comp-text-on-dark-muted)", borderBottom: "1px solid var(--haze-comp-border-on-dark)", margin: "-10px -12px 8px", padding: "8px 12px" }}>
+            {lang}
+          </div>
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>const</span> <span style={{ color: "#60a5fa" }}>value</span> = <span style={{ color: "#a3e635" }}>42</span></div>
+          <div className={styles.codeLine}><span style={{ color: "#f97316" }}>return</span> value</div>
         </div>
       );
     }
@@ -1239,10 +1337,56 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
           <div className={styles.panelHeader}>Settings</div>
           <div className={styles.panelBody}>
-            {["Theme", "Language", "Notifications"].map((s, i) => (
-              <div key={i} style={{ padding: "6px 0", fontSize: 12, color: "var(--fg-secondary)", borderBottom: "1px solid var(--border-muted)" }}>{s}</div>
+            {["Dark Mode", "Notifications", "Privacy"].map((s, i) => (
+              <div key={i} style={{ padding: "10px 12px", fontSize: 13, color: "var(--haze-comp-text)", borderBottom: i < 2 ? "1px solid var(--haze-comp-border)" : "none" }}>{s}</div>
             ))}
           </div>
+        </div>
+      );
+    }
+
+    // LISTBOX / DROPDOWN
+    if (node.name === "Listbox" || node.name === "Dropdown" || node.name === "Dropdown Menu") {
+      const items = ["Option 1", "Option 2", "Option 3"];
+      return (
+        <div className={styles.selectNode} style={{ ...merged, background: "var(--haze-comp-surface)", border: "1px solid var(--haze-comp-border)", borderRadius: "6px", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          {items.map((item, i) => (
+            <div key={i} style={{ padding: "8px 12px", fontSize: 12, backgroundColor: i === 0 ? "var(--haze-comp-accent-soft-bg)" : "transparent", color: i === 0 ? "var(--haze-comp-accent)" : "var(--haze-comp-text)", cursor: "pointer", borderBottom: i < items.length - 1 ? "1px solid var(--haze-comp-border)" : "none" }}>{item}</div>
+          ))}
+        </div>
+      );
+    }
+
+    // SEARCH BOX
+    if (node.name === "Search" || node.name === "Search Box") {
+      return (
+        <div className={styles.inputNode} style={{ ...merged, background: "var(--haze-comp-input-bg)", border: "1px solid var(--haze-comp-border)", borderRadius: "6px", display: "flex", alignItems: "center", gap: "8px", padding: "0 10px", height: "36px" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <span style={{ fontSize: 14, color: "var(--haze-comp-text-muted)", flexShrink: 0 }}>🔍</span>
+          <input type="text" placeholder="Search..." style={{ flex: 1, border: "none", background: "transparent", outline: "none", fontSize: 13, color: "var(--haze-comp-text)" }} />
+        </div>
+      );
+    }
+
+    // SECTION
+    if (node.name === "Section") {
+      return (
+        <div style={{ ...merged, background: "transparent", border: "none", padding: 0 }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fg-primary)", marginBottom: 8 }}>Section Title</div>
+          <div style={{ fontSize: 13, color: "var(--fg-secondary)" }}>This is a content section with some descriptive text and information.</div>
+        </div>
+      );
+    }
+
+    // TOP BAR / HEADER
+    if (node.name === "Top Bar" || node.name === "Header" || (variant === "navbar" && node.name !== "Navbar")) {
+      return (
+        <div style={{ ...merged, background: "var(--bg-surface)", borderBottom: "1px solid var(--border-muted)", borderRadius: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }} onClick={handleClick} onPointerDown={drag} {...hoverHandlers}>
+          {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-primary)" }}>App Name</div>
+          <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--fg-muted)" }}><span>Home</span><span>About</span><span>Contact</span></div>
         </div>
       );
     }

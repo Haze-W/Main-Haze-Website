@@ -3,14 +3,25 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useEditorStore } from "@/lib/editor/store";
 import type { SceneNode } from "@/lib/editor/types";
-import { MonitorPlay, Monitor, Laptop, Smartphone, RefreshCw, Plus, Minus, RotateCcw, ArrowLeft } from "lucide-react";
+import {
+  MonitorPlay,
+  Monitor,
+  Laptop,
+  Smartphone,
+  Maximize2,
+  RefreshCw,
+  Plus,
+  Minus,
+  RotateCcw,
+  ArrowLeft,
+} from "lucide-react";
 import { clampZoom } from "@/lib/editor/viewport";
 import { mergeRootOrphansIntoFrames } from "@/lib/editor/placement";
 import styles from "./PreviewPanel.module.css";
 
-type DeviceSize = "desktop" | "tablet" | "mobile";
+type DeviceSize = "frame" | "desktop" | "tablet" | "mobile";
 
-const DEVICE_SIZES: Record<DeviceSize, { width: number; height: number; label: string }> = {
+const PRESET_VIEWPORTS: Record<"desktop" | "tablet" | "mobile", { width: number; height: number; label: string }> = {
   desktop: { width: 1280, height: 800, label: "Desktop" },
   tablet: { width: 768, height: 1024, label: "Tablet" },
   mobile: { width: 390, height: 844, label: "Mobile" },
@@ -77,7 +88,7 @@ export function PreviewPanel() {
   const nodes = useEditorStore((s) => s.nodes);
   const canvasBg = useEditorStore((s) => s.canvasBg);
   const [html, setHtml] = useState<string>("");
-  const [device, setDevice] = useState<DeviceSize>("desktop");
+  const [device, setDevice] = useState<DeviceSize>("frame");
   const [frameKey, setFrameKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
@@ -92,8 +103,13 @@ export function PreviewPanel() {
   const areaRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
-  const firstFrameId = useMemo(() => findFirstFrameId(nodes), [nodes]);
+  const mergedNodes = useMemo(() => mergeRootOrphansIntoFrames(nodes), [nodes]);
+  const firstFrameId = useMemo(() => findFirstFrameId(mergedNodes), [mergedNodes]);
   const [previewFrameId, setPreviewFrameId] = useState<string | null>(null);
+  const previewFrame = useMemo(() => {
+    if (!previewFrameId) return null;
+    return findFrameById(mergedNodes, previewFrameId);
+  }, [mergedNodes, previewFrameId]);
   const [history, setHistory] = useState<string[]>([]);
   const [lastNav, setLastNav] = useState<{ transition: string; duration: number } | null>(null);
   const previewRef = useRef<string | null>(null);
@@ -135,7 +151,8 @@ export function PreviewPanel() {
           const { preloadLucideIcons } = await import("@/lib/icon-svg");
           await preloadLucideIcons();
           const rules = buildPrototypeRules(merged);
-          const body = sceneNodesToHtml([frame], "Preview", bg);
+          const topBars = merged.filter((n) => n.type === "TOPBAR");
+          const body = sceneNodesToHtml([frame, ...topBars], "Preview", bg);
           const css = sceneExportCss(bg);
           const protoScript = `<script>(function(){var R=${JSON.stringify(rules)};document.addEventListener('click',function(e){var el=e.target;while(el&&el!==document.documentElement){var id=el.getAttribute&&el.getAttribute('data-node-id');if(id&&R[id]){var r=R[id];if(r.action==='NAVIGATE'&&r.targetId){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'NAVIGATE',targetId:r.targetId,transition:r.transition||'Instant',duration:typeof r.duration==='number'?r.duration:300},'*');}return;}if(r.action==='BACK'){e.preventDefault();e.stopPropagation();if(window.parent&&window.parent!==window){window.parent.postMessage({type:'haze-prototype',action:'BACK'},'*');}return;}}el=el.parentElement;}},true);})();</script>`;
           let inlined = body
@@ -187,7 +204,19 @@ export function PreviewPanel() {
     return () => window.removeEventListener("message", onMsg);
   }, [firstFrameId, handleBack]);
 
-  const { width, height } = DEVICE_SIZES[device];
+  const { width, height, viewportLabel } = useMemo(() => {
+    if (device === "frame" && previewFrame) {
+      return {
+        width: Math.max(1, previewFrame.width),
+        height: Math.max(1, previewFrame.height),
+        viewportLabel: "Frame",
+      };
+    }
+    const key = device === "frame" ? "desktop" : device;
+    const p = PRESET_VIEWPORTS[key];
+    return { width: p.width, height: p.height, viewportLabel: p.label };
+  }, [device, previewFrame]);
+
   const hasContent = firstFrameId != null;
 
   const handleWheel = useCallback(
@@ -309,9 +338,17 @@ export function PreviewPanel() {
             {optionsOpen && (
               <div className={styles.optionsDropdown}>
                 <div className={styles.optionsSection}>
-                  <span className={styles.optionsSectionLabel}>Device</span>
+                  <span className={styles.optionsSectionLabel}>Viewport</span>
                   <div className={styles.deviceGroup}>
-                    {(Object.entries(DEVICE_SIZES) as [DeviceSize, { width: number; height: number; label: string }][]).map(
+                    <button
+                      type="button"
+                      title="Match frame size (IDE, Desktop, App, Wide, …)"
+                      className={`${styles.deviceBtn} ${device === "frame" ? styles.deviceActive : ""}`}
+                      onClick={() => setDevice("frame")}
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                    {(Object.entries(PRESET_VIEWPORTS) as ["desktop" | "tablet" | "mobile", { width: number; height: number; label: string }][]).map(
                       ([d, val]) => (
                         <button
                           key={d}
@@ -332,7 +369,7 @@ export function PreviewPanel() {
                     )}
                   </div>
                   <span className={styles.sizeLabel}>
-                    {width} × {height}
+                    {width} × {height} · {viewportLabel}
                   </span>
                 </div>
                 <div className={styles.optionsDivider} />

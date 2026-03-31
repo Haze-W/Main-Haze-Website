@@ -33,24 +33,46 @@ function findTitleText(node: SceneNode): SceneNode | undefined {
 
 function MinimizeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2 5h6" stroke="currentColor" strokeWidth="1.2" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path
+        d="M6.5 15.25h11"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
 function MaximizeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1.5" y="1.5" width="7" height="7" rx="0.5" stroke="currentColor" strokeWidth="1.1" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <rect
+        x="5.25"
+        y="5.25"
+        width="13.5"
+        height="13.5"
+        rx="2.25"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+      />
+      <path d="M5.25 9.25h13.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
 function CloseIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path
+        d="M7 7l10 10M17 7L7 17"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -332,9 +354,8 @@ export function TopBarNode({ node, isSelected, zoom, onOpenConfig }: TopBarNodeP
       style={topBarStyle}
       onClick={handleClick}
       onPointerDown={handlePointerDown}
+      title=""
     >
-      <span className={styles.badge}>Top Bar</span>
-
       {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
 
       {isMac && <MacControls />}

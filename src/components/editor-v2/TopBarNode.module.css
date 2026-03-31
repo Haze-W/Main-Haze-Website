@@ -171,8 +171,8 @@
 
 /* Control icon SVG sizing */
 .controlIcon {
-  width: 10px;
-  height: 10px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 

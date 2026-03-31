@@ -118,6 +118,34 @@
   /* Editor layout - light theme */
   --editor-bg: #f1f1f1;
   --sidebar-bg: #fbfbfb;
+
+  /* Component preset chrome — keep in sync with src/lib/editor/component-content-tokens.ts */
+  --haze-comp-surface: #ffffff;
+  --haze-comp-surface-subtle: #f8fafc;
+  --haze-comp-header-bar: #f1f5f9;
+  --haze-comp-surface-nav: #0f172a;
+  --haze-comp-surface-dark: #0c1222;
+  --haze-comp-surface-code: #0b1020;
+  --haze-comp-text: #0f172a;
+  --haze-comp-text-secondary: #334155;
+  --haze-comp-text-muted: #64748b;
+  --haze-comp-text-on-dark: #e8eef7;
+  --haze-comp-text-on-dark-muted: #94a3b8;
+  --haze-comp-border: #e2e8f0;
+  --haze-comp-border-strong: #cbd5e1;
+  --haze-comp-border-on-dark: rgba(148, 163, 184, 0.28);
+  --haze-comp-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --haze-comp-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --haze-comp-toast-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  --haze-comp-modal-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+  --haze-comp-accent: #5e5ce6;
+  --haze-comp-accent-soft-bg: rgba(94, 92, 230, 0.1);
+  --haze-comp-accent-soft-border: rgba(94, 92, 230, 0.28);
+  --haze-comp-success: #16a34a;
+  --haze-comp-input-bg: #f8fafc;
+  --haze-comp-kanban-card-bg: #ffffff;
+  --haze-comp-progress-track: #e2e8f0;
+  --haze-comp-spinner-track: rgba(15, 23, 42, 0.12);
 }
 
 /* Dark theme - next-themes adds class="dark" to html */

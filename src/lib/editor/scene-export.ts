@@ -5,11 +5,14 @@
  */
 
 import type { SceneNode } from "./types";
+import { buildPresetEmptyContainerHtml } from "./scene-export-presets";
+import { buildHazeComponentRootStyle } from "./component-content-tokens";
 import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
-import type { TopBarConfig, InteractionList, Block, HoverPreset } from "./blocks";
+import type { TopBarConfig, TopBarLayout, InteractionList, Block, HoverPreset } from "./blocks";
+import { createDefaultTopBarConfig } from "./blocks";
 import { getIconSvg } from "@/lib/icon-svg";
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -473,18 +476,25 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     const props = node.props ?? {};
     const variant = (props.variant as string) ?? "";
 
-    // BUTTON
+    // BUTTON - Uses CSS classes from sceneExportCss()
     if (node.type === "BUTTON") {
-      const label = (props.label as string) ?? "Button";
-      const bg = (props.backgroundColor as string) ||
-        (variant === "primary" ? "#5e5ce6" :
-         variant === "secondary" ? "#2d2d35" :
-         variant === "danger" ? "#dc2626" :
-         variant === "outline" ? "transparent" : "#5e5ce6");
-      const color = (props.color as string) || "white";
-      const border = variant === "outline" ? "border:1px solid rgba(255,255,255,0.2);" : "";
-      const btnStyle = `${styleStr};background:${bg};color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;border-radius:6px;${border}`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(btnStyle)}">${escapeHtml(label)}</div>`;
+      const label = (props.label as string) ?? (variant === "icon" ? "" : "Button");
+      const btnClass = [
+        "button",
+        variant === "primary" ? "btnPrimary" :
+        variant === "secondary" ? "btnSecondary" :
+        variant === "danger" ? "btnDanger" :
+        variant === "outline" ? "btnOutline" :
+        variant === "ghost" ? "btnGhost" :
+        variant === "icon" ? "btnIcon" : "btnPrimary"
+      ].filter(Boolean).join(" ");
+      const style = styleStr ? `style="${escapeHtml(styleStr)}"` : "";
+      if (variant === "icon") {
+        const iconName = ((props.iconName as string) ?? "plus").trim() || "plus";
+        const iconSvg = getIconSvg(iconName, 18, "currentColor", 2);
+        return `${pad}<div ${extraAttrs} class="${btnClass}" ${style}>${iconSvg}</div>`;
+      }
+      return `${pad}<div ${extraAttrs} class="${btnClass}" ${style}>${escapeHtml(label)}</div>`;
     }
 
     // TEXT / HEADING / PARAGRAPH
@@ -492,24 +502,28 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const content = (props.content as string) ?? "Text";
       const fontSize = (props.fontSize as number) ?? 14;
       const fontWeight = (props.fontWeight as string) ?? "normal";
-      const color = (props.color as string) || "#e6edf3";
+      const color = (props.color as string) || "#000000";
       const textAlign = (props.textAlign as string) ?? "left";
       const fontFamily = (props.fontFamily as string) ? `font-family:"${props.fontFamily}",sans-serif;` : "";
       const txtStyle = `${styleStr};color:${color};font-size:${fontSize}px;font-weight:${fontWeight};text-align:${textAlign};${fontFamily}overflow:visible;white-space:pre-wrap;`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(txtStyle)}">${escapeHtml(content)}</div>`;
     }
 
-    // INPUT — render as real <input> so user can type in preview
+    // INPUT — render as real <input> with CSS classes
     if (node.type === "INPUT") {
       const ph = (props.placeholder as string) ?? "Input";
       const inputType = (props.type as string) === "password" ? "password" : "text";
-      const inBg = (props.backgroundColor as string) || "rgba(20,20,24,0.9)";
-      const inFg = (props.color as string) || "rgba(255,255,255,0.9)";
-      const inRadius = (props.borderRadius as number) ?? 6;
-      const bCol = (props.borderColor as string) || "rgba(255,255,255,0.1)";
-      const bW = (props.borderWidth as number) ?? 1;
-      const inputStyle = `${styleStr};background:${inBg};color:${inFg};font-size:14px;padding:0 12px;border:${bW}px solid ${bCol};border-radius:${inRadius}px;display:flex;align-items:center;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(inputStyle)}"><input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
+      const isSearch = (props.search as boolean) ?? false;
+      if (node.name === "Date Picker") {
+        const inner = `<div style="font-size:12px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: Mar 31, 2026</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">M</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">W</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">T</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">F</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--haze-comp-text-muted);">S</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-text);">15</div><div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--haze-comp-accent);background:var(--haze-comp-accent-soft-bg);border-radius:3px;font-weight:600;">31</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px")}" >${inner}</div>`;
+      }
+      if (node.name === "Time Picker") {
+        const inner = `<div style="font-size:14px;color:var(--haze-comp-text-muted);margin-bottom:4px;">Selected: 14:30</div><div style="display:flex;gap:8px;align-items:center;"><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">14</div><div style="font-size:16px;color:var(--haze-comp-text);">:</div><div style="width:40px;padding:4px 0;border:1px solid var(--haze-comp-border);border-radius:4px;text-align:center;font-size:12px;color:var(--haze-comp-text);background:var(--haze-comp-input-bg);">30</div></div>`;
+        return `${pad}<div ${extraAttrs} class="panelNode" style="${escapeHtml(styleStr + ";padding:10px 12px")}" >${inner}</div>`;
+      }
+      const icon = isSearch ? `<span style="padding:0 8px;color:var(--haze-comp-text-muted);font-size:14px;line-height:1;">🔍</span>` : "";
+      return `${pad}<div ${extraAttrs} class="inputNode" style="${escapeHtml(styleStr)}">${icon}<input type="${inputType}" placeholder="${escapeHtml(ph)}" data-node-id="${node.id}" style="width:100%;height:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;" /></div>`;
     }
 
     // RECTANGLE
@@ -527,22 +541,35 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const label = (props.label as string) ?? "";
       const checked = (props.checked as boolean) ?? false;
       const isSwitch = (props.switch as boolean) ?? false;
+      const isRadio = (props.radio as boolean) ?? false;
       if (isSwitch) {
-        const trackBg = checked ? "#5e5ce6" : "rgba(255,255,255,0.15)";
-        const chkStyle = `${styleStr};display:flex;align-items:center;`;
-        return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:44px;height:24px;background:${trackBg};border-radius:12px;position:relative;"><div style="position:absolute;top:2px;left:${checked ? "22px" : "2px"};width:20px;height:20px;background:white;border-radius:50%;"></div></div></div>`;
+        // SWITCH - match desktop structure
+        const switchOn = checked ? " switchOn" : "";
+        return `${pad}<div ${extraAttrs} class="switchNode" style="${escapeHtml(styleStr)}"><div class="switchTrack${switchOn}"><div class="switchThumb"></div></div></div>`;
       }
-      const boxBg = checked ? "#5e5ce6" : "transparent";
-      const boxBorder = checked ? "#5e5ce6" : "rgba(255,255,255,0.3)";
-      const chkStyle = `${styleStr};display:flex;align-items:center;gap:8px;color:#e6edf3;font-size:14px;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(chkStyle)}"><div style="width:18px;height:18px;border:2px solid ${boxBorder};border-radius:4px;background:${boxBg};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">${checked ? "✓" : ""}</div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
+      if (isRadio) {
+        // RADIO - Uses radioNode/radioBox classes
+        const checkedClass = checked ? " checked" : "";
+        return `${pad}<div ${extraAttrs} class="radioNode" style="${escapeHtml(styleStr)}"><div class="radioBox${checkedClass}"></div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
+      }
+      // CHECKBOX - Uses checkboxNode/checkboxBox classes
+      const checkedClass = checked ? " checked" : "";
+      return `${pad}<div ${extraAttrs} class="checkboxNode" style="${escapeHtml(styleStr)}"><div class="checkboxBox${checkedClass}">${checked ? "✓" : ""}</div>${label ? `<span>${escapeHtml(label)}</span>` : ""}</div>`;
     }
 
-    // SELECT
+    // SELECT - Uses selectNode class
     if (node.type === "SELECT") {
       const ph = (props.placeholder as string) ?? "Select...";
-      const selStyle = `${styleStr};background:rgba(20,20,24,0.9);color:rgba(255,255,255,0.6);font-size:14px;padding:0 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:space-between;`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(selStyle)}"><span>${escapeHtml(ph)}</span><span style="font-size:10px;">▼</span></div>`;
+      const isDropdown = node.name === "Dropdown";
+      const text = isDropdown ? "Menu" : ph;
+      const arrow = isDropdown ? "▾▾" : "▼";
+      return `${pad}<div ${extraAttrs} class="selectNode" style="${escapeHtml(styleStr)}"><span>${escapeHtml(text)}</span><span class="selectArrow">${arrow}</span></div>`;
+    }
+
+    // LIST
+    if (node.type === "LIST") {
+      const items = ["Item one", "Item two", "Item three"].map((item) => `<div class="listItem">${item}</div>`).join("");
+      return `${pad}<div ${extraAttrs} class="listNode" style="${escapeHtml(styleStr)}">${items}</div>`;
     }
 
     // IMAGE / VECTOR (same img pipeline; VECTOR without src uses surface fills below)
@@ -550,7 +577,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const src = ((props.src as string) ?? (props._imageData as string) ?? "").trim();
       const rounded = (props.rounded as boolean) ?? false;
       const radius = rounded ? "border-radius:50%;" : "border-radius:6px;";
-      const imgStyle = `${styleStr};overflow:hidden;${radius}background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;`;
+      const imgStyle = `${styleStr};overflow:hidden;${radius}background:#F0F0F0;display:flex;align-items:center;justify-content:center;`;
       if (src) {
         return `${pad}<div ${extraAttrs} style="${escapeHtml(imgStyle)}"><img src="${escapeHtml(src)}" style="width:100%;height:100%;object-fit:cover;" /></div>`;
       }
@@ -562,43 +589,47 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       return `${pad}<div ${extraAttrs} style="${escapeHtml(vRect)}"></div>`;
     }
 
-    // DIVIDER
+    // DIVIDER - Uses dividerNode class
     if (node.type === "DIVIDER") {
-      const divStyle = `position:absolute;left:${node.x}px;top:${node.y}px;width:${node.width}px;height:2px;background:rgba(255,255,255,0.1);`;
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(divStyle)}"></div>`;
+      const divStyle = `position:absolute;left:${node.x}px;top:${node.y}px;width:${node.width}px;${styleStr}`;
+      return `${pad}<div ${extraAttrs} class="dividerNode" style="${escapeHtml(divStyle)}"></div>`;
     }
 
-    // ICON
+    // ICON - Uses iconNode class
     if (node.type === "ICON") {
       const iconName = ((props.iconName as string) ?? "circle").trim() || "circle";
-      const color = (props.color as string) || "#e6edf3";
+      const color = (props.color as string) || "#000000";
       const size = Math.max(12, Math.min(node.width, node.height) - 4);
-      const iconStyle = `${styleStr};display:flex;align-items:center;justify-content:center;color:${color};`;
       const iconSvg = getIconSvg(iconName, size, color, 1.8);
-      return `${pad}<div ${extraAttrs} style="${escapeHtml(iconStyle)}">${iconSvg}</div>`;
+      return `${pad}<div ${extraAttrs} class="iconNode" style="${escapeHtml(styleStr)}">${iconSvg}</div>`;
     }
 
     // FRAME (non-Figma) — must paint background; otherwise preview looks like a flat white sheet
     if (node.type === "FRAME") {
-      const bg = (props.backgroundColor as string) || "transparent";
       const radius = (props.borderRadius as number) ?? 0;
       const boxShadow = (props.boxShadow as string) || "";
       const bW = props.borderWidth as number | undefined;
       const bCol = props.borderColor as string | undefined;
-      const border =
-        bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:none;";
       const padT = (props.paddingTop as number) ?? (props.padding as number) ?? 0;
       const padR = (props.paddingRight as number) ?? (props.padding as number) ?? 0;
       const padB = (props.paddingBottom as number) ?? (props.padding as number) ?? 0;
       const padL = (props.paddingLeft as number) ?? (props.padding as number) ?? 0;
       const padCss =
         padT || padR || padB || padL ? `padding:${padT}px ${padR}px ${padB}px ${padL}px;` : "";
-      const frameStyle = `${styleStr};background:${bg};${radius ? `border-radius:${radius}px;` : ""}${boxShadow ? `box-shadow:${boxShadow};` : ""}${border}${padCss}overflow:hidden;`;
+      const fallbackBg = (props.backgroundColor as string) || "rgba(30,30,34,0.95)";
+      const fallbackBorder = bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid rgba(255,255,255,0.06);";
+      const frameStyle = `${styleStr};background:${fallbackBg};${radius ? `border-radius:${radius}px;` : ""}${boxShadow ? `box-shadow:${boxShadow};` : ""}${fallbackBorder}${padCss}overflow:${node.overflow === "HIDDEN" ? "hidden" : "visible"};`;
       return `${pad}<div ${extraAttrs} style="${escapeHtml(frameStyle)}">\n${childHtml || ""}\n${pad}</div>`;
     }
 
+    // CONTAINER / PANEL library presets with no children — same chrome as SceneNodeRenderer (e.g. Settings is PANEL)
+    if (node.type === "CONTAINER" || node.type === "PANEL") {
+      const presetBlock = buildPresetEmptyContainerHtml(node, pad, extraAttrs, cursorStyle, styleStr);
+      if (presetBlock) return presetBlock;
+    }
+
     // CONTAINER / PANEL / generic — render background + children
-    const bg = (props.backgroundColor as string) || "rgba(25,25,32,0.8)";
+    const bg = (props.backgroundColor as string) || "#F8F8F8";
     const radius = (props.borderRadius as number) ?? 6;
     const boxShadow = (props.boxShadow as string) || "";
     const isChatMessages = (props._previewBehavior as string) === "chat-messages";
@@ -612,7 +643,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     const bW = props.borderWidth as number | undefined;
     const bCol = props.borderColor as string | undefined;
     const borderExtra =
-      bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid rgba(255,255,255,0.06);";
+      bW != null && bCol ? `border:${bW}px solid ${bCol};` : "border:1px solid #D0D0D0;";
     const containerStyle = `${styleStr};background:${bg};border-radius:${radius}px;${borderExtra}${boxShadow ? `box-shadow:${boxShadow};` : ""}${padCss}${overflow}`;
     return `${pad}<div ${extraAttrs} style="${escapeHtml(containerStyle)}">\n${childHtml || ""}\n${pad}</div>`;
   }
@@ -622,43 +653,31 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
 // ── Top Bar Export ────────────────────────────────────────────────────────────
 
-/** Stroke-style window glyphs (Lucide-like) for exported / preview HTML. */
+/**
+ * Windows caption glyphs (24×24 artboard) for preview / export.
+ * Tuned for crisp, modern geometry at small control sizes.
+ */
 const HAZE_WIN_SVG_MIN =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 5h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.5 15.25h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const HAZE_WIN_SVG_MAX =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.15"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="5.25" y="5.25" width="13.5" height="13.5" rx="2.25" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5.25 9.25h13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const HAZE_WIN_SVG_CLOSE =
-  '<svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function topBarToHtml(node: SceneNode): string {
   const titleChild = node.children?.find((c) => c.type === "TEXT");
   const derivedTitle = String((titleChild?.props?.content as string) ?? "My Application");
   const barBg = (node.props?.backgroundColor as string) ?? DEFAULT_CHROME_BAR_BG;
   const derivedTitleColor = defaultTitleColorForChromeBar(barBg, titleChild?.props?.color as string | undefined);
-  const layoutFromNode: "windows" | "mac" =
-    node.props?.style === "windows" ? "windows" : "mac";
-
-  const config = (node.props?._topBarConfig as TopBarConfig | undefined) ?? {
-    layout: layoutFromNode,
-    title: derivedTitle,
-    backgroundColor: barBg,
-    textColor: derivedTitleColor,
-    fontSize: 13,
-    fontWeight: "400",
-    fontFamily: "Inter, system-ui, sans-serif",
-    titleAlign: (layoutFromNode === "mac" ? "center" : "left") as TopBarConfig["titleAlign"],
-    paddingX: 12,
-    borderBottom: true,
-    borderColor: "rgba(15,23,42,0.08)",
-    showIcon: false,
-    dragRegion: true,
-    doubleClickMaximize: true,
-    height: node.height || 32,
-    buttons: [
-      { id: "min", type: "minimize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "min", label: "Minimize", blocks: [] } },
-      { id: "max", type: "maximize" as const, hoverColor: "rgba(0,0,0,0.06)", blockChain: { id: "max", label: "Maximize", blocks: [] } },
-      { id: "close", type: "close" as const, hoverColor: "#e81123", blockChain: { id: "close", label: "Close", blocks: [] } },
-    ],
+  const layoutPreset = (node.props?._topBarLayout as TopBarLayout) ?? "windows";
+  const stored = node.props?._topBarConfig as TopBarConfig | undefined;
+  const base = stored ?? createDefaultTopBarConfig(layoutPreset);
+  const config: TopBarConfig = {
+    ...base,
+    title: stored?.title ?? derivedTitle,
+    backgroundColor: stored?.backgroundColor ?? barBg,
+    textColor: stored?.textColor ?? derivedTitleColor,
+    height: node.height || base.height || 32,
   };
 
   const isMac = config.layout === "mac";
@@ -721,11 +740,21 @@ function topBarToHtml(node: SceneNode): string {
  * If no FRAME exists, renders all canvas nodes directly.
  * @param apiBase - Base URL for API calls (e.g. https://yoursite.com). Empty/undefined = relative (same origin).
  */
+function findFirstTopBarNode(list: SceneNode[]): SceneNode | undefined {
+  for (const n of list) {
+    if (n.type === "TOPBAR") return n;
+    const c = findFirstTopBarNode(n.children ?? []);
+    if (c) return c;
+  }
+  return undefined;
+}
+
 export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", canvasBg = "#1e1e1e", apiBase = ""): string {
   const nodes = mergeRootOrphansIntoFrames(rawNodes);
   const frames = nodes.filter((n) => n.type === "FRAME");
-  const topBarNode = nodes.find((n) => n.type === "TOPBAR")
-    ?? (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
+  const topBarNode =
+    findFirstTopBarNode(nodes) ??
+    (frames[0]?.children ?? []).find((n) => n.type === "TOPBAR");
 
   const topBarHtml = topBarNode ? topBarToHtml(topBarNode) : "";
 
@@ -883,7 +912,7 @@ ${framesHtml}
         var text = (input.value || '').trim();
         if (!text) return;
         var userDiv = document.createElement('div');
-        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#e6edf3;margin-bottom:8px;';
+        userDiv.style.cssText = 'position:relative;left:24px;top:12px;width:400px;font-size:14px;color:#000000;margin-bottom:8px;';
         userDiv.textContent = text;
         var aiDiv = document.createElement('div');
         aiDiv.style.cssText = 'position:relative;left:24px;top:12px;width:700px;font-size:14px;color:#8b949e;line-height:1.5;margin-bottom:24px;';
@@ -1000,7 +1029,8 @@ export function getFrameDimensions(nodes: SceneNode[]): { width: number; height:
  * Generate minimal CSS for exported app - no centering, fills viewport.
  */
 export function sceneExportCss(canvasBg = "#0d0f12"): string {
-  return `* {
+  return `${buildHazeComponentRootStyle()}
+* {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -1012,7 +1042,7 @@ html, body {
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: ${canvasBg};
-  color: #e6edf3;
+  color: var(--haze-comp-text);
 }
 
 .app-layout {
@@ -1067,8 +1097,8 @@ html, body {
 }
 
 .haze-win-ctrl svg {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 
@@ -1130,6 +1160,798 @@ html, body {
 
 .haze-mac-dot--max {
   background: #28c840;
+}
+
+@keyframes haze-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ════════════════════════════════════════════════════════════ */
+/* Component Styles - Used by both Desktop and Preview modes  */
+/* ════════════════════════════════════════════════════════════ */
+
+/* Base */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
+}
+
+.btnSecondary {
+  background: #A0A0A0;
+  color: #FFFFFF;
+  border: 1px solid #808080;
+}
+
+.btnOutline {
+  background: transparent;
+  border: 1.5px solid #404040;
+  color: #000000;
+}
+
+.btnGhost {
+  background: transparent;
+  color: #000000;
+  border: 1px solid #D0D0D0;
+}
+
+.btnGhost:hover {
+  background: #E8E8E8;
+}
+
+.btnDanger {
+  background: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
+}
+
+.btnIcon {
+  background: var(--accent);
+  color: #FFFFFF;
+  padding: 0;
+  border: 1px solid var(--accent);
+}
+
+/* Input */
+.inputNode {
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1px solid #B0B0B0;
+  border-radius: 4px;
+  padding: 0 12px;
+  min-height: 36px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.inputPlaceholder,
+.textareaPlaceholder {
+  padding: 0;
+  color: #808080;
+  font-size: 14px;
+  width: 100%;
+  line-height: 1.4;
+}
+
+.textareaPlaceholder {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  align-self: stretch;
+  padding: 10px 0;
+}
+
+/* Checkbox */
+.checkboxNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #000000;
+}
+
+.checkboxBox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #404040;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.checkboxBox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Radio Button */
+.radioNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #000000;
+}
+
+.radioBox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #404040;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.radioBox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.radioBox.checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #0f172a;
+  border-radius: 50%;
+}
+
+/* Switch */
+.switchNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.switchTrack {
+  width: 44px;
+  height: 24px;
+  background: #B0B0B0;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.switchTrack.switchOn {
+  background: var(--accent);
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.switchOn .switchThumb {
+  transform: translateX(20px);
+}
+
+/* Select */
+.selectNode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  font-size: 14px;
+  color: #000000;
+  border: 1px solid #B0B0B0;
+  border-radius: 4px;
+}
+
+.selectArrow {
+  font-size: 10px;
+  margin-left: 8px;
+  color: #000000;
+}
+
+/* Progress */
+.progressNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 8px;
+  background: #E0E0E0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #606060;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--haze-comp-accent);
+  border-radius: 4px;
+  transition: width 0.2s;
+}
+
+/* Slider */
+.sliderNode {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+}
+
+.sliderTrack {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: #E0E0E0;
+  border-radius: 3px;
+  border: 1px solid #B0B0B0;
+}
+
+.sliderFill {
+  height: 100%;
+  background: var(--haze-comp-accent);
+  border-radius: 3px;
+}
+
+.sliderThumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: #FFFFFF;
+  border: 2px solid var(--haze-comp-accent);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Skeleton */
+.skeletonNode {
+  background: linear-gradient(
+    90deg,
+    #E0E0E0 25%,
+    #F0F0F0 50%,
+    #E0E0E0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  border: 1px solid #D0D0D0;
+  min-height: 40px;
+}
+
+@keyframes skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Badge */
+.badgeNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: none;
+  min-height: 24px;
+}
+
+/* Alert */
+.alertNode {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid;
+  min-height: 48px;
+}
+
+.alertInfo {
+  background: #E3F2FD;
+  border-color: #2196F3;
+  color: #1565C0;
+}
+
+.alertSuccess {
+  background: #E8F5E9;
+  border-color: #4CAF50;
+  color: #2E7D32;
+}
+
+.alertWarning {
+  background: #FFF3E0;
+  border-color: #FF9800;
+  color: #E65100;
+}
+
+.alertError {
+  background: #FFEBEE;
+  border-color: #F44336;
+  color: #C62828;
+}
+
+/* Spinner */
+.spinnerNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #D0D0D0;
+  border-top-color: var(--haze-comp-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Divider */
+.dividerNode {
+  background: #404040;
+  border: none;
+  height: 2px !important;
+  min-height: 2px;
+}
+
+/* Text */
+.textNode {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Icon */
+.iconNode {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image */
+.imageNode {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.imageNode.rounded {
+  border-radius: 50%;
+}
+
+.imageNode img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F0F0F0;
+  font-size: 32px;
+}
+
+/* Rectangle */
+.rectNode {
+  background: #F0F0F0;
+  border: 1px dashed #D0D0D0;
+  border-radius: 6px;
+}
+
+/* Spacer */
+.spacerNode {
+  background: #D3D3D3;
+  border: 1px dashed #808080;
+}
+
+/* Generic */
+.genericNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #EEEEEE;
+  border: 1px dashed #D0D0D0;
+  min-height: 40px;
+}
+
+/* Panel */
+.panelNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 80px;
+}
+
+.panelHeader {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000000;
+  background: #F5F5F5;
+  border-bottom: 1px solid #D0D0D0;
+  flex-shrink: 0;
+}
+
+.panelBody {
+  flex: 1;
+  padding: 8px 12px;
+  color: #000000;
+  display: flex;
+  flex-direction: column;
+  min-height: 40px;
+}
+
+/* List */
+.listNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 100px;
+}
+
+.listItem {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #000000;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+/* Tooltip */
+.tooltipNode {
+  background: #333333;
+  border: 1px solid #505050;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Tabs */
+.tabsNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.tabsHeader {
+  display: flex;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tabItem {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #000000;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabsBody {
+  flex: 1;
+  padding: 10px;
+  color: #000000;
+  min-height: 60px;
+}
+
+/* Card */
+.cardNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.cardHeader {
+  padding: 12px 14px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.cardBody {
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  color: #000000;
+  flex: 1;
+  min-height: 60px;
+}
+
+/* Modal */
+.modalNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  min-height: 200px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #D0D0D0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.modalClose {
+  font-size: 16px;
+  color: #808080;
+  cursor: pointer;
+}
+
+.modalBody {
+  flex: 1;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #000000;
+  min-height: 100px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #D0D0D0;
+}
+
+.modalBtn {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: #F0F0F0;
+  color: #000000;
+  border: 1px solid #D0D0D0;
+  cursor: pointer;
+}
+
+.modalBtnPrimary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Table */
+.tableNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.tableHeader {
+  display: flex;
+  background: #F5F5F5;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tableRow {
+  display: flex;
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableCell {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #000000;
+}
+
+.tableHeader .tableCell {
+  font-weight: 600;
+  color: #000000;
+}
+
+/* Pagination */
+.paginationNode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  min-height: 40px;
+}
+
+.pageBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #000000;
+  border-radius: 5px;
+  background: #F0F0F0;
+  border: 1px solid #D0D0D0;
+  cursor: pointer;
+}
+
+.pageActive {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Breadcrumbs */
+.breadcrumbsNode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.breadcrumbLink {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.breadcrumbActive {
+  font-size: 12px;
+  color: #000000;
+  font-weight: 500;
+}
+
+/* Accordion */
+.accordionNode {
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 100px;
+}
+
+.accordionItem {
+  border-bottom: 1px solid #D0D0D0;
+}
+
+.accordionItem:last-child {
+  border-bottom: none;
+}
+
+.accordionHeader {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #000000;
+  cursor: pointer;
+  background: #FAFAFA;
+}
+
+.accordionBody {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #000000;
+  border-top: 1px solid #D0D0D0;
+}
+
+/* Stats */
+.statsNode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-height: 80px;
+}
+
+/* Code block / Markdown */
+.codeNode {
+  background: #1F1F1F;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.codeLine {
+  font-size: 12px;
+  color: #E0E0E0;
 }
 `;
 }
