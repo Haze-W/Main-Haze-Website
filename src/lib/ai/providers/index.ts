@@ -5,6 +5,12 @@
 
 export type AIProvider = "openai" | "anthropic";
 
+/** Anthropic API key from env (`ANTHROPIC_API_KEY` or optional `CLAUDE_API_KEY` alias). */
+export function getAnthropicApiKeyFromEnv(): string | undefined {
+  const k = process.env.ANTHROPIC_API_KEY?.trim() || process.env.CLAUDE_API_KEY?.trim();
+  return k || undefined;
+}
+
 /** Base URL without trailing slash (default: https://api.openai.com/v1) */
 export function getOpenAIBaseUrl(): string {
   return (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
@@ -126,8 +132,8 @@ async function callOpenAI(options: LLMOptions): Promise<LLMResponse> {
 }
 
 async function callAnthropic(options: LLMOptions): Promise<LLMResponse> {
-  const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY required");
+  const apiKey = options.apiKey ?? getAnthropicApiKeyFromEnv();
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY or CLAUDE_API_KEY required");
   const model = resolveAnthropicModel(options.model);
   const messages = buildMessages(options);
   const systemMsg = messages.find((m) => m.role === "system");
@@ -183,7 +189,7 @@ async function callAnthropic(options: LLMOptions): Promise<LLMResponse> {
 
 export async function callLLM(options: LLMOptions): Promise<LLMResponse> {
   const openaiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const anthropicKey = getAnthropicApiKeyFromEnv();
   let lastError: Error | null = null;
 
   if (anthropicKey) {
@@ -200,5 +206,5 @@ export async function callLLM(options: LLMOptions): Promise<LLMResponse> {
       lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
-  throw lastError ?? new Error("No AI provider available (set ANTHROPIC_API_KEY or OPENAI_API_KEY)");
+  throw lastError ?? new Error("No AI provider available (set ANTHROPIC_API_KEY, CLAUDE_API_KEY, or OPENAI_API_KEY)");
 }

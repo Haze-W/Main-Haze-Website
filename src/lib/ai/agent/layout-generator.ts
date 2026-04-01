@@ -16,7 +16,7 @@ import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import type { DesignTheme } from "./theme-generator";
 import { resolveRichTheme, type RichTheme } from "./layout-palettes";
-import { callLLM, getOpenAIDefaultModel } from "../providers";
+import { callLLM, getAnthropicApiKeyFromEnv, getOpenAIDefaultModel } from "../providers";
 
 export interface LayoutGeneratorOptions {
   apiKey?: string;
@@ -350,10 +350,10 @@ JSON SCHEMA (no example labels — all copy must come from the PRIORITY block ab
 ${ABSTRACT_JSON_SHAPE_GUIDE}`;
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
+  const hasCloudKey = Boolean(apiKey || getAnthropicApiKeyFromEnv());
 
   if (!hasCloudKey) {
-    console.warn("[Haze AI] ⚠️ No API key found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Falling back to local layout.");
+    console.warn("[Haze AI] ⚠️ No API key found (ANTHROPIC_API_KEY, CLAUDE_API_KEY, or OPENAI_API_KEY). Falling back to local layout.");
     return getFallbackLayout(parsed);
   }
 
