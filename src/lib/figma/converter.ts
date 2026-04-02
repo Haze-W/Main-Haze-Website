@@ -22,7 +22,11 @@ function mapType(figmaType: string): SceneNodeType {
     case "BOOLEAN_OPERATION":
     case "STAR":
     case "POLYGON":
+    case "REGULAR_POLYGON":
+    case "SLICE":
       return "VECTOR";
+    case "SECTION":
+      return "FRAME";
     default:
       return "FRAME";
   }
@@ -65,11 +69,14 @@ function toDataUrl(value: string): string {
 
 /** Extract string data from asset value (handles object format from some plugins). Prefers PNG over SVG when both exist. */
 function extractAssetString(
-  val: string | { data?: string; base64?: string; svg?: string; png?: string } | undefined
+  val:
+    | string
+    | { data?: string; base64?: string; svg?: string; png?: string; svgData?: string; pngData?: string }
+    | undefined
 ): string | null {
   if (!val) return null;
   if (typeof val === "string") return val;
-  return val.png ?? val.data ?? val.base64 ?? val.svg ?? null;
+  return val.png ?? val.pngData ?? val.data ?? val.base64 ?? val.svg ?? val.svgData ?? null;
 }
 
 function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
@@ -82,7 +89,10 @@ function getOverflow(node: FigmaNode): "VISIBLE" | "HIDDEN" | "SCROLL" {
   return "HIDDEN";
 }
 
-type AssetMap = Record<string, string | { data?: string; base64?: string; svg?: string; png?: string }>;
+type AssetMap = Record<
+  string,
+  string | { data?: string; base64?: string; svg?: string; png?: string; svgData?: string; pngData?: string }
+>;
 
 /**
  * Contract order (Figma To Haze plugin, deduped blobs in merged assets):
@@ -194,33 +204,50 @@ function convertNode(
   idPrefix: string,
   assets: AssetMap | undefined
 ): SceneNode {
-  const type = mapType(node.type);
-  const isTextNode = node.type === "TEXT";
+  const nodeType = typeof node.type === "string" ? node.type : "FRAME";
+  const type = mapType(nodeType);
+  const isTextNode = nodeType === "TEXT";
+  const fills = Array.isArray(node.fills) ? node.fills : [];
+  const strokes = Array.isArray(node.strokes) ? node.strokes : [];
+  const effects = Array.isArray(node.effects) ? node.effects : [];
+  const x = typeof node.x === "number" ? node.x : 0;
+  const y = typeof node.y === "number" ? node.y : 0;
+  const width = typeof node.width === "number" ? node.width : 0;
+  const height = typeof node.height === "number" ? node.height : 0;
+  const rotation = typeof node.rotation === "number" ? node.rotation : 0;
+  const visible = node.visible !== false;
+  const opacity = typeof node.opacity === "number" ? node.opacity : 1;
 
   const props: Record<string, unknown> = {
     _figma: {
-      originalType: node.type,
-      fills: node.fills,
-      strokes: node.strokes,
-      strokeWeight: node.strokeWeight,
-      strokeAlign: node.strokeAlign,
-      effects: node.effects,
-      cornerRadius: node.cornerRadius,
-      topLeftRadius: node.topLeftRadius,
-      topRightRadius: node.topRightRadius,
-      bottomLeftRadius: node.bottomLeftRadius,
-      bottomRightRadius: node.bottomRightRadius,
-      blendMode: node.blendMode,
-      clipsContent: node.clipsContent,
+      originalType: nodeType,
+      fills,
+      strokes,
+      strokeWeight: typeof node.strokeWeight === "number" ? node.strokeWeight : 0,
+      strokeTopWeight: typeof node.strokeTopWeight === "number" ? node.strokeTopWeight : null,
+      strokeRightWeight: typeof node.strokeRightWeight === "number" ? node.strokeRightWeight : null,
+      strokeBottomWeight: typeof node.strokeBottomWeight === "number" ? node.strokeBottomWeight : null,
+      strokeLeftWeight: typeof node.strokeLeftWeight === "number" ? node.strokeLeftWeight : null,
+      strokeAlign: node.strokeAlign ?? "INSIDE",
+      effects,
+      cornerRadius: node.cornerRadius ?? null,
+      topLeftRadius: node.topLeftRadius ?? null,
+      topRightRadius: node.topRightRadius ?? null,
+      bottomLeftRadius: node.bottomLeftRadius ?? null,
+      bottomRightRadius: node.bottomRightRadius ?? null,
+      blendMode: node.blendMode ?? "NORMAL",
+      clipsContent: node.clipsContent === true,
       overflowDirection: node.overflowDirection,
-      fillEnabled: node.fillEnabled,
-      strokeEnabled: node.strokeEnabled,
+      fillEnabled: node.fillEnabled !== false,
+      strokeEnabled: node.strokeEnabled !== false,
       textHasNoBackgroundFill: node.textHasNoBackgroundFill ?? isTextNode,
+      vectorDetail: node.vectorDetail ?? null,
+      transform2d: node.transform2d ?? null,
     },
     _originalFigmaId: node.id,
   };
 
-  if (node.type === "ELLIPSE") {
+  if (nodeType === "ELLIPSE") {
     props._ellipse = true;
   }
 
@@ -228,7 +255,7 @@ function convertNode(
   if (imageSrc) {
     props._hasImageFill = true;
     props._imageData = imageSrc;
-    const imageFill = node.fills.find((f) => f.type === "IMAGE");
+    const imageFill = fills.find((f) => f.type === "IMAGE");
     props._imageScaleMode = imageFill?.scaleMode ?? "FILL";
   }
 
@@ -316,34 +343,39 @@ function convertNode(
 
   const layoutWrap =
     node.layoutWrap === "WRAP" || node.layoutWrap === "NO_WRAP" ? node.layoutWrap : undefined;
+  const layoutPositioning =
+    node.layoutPositioning === "ABSOLUTE" || node.layoutPositioning === "AUTO"
+      ? node.layoutPositioning
+      : undefined;
 
   return {
     id: nodeId,
     type,
     name: node.name,
-    x: node.x,
-    y: node.y,
-    width: node.width,
-    height: node.height,
-    rotation: node.rotation,
-    visible: node.visible,
-    opacity: node.opacity,
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    visible,
+    opacity,
     children,
     parentId,
     props,
     layoutMode: mapLayoutMode(node.layoutMode),
     primaryAxisAlignItems: node.primaryAxisAlignItems ?? undefined,
     counterAxisAlignItems: node.counterAxisAlignItems ?? undefined,
-    paddingTop: node.paddingTop,
-    paddingRight: node.paddingRight,
-    paddingBottom: node.paddingBottom,
-    paddingLeft: node.paddingLeft,
-    itemSpacing: node.itemSpacing,
+    paddingTop: typeof node.paddingTop === "number" ? node.paddingTop : 0,
+    paddingRight: typeof node.paddingRight === "number" ? node.paddingRight : 0,
+    paddingBottom: typeof node.paddingBottom === "number" ? node.paddingBottom : 0,
+    paddingLeft: typeof node.paddingLeft === "number" ? node.paddingLeft : 0,
+    itemSpacing: typeof node.itemSpacing === "number" ? node.itemSpacing : 0,
     overflow: getOverflow(node),
     layoutGrow: layoutGrow != null ? layoutGrow : undefined,
     layoutAlign,
     primaryAxisSizingMode,
     counterAxisSizingMode,
+    layoutPositioning,
     layoutWrap,
     minWidth: node.minWidth ?? undefined,
     maxWidth: node.maxWidth ?? undefined,

@@ -76,6 +76,8 @@ export interface SceneNode {
   counterAxisSizingMode?: "FIXED" | "AUTO";
   primaryAxisSizingMode?: "FIXED" | "AUTO";
   layoutAlign?: "STRETCH" | "INHERIT";
+  /** Figma auto-layout child positioning: AUTO participates in flow, ABSOLUTE is positioned by x/y. */
+  layoutPositioning?: "AUTO" | "ABSOLUTE";
   layoutGrow?: number;
   minWidth?: number;
   maxWidth?: number;

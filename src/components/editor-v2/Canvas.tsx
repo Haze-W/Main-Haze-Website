@@ -405,13 +405,13 @@ export function Canvas() {
   // Scroll = pan. Shift+scroll = zoom.
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
-      e.preventDefault();
       e.stopPropagation();
       if (!containerRect) return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      if (e.shiftKey) {
+      // Zoom with Shift+wheel or Ctrl/Cmd+wheel (trackpad/mouse common behavior).
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
         const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
         const newZoom = clampZoom(viewport.zoom * factor);
         const vx = e.clientX - rect.left;
