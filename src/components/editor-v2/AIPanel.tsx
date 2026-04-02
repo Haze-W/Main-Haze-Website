@@ -34,7 +34,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import { consumeNormalizedChatSSE } from "@/lib/ai/sse-client";
 import styles from "./AIPanel.module.css";
 
-type SlashMode = "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
+type SlashMode = "ui" | "code" | "agent" | "fix" | "plan" | "ask" | null;
 
 interface AttachedImage {
   id: string;
@@ -60,27 +60,32 @@ interface Message {
 }
 
 const SLASH_COMMANDS = [
-  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts (local)" },
-  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Step-by-step plan (local)" },
-  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask Coral" },
-  { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri / Rust snippets" },
-  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Architecture & Tauri help" },
+  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI (shadcn-style with API key)" },
+  { mode: "code" as SlashMode, cmd: "/code", icon: Cpu, desc: "Tauri Rust + TS — dialogs, fs, invoke" },
+  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Architecture & Tauri guidance" },
+  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Step-by-step plan" },
+  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask anything" },
   { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Canvas / layout fixes" },
 ];
 
 const AGENTS = [{ id: "coral-local", name: "Coral 1.0", active: true }];
 
 const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
-  { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
-  { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form", "Plan an e-commerce product page"] },
-  { mode: "ask", prompts: ["How do I add dark mode?", "What's the best layout for a settings page?", "Explain flexbox vs grid"] },
-  { mode: "backend", prompts: ["Full chatbot with OpenAI backend", "System info backend", "File read/write commands"] },
-  { mode: "agent", prompts: ["Window events?", "Tauri permissions"] },
-  { mode: "fix", prompts: ["Make the chat textbox work", "Fix canvas layout", "Debug Rust command"] },
+  { mode: "ui", prompts: ["Dashboard (paste a reference image to match 1:1)", "Settings page", "Login screen", "Chat app with sidebar"] },
+  { mode: "code", prompts: ["Folder picker button wired to pick_folder", "List files in a directory", "System info via invoke"] },
+  { mode: "agent", prompts: ["How do Tauri capabilities work?", "Best way to structure a Tauri + React app?"] },
+  { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form"] },
+  { mode: "ask", prompts: ["How do I add dark mode?", "Explain flexbox vs grid"] },
+  { mode: "fix", prompts: ["Make the chat textbox work in preview", "Fix overlapping frames"] },
 ];
 
 const MODE_LABELS: Record<string, string> = {
-  ui: "/ui", plan: "/plan", ask: "/ask", backend: "/backend", agent: "/agent", fix: "/fix",
+  ui: "/ui",
+  plan: "/plan",
+  ask: "/ask",
+  code: "/code",
+  agent: "/agent",
+  fix: "/fix",
 };
 
 function escapeHtml(s: string): string {
@@ -234,7 +239,7 @@ export function AIPanel() {
             messages: hist,
             nodes: s.nodes,
             projectName: "Untitled",
-            mode: m,
+            mode: "ui",
             images: imagesToSend?.map((i) => ({ dataUrl: i.dataUrl })),
             style: theme,
           }),
@@ -589,7 +594,9 @@ export function AIPanel() {
         <div className={styles.empty}>
           <Sparkles size={28} className={styles.emptyIcon} />
           <p className={styles.emptyTitle}>Coral 1.0</p>
-          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Coral 1.0.</p>
+          <p className={styles.emptyDesc}>
+            Use /ui, /code, or /agent. Paste or attach images to match a design. Set ANTHROPIC_API_KEY for Claude-powered replies in Chat.
+          </p>
           <div className={styles.chipGroups}>
             {CHIPS.map((g) => (
               <div key={g.mode} className={styles.chipGroup}>

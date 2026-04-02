@@ -6,7 +6,7 @@ import type { SceneNode } from "@/lib/editor/types";
 
 export interface CoralRequest {
   prompt: string;
-  mode: "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
+  mode: "ui" | "backend" | "code" | "agent" | "fix" | "plan" | "ask" | null;
   nodes: SceneNode[];
   projectName: string;
 }
@@ -415,6 +415,34 @@ function handleBackendMode(prompt: string): CoralResponse {
     };
   }
 
+  if (
+    has(lower, "folder", "directory", "pick folder", "choose folder", "open folder", "browse folder", "file dialog", "native dialog") ||
+    (has(lower, "button") && has(lower, "folder"))
+  ) {
+    return {
+      action: "GENERATE_CODE",
+      text: "Use **pick_folder** with **tauri-plugin-dialog**. Register the command in Rust, add dialog capabilities, then `invoke('pick_folder')` from your button. In Haze, add prototype interaction **Open folder dialog** on the button and bind a text field with a stable node id to show the chosen path.",
+      rust: `use tauri::AppHandle;
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Result<Option<String>, String> {
+    match app.dialog().file().set_title("Select folder").pick_folder().await {
+        Some(path) => Ok(Some(path.to_string_lossy().to_string())),
+        None => Ok(None),
+    }
+}`,
+      js: `import { invoke } from "@tauri-apps/api/core";
+
+export async function pickFolder(): Promise<string | null> {
+  return await invoke<string | null>("pick_folder");
+}
+
+// Wire your exported button → pickFolder() → set label text to the path.`,
+      deps: ['tauri-plugin-dialog = "2"'],
+    };
+  }
+
   if (has(lower, "system info", "sysinfo", "cpu", "memory", "system")) {
     return {
       action: "GENERATE_CODE",
@@ -605,7 +633,7 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! **Coral** runs locally (no cloud). Here's what it can do:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask about UI, Tauri, and app structure\n- **/backend** — Tauri 2 Rust command snippets and TS glue\n- **/agent** — Architecture, Rust, UI/UX\n- **/fix** — Heuristic fixes on your canvas\n\nTry something specific, like "How do I handle window close events?" or "Explain Tauri permissions". **Credits for cloud models** will plug in here later.`,
+    text: `That's a great question! **Coral** runs locally when no API key is set. With **ANTHROPIC_API_KEY** (or **OPENAI_API_KEY**), Chat uses cloud models.\n\n- **/ui** — Generate UI layouts (shadcn-style when the LLM runs)\n- **/code** — Tauri 2 Rust + TypeScript (invoke, dialogs, fs)\n- **/agent** — Architecture and Tauri help\n- **/plan** — Step-by-step plans\n- **/ask** — Q&A\n- **/fix** — Heuristic canvas fixes\n\nTry something specific, like "How do I handle window close events?" or "folder picker for a file browser UI".`,
   };
 }
 
@@ -772,6 +800,7 @@ export function coralGenerate(request: CoralRequest): CoralResponse {
     case "ask":
       return handleAskMode(prompt);
     case "backend":
+    case "code":
       return handleBackendMode(prompt);
     case "agent":
       return handleAgentMode(prompt);

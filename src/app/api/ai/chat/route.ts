@@ -1,5 +1,5 @@
 /**
- * Haze local agent API — Coral engine + deterministic layout/refine (no external APIs).
+ * Haze agent API — layout/refine + Claude/OpenAI when keys are set, else Coral templates.
  */
 
 import { NextResponse } from "next/server";
@@ -8,6 +8,21 @@ import { aiLayoutToSceneNodes, sceneNodesToAILayout } from "@/lib/ai/schema/adap
 import type { SceneNode } from "@/lib/editor/types";
 import { coralGenerate } from "@/lib/ai/coral-engine";
 import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
+import { callLLM, getAnthropicApiKeyFromEnv } from "@/lib/ai/providers";
+import {
+  buildLlmChatMessages,
+  llmTextToCoralResponse,
+  type ChatSlashMode,
+} from "@/lib/ai/chat-modes";
+
+function hasCloudLlm(): boolean {
+  return !!(getAnthropicApiKeyFromEnv() || process.env.OPENAI_API_KEY?.trim());
+}
+
+function normalizeChatMode(mode: string | null | undefined): string | null {
+  if (mode === "backend") return "code";
+  return mode ?? null;
+}
 
 export async function POST(req: Request) {
   try {
@@ -53,7 +68,7 @@ export async function POST(req: Request) {
       messages: { role: string; content: string }[];
       nodes: unknown[];
       projectName: string;
-      mode: "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
+      mode: "ui" | "backend" | "code" | "agent" | "fix" | "plan" | "ask" | null;
       images?: { dataUrl: string }[];
       style?: "light" | "dark";
       stream?: boolean;
@@ -70,7 +85,9 @@ export async function POST(req: Request) {
 
     const prompt = (lastUserMessage.content?.trim?.() || String(lastUserMessage.content || "")).trim();
 
-    if (mode === "ui" && (prompt || (images && images.length > 0))) {
+    const normalizedMode = normalizeChatMode(mode);
+
+    if (normalizedMode === "ui" && (prompt || (images && images.length > 0))) {
       const imageUrls = images?.map((i) => i.dataUrl).filter(Boolean) ?? [];
       try {
         const layout = await generateLayoutFromPrompt(prompt || "Create a layout using the attached reference.", {
@@ -78,9 +95,12 @@ export async function POST(req: Request) {
           images: imageUrls.length > 0 ? imageUrls : undefined,
         });
         const sceneNodes = aiLayoutToSceneNodes(layout);
+        const cloud = hasCloudLlm();
         return NextResponse.json({
           action: "GENERATE_UI",
-          text: "Generated UI locally from your request with Coral (no cloud). Tweak colors and refine it in the editor.",
+          text: cloud
+            ? "Generated UI from your prompt. Refine spacing and copy in Design, or iterate in Chat."
+            : "Generated a layout using the local fallback. Set ANTHROPIC_API_KEY or OPENAI_API_KEY for full LLM-driven UI.",
           nodes: sceneNodes,
         });
       } catch (err) {
@@ -88,9 +108,34 @@ export async function POST(req: Request) {
       }
     }
 
+    const llmModes = ["agent", "code", "ask", "plan"] as const;
+    if (
+      hasCloudLlm() &&
+      llmModes.includes(normalizedMode as (typeof llmModes)[number])
+    ) {
+      try {
+        const chatMessages = buildLlmChatMessages(
+          normalizedMode as "agent" | "code" | "ask" | "plan",
+          messages
+        );
+        const { content } = await callLLM({
+          messages: chatMessages,
+          temperature: normalizedMode === "code" ? 0.25 : 0.5,
+          maxTokens: normalizedMode === "code" ? 8192 : 4096,
+        });
+        const result = llmTextToCoralResponse(normalizedMode as ChatSlashMode, content);
+        return NextResponse.json(result);
+      } catch (err) {
+        console.warn("[chat] LLM mode failed, falling back to Coral:", err);
+      }
+    }
+
+    const coralMode =
+      normalizedMode === "code" ? "code" : mode === "backend" ? "code" : mode;
+
     const result = coralGenerate({
       prompt: prompt || "(describe what you want)",
-      mode,
+      mode: coralMode as Parameters<typeof coralGenerate>[0]["mode"],
       nodes: (nodes ?? []) as Parameters<typeof coralGenerate>[0]["nodes"],
       projectName: projectName ?? "Untitled",
     });

@@ -56,7 +56,7 @@ import { ShareModal } from "./ShareModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { AnimationsPanel } from "./AnimationsPanel";
+import { AIPanel } from "./AIPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
@@ -308,7 +308,7 @@ export function EditorShell() {
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
   const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
-  const [rightTab, setRightTab] = useState<"properties" | "animations">("properties");
+  const [rightTab, setRightTab] = useState<"properties" | "chat">("properties");
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -367,6 +367,13 @@ export function EditorShell() {
   useEffect(() => {
     if (!caps.canManageProject) setEditingName(false);
   }, [caps.canManageProject]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const openChat = () => setRightTab("chat");
+    window.addEventListener("haze-open-chat", openChat);
+    return () => window.removeEventListener("haze-open-chat", openChat);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -933,16 +940,16 @@ export function EditorShell() {
               </button>
               <button
                 type="button"
-                className={`${styles.rightTabBtn} ${rightTab === "animations" ? styles.rightTabBtnActive : ""}`}
-                onClick={() => setRightTab("animations")}
+                className={`${styles.rightTabBtn} ${rightTab === "chat" ? styles.rightTabBtnActive : ""}`}
+                onClick={() => setRightTab("chat")}
               >
-                Animations
+                Chat
               </button>
             </div>
           </div>
           <div className={styles.rightPanelContent}>
             {rightTab === "properties" && <PropertiesPanel />}
-            {rightTab === "animations" && <AnimationsPanel />}
+            {rightTab === "chat" && <AIPanel />}
           </div>
         </aside>
 

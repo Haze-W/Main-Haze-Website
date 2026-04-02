@@ -57,7 +57,9 @@ export type BlockType =
   | "TRIGGER_EVENT"
   | "SEND_IPC"
   | "RUN_SCRIPT"
-  | "CUSTOM";
+  | "CUSTOM"
+  /** Tauri folder dialog — preview uses File System Access / Tauri invoke when exported */
+  | "OPEN_FOLDER_DIALOG";
 
 /** Transition style for NAVIGATE_TO_FRAME */
 export type TransitionStyle = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "scale-up" | "scale-down";
@@ -201,6 +203,7 @@ export const BLOCK_TYPE_OPTIONS: { value: BlockType; label: string; group: strin
   // Tauri
   { value: "SEND_IPC", label: "Send IPC Message", group: "Tauri" },
   { value: "TRIGGER_EVENT", label: "Trigger Custom Event", group: "Tauri" },
+  { value: "OPEN_FOLDER_DIALOG", label: "Open folder dialog (Tauri / preview)", group: "Tauri" },
 ];
 
 export const TRANSITION_OPTIONS: { value: TransitionStyle; label: string }[] = [

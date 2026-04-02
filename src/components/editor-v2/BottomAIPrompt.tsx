@@ -162,7 +162,16 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
             canAi ? "What would you like to build?" : "View-only — AI build is disabled for your role."
           }
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onFocus={() => {
+            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("haze-open-chat"));
+          }}
+          onChange={(e) => {
+            const v = e.target.value;
+            setPrompt(v);
+            if (v.length > 0 && typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("haze-open-chat"));
+            }
+          }}
           onKeyDown={onKeyDown}
           rows={1}
           autoComplete="off"
