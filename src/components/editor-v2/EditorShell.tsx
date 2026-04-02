@@ -691,21 +691,21 @@ export function EditorShell() {
     e.currentTarget.value = "";
     if (!file) return;
     if (!/\.json$/i.test(file.name)) {
-      show("Please select a .json file.");
+      show("Please select a .json file.", "info");
       return;
     }
     let text = "";
     try {
       text = await file.text();
     } catch {
-      show("Could not read file.");
+      show("Could not read file.", "error");
       return;
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
-      show("Invalid JSON file.");
+      show("Invalid JSON file.", "error");
       return;
     }
     const maybeRenderCopy =
@@ -714,11 +714,14 @@ export function EditorShell() {
       (parsed as Record<string, unknown>)._renderCopy === true &&
       Array.isArray((parsed as Record<string, unknown>).nodes);
     if (!isRenderPayload(parsed) && !maybeRenderCopy) {
-      show("JSON format is not a valid Haze/Figma import payload.");
+      show("JSON format is not a valid Haze/Figma import payload.", "error");
       return;
     }
     const ok = await tryPasteFromClipboard(text);
-    show(ok ? "Imported JSON into canvas." : "Import failed: unsupported payload.");
+    show(
+      ok ? "Imported JSON into canvas." : "Import failed: unsupported payload.",
+      ok ? "success" : "error"
+    );
   };
 
   return (
