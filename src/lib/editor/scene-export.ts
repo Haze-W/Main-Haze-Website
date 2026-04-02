@@ -149,24 +149,27 @@ function textSegmentsToHtml(props: Record<string, unknown>): string {
   const segments =
     raw && raw.length > 0 ? alignFigmaTextSegmentsToContent(content, raw) : undefined;
   if (!segments || segments.length <= 1) return escapeHtml(content);
-  return segments.map((seg) => {
-    const styles: string[] = [];
-    if (seg.fontFamily) styles.push(`font-family:"${seg.fontFamily}",sans-serif`);
-    if (seg.fontSize) styles.push(`font-size:${seg.fontSize}px`);
-    if (seg.fontWeight) styles.push(`font-weight:${seg.fontWeight}`);
-    if (seg.fontStyle?.toLowerCase() === "italic") styles.push("font-style:italic");
-    if (seg.textDecoration && seg.textDecoration.toLowerCase() !== "none") styles.push(`text-decoration:${seg.textDecoration}`);
-    if (seg.letterSpacing != null && seg.letterSpacing !== 0) styles.push(`letter-spacing:${seg.letterSpacing}px`);
-    if (seg.fills && seg.fills.length > 0) {
-      const sf = seg.fills[0];
-      if (isFillVisible(sf)) {
-        const color = paintToSolidColor(sf) ?? (sf.hex ? hexAlpha(sf.hex, getFillAlpha(sf)) : undefined);
-        if (color) styles.push(`color:${color}`);
+  const inner = segments
+    .map((seg) => {
+      const styles: string[] = [];
+      if (seg.fontFamily) styles.push(`font-family:"${seg.fontFamily}",sans-serif`);
+      if (seg.fontSize != null) styles.push(`font-size:${seg.fontSize}px`);
+      if (seg.fontWeight) styles.push(`font-weight:${seg.fontWeight}`);
+      if (seg.fontStyle?.toLowerCase() === "italic") styles.push("font-style:italic");
+      if (seg.textDecoration && seg.textDecoration.toLowerCase() !== "none") styles.push(`text-decoration:${seg.textDecoration}`);
+      if (seg.letterSpacing != null && seg.letterSpacing !== 0) styles.push(`letter-spacing:${seg.letterSpacing}px`);
+      if (seg.fills && seg.fills.length > 0) {
+        const sf = seg.fills[0];
+        if (isFillVisible(sf)) {
+          const color = paintToSolidColor(sf) ?? (sf.hex ? hexAlpha(sf.hex, getFillAlpha(sf)) : undefined);
+          if (color) styles.push(`color:${color}`);
+        }
       }
-    }
-    const styleStr = styles.length > 0 ? ` style="${styles.join(";")}"` : "";
-    return `<span${styleStr}>${escapeHtml(seg.characters)}</span>`;
-  }).join("");
+      const styleStr = styles.length > 0 ? ` style="${styles.join(";")}"` : "";
+      return `<span${styleStr}>${escapeHtml(seg.characters)}</span>`;
+    })
+    .join("");
+  return `<span style="display:block;width:100%;min-width:0">${inner}</span>`;
 }
 
 function mapAlign(val: string | null | undefined): string | undefined {
@@ -447,7 +450,12 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
     if (props.textDecoration) textStyle.textDecoration = props.textDecoration as string;
     if (props.fontStyle === "italic") textStyle.fontStyle = "italic";
     const lh = props.lineHeight;
-    if (lh != null && lh !== "auto") textStyle.lineHeight = typeof lh === "number" ? `${lh}px` : String(lh);
+    if (lh != null) {
+      const isAuto =
+        lh === "auto" ||
+        (typeof lh === "object" && lh !== null && (lh as { unit?: string }).unit === "AUTO");
+      textStyle.lineHeight = isAuto ? "normal" : typeof lh === "number" ? `${lh}px` : String(lh);
+    }
     const textStyleStr = Object.entries(textStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
     return `${pad}<div ${extraAttrs} style="${escapeHtml(cursorStyle + textStyleStr)}">${textSegmentsToHtml(props)}</div>`;
   }

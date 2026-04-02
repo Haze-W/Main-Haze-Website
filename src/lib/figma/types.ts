@@ -28,7 +28,7 @@ export interface Effect {
   spread?: number;
 }
 
-/** Figma `lineHeight` as exported by the plugin (mirrors Plugin API). */
+/** Figma `lineHeight` as exported by the plugin (mirrors Plugin API). `AUTO` maps to CSS `line-height: normal` in Haze. */
 export type FigmaLineHeight =
   | { unit: "PIXELS"; value: number }
   | { unit: "PERCENT"; value: number }

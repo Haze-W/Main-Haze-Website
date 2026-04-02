@@ -43,16 +43,19 @@ function mapLayoutMode(mode: string | null): "NONE" | "HORIZONTAL" | "VERTICAL" 
   return "NONE";
 }
 
-/** Map plugin / Figma `lineHeight` to CSS `line-height` (px, %, or auto). */
+/** Map plugin / Figma `lineHeight` to CSS `line-height`. AUTO → `normal` (explicit browser default line box). */
 function figmaLineHeightToCss(lh: unknown): string | number | undefined {
   if (lh == null) return undefined;
   if (typeof lh === "number") return lh;
-  if (typeof lh === "string") return lh;
+  if (typeof lh === "string") {
+    if (lh.toLowerCase() === "auto") return "normal";
+    return lh;
+  }
   if (typeof lh === "object" && lh !== null) {
     const o = lh as { unit?: string; value?: number };
     if (o.unit === "PIXELS" && typeof o.value === "number") return o.value;
     if (o.unit === "PERCENT" && typeof o.value === "number") return `${o.value}%`;
-    if (o.unit === "AUTO") return "auto";
+    if (o.unit === "AUTO") return "normal";
   }
   return undefined;
 }
@@ -300,7 +303,7 @@ function convertNode(
       fontStyleToFontWeight(seg0?.fontStyle) ??
       numericTw ??
       fontStyleToFontWeight(node.text.fontStyle ?? null);
-    props.fontSize = seg0?.fontSize ?? node.text.fontSize ?? 14;
+    props.fontSize = seg0?.fontSize ?? node.text.fontSize ?? 12;
     props.fontWeight = String(inferredWeight ?? 400);
     props.fontFamily = seg0?.fontFamily ?? node.text.fontFamily;
     props.fontStyle = seg0?.fontStyle ?? node.text.fontStyle;
@@ -312,8 +315,10 @@ function convertNode(
     props.textAlign = String(textAlign).toLowerCase();
 
     props.letterSpacing = seg0?.letterSpacing ?? node.text.letterSpacing ?? 0;
-    props.lineHeight =
-      figmaLineHeightToCss(seg0?.lineHeight ?? node.text.lineHeight) ?? "auto";
+    {
+      const lhCss = figmaLineHeightToCss(seg0?.lineHeight ?? node.text.lineHeight);
+      if (lhCss !== undefined) props.lineHeight = lhCss;
+    }
     props.textDecoration = seg0?.textDecoration ?? node.text.textDecoration;
 
     // Text fills: prefer segments[0].fills, then text.fills, then fallback to white

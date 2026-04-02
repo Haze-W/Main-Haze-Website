@@ -272,12 +272,15 @@ function renderTextContent(props: Record<string, unknown>): React.ReactNode {
     return content;
   }
 
-  return segments.map((seg, i) => {
+  // One block wrapper so sibling <span>s stay inline (normal line box). Otherwise a parent with
+  // display:flex; flex-direction:column (e.g. Figma vertical text align center) treats each span as
+  // a flex item and stacks them vertically, blowing up height and ignoring line-height.
+  const runs = segments.map((seg, i) => {
     const segStyle: React.CSSProperties = {};
 
     const fontFamily = seg.fontFamily ?? fallbackFont;
     if (fontFamily) segStyle.fontFamily = `"${fontFamily}", sans-serif`;
-    if (seg.fontSize) segStyle.fontSize = seg.fontSize;
+    if (seg.fontSize != null) segStyle.fontSize = seg.fontSize;
     const segW =
       seg.fontWeight ??
       fontStyleToFontWeight(seg.fontStyle);
@@ -305,6 +308,12 @@ function renderTextContent(props: Record<string, unknown>): React.ReactNode {
       <span key={i} style={segStyle}>{seg.characters}</span>
     );
   });
+
+  return (
+    <span style={{ display: "block", width: "100%", minWidth: 0 }}>
+      {runs}
+    </span>
+  );
 }
 
 function FigmaNodeRendererInner({
@@ -666,8 +675,13 @@ function FigmaNodeRendererInner({
     }
 
     const lh = props.lineHeight;
-    if (lh != null && lh !== "auto") {
-      style.lineHeight = typeof lh === "number" ? `${lh}px` : (lh as string);
+    if (lh != null) {
+      const isAuto =
+        lh === "auto" ||
+        (typeof lh === "object" &&
+          lh !== null &&
+          (lh as { unit?: string }).unit === "AUTO");
+      style.lineHeight = isAuto ? "normal" : typeof lh === "number" ? `${lh}px` : String(lh);
     }
 
     return (
