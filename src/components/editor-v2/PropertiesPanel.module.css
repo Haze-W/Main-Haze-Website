@@ -556,6 +556,29 @@
   margin-bottom: -4px;
 }
 
+.imagePickerSelected {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.imageUploadBtnGray {
+  width: 32px;
+  height: 32px;
+  background: #3a3a3e !important; /* Gray like buttons */
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.imageUploadBtnGray:hover {
+  background: #4a4a4e !important;
+}
+
 .colorGradientRow {
   padding: 12px 14px;
   display: flex;
@@ -572,10 +595,12 @@
 .gradientAngle {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--shade-06);
+  font-weight: 600;
+  color: #888888;
+  padding: 0 12px;
 }
 
 .gradientAngleInput {
@@ -596,8 +621,21 @@
 
 .gradientStops {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: center;
+  padding: 12px;
+}
+
+.gradientStopInline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.gradientStopInline:last-child {
+  border-bottom: none;
 }
 
 .gradientStop {

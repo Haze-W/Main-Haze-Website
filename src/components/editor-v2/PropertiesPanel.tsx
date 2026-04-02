@@ -541,7 +541,7 @@ function DirectImagePicker({
     <div className={styles.row} style={{ gap: 8 }}>
       <input
         type="text"
-        className={styles.colorHexInput}
+        className={`${styles.colorHexInput} ${value ? styles.imagePickerSelected : ""}`}
         style={{ flex: 1, fontFamily: "sans-serif" }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -556,8 +556,7 @@ function DirectImagePicker({
       />
       <button
         type="button"
-        className={styles.toolBtn}
-        style={{ width: 32, height: 32, background: "#000", border: "1px solid #333", borderRadius: 6 }}
+        className={styles.imageUploadBtnGray}
         onClick={() => fileInputRef.current?.click()}
         title="Upload Image"
       >
@@ -579,7 +578,6 @@ function PageColorPicker({
   onChange: (v: string) => void;
 }) {
   const [mode, setMode] = useState<FillMode>(() => {
-    if (value.includes("pattern")) return "pattern";
     if (value.startsWith("url(")) return "picture";
     if (value.includes("gradient")) return "gradient";
     return "solid";
@@ -589,9 +587,7 @@ function PageColorPicker({
   const [gradientTo, setGradientTo] = useState("#ff6b6b");
   const [imageUrl, setImageUrl] = useState(value.startsWith("url(") ? value.replace(/^url\(["']?|["']?\)$/g, "") : "");
   
-  // Pattern states (Two pickers)
-  const [patternUrl, setPatternUrl] = useState("");
-  const [overlayUrl, setOverlayUrl] = useState("");
+  // Pattern states removed
 
   const handleSolidChange = (v: string) => {
     onChange(v);
@@ -623,7 +619,7 @@ function PageColorPicker({
       <div className={styles.label}>{label}</div>
       <div className={styles.colorPickerModern}>
         <div className={styles.colorPickerTabs}>
-          {(["solid", "gradient", "pattern", "picture"] as const).map((m) => (
+          {(["solid", "gradient", "picture"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -641,24 +637,31 @@ function PageColorPicker({
           </div>
         )}
 
-        {mode === "pattern" && (
-          <div className={styles.directImagePicker}>
-            <div className={styles.imagePickerLabel}>Pattern Base</div>
-            <DirectImagePicker 
-               value={patternUrl} 
-               onChange={(url) => {
-                 setPatternUrl(url);
-                 onChange(url ? `url("${url}") pattern` : "#1e1e1e");
-               }} 
-            />
-            <div className={styles.imagePickerLabel}>Overlay Mask</div>
-            <DirectImagePicker 
-               value={overlayUrl} 
-               onChange={(url) => {
-                 setOverlayUrl(url);
-                 // Logic for multi-layer patterns could go here
-               }} 
-            />
+        {mode === "gradient" && (
+          <div className={styles.colorGradientRow}>
+             <div className={styles.gradientAngle}>
+                <span>Angle</span>
+                <NumberInput
+                  min={0}
+                  max={360}
+                  value={gradientAngle}
+                  onChange={setGradientAngle}
+                  className={styles.gradientAngleInput}
+                />
+              </div>
+              <div className={styles.gradientStops}>
+                 <div className={styles.gradientStopInline}>
+                    <div className={styles.imagePickerLabel} style={{ marginBottom: 4 }}>Top Color</div>
+                    <ColorPickerStatic value={gradientFrom} onChange={setGradientFrom} />
+                 </div>
+                 <div className={styles.gradientStopInline}>
+                    <div className={styles.imagePickerLabel} style={{ marginBottom: 4, marginTop: 8 }}>Bottom Color</div>
+                    <ColorPickerStatic value={gradientTo} onChange={setGradientTo} />
+                 </div>
+              </div>
+              <button type="button" className={styles.gradientApplyBtn} style={{ margin: "0 12px 12px", width: "calc(100% - 24px)" }} onClick={handleGradientApply}>
+                Apply Gradient
+              </button>
           </div>
         )}
 
