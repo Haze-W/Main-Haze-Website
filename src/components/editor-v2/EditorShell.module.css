@@ -609,6 +609,10 @@
   border-bottom: 1px solid var(--color-s-01);
 }
 
+.hiddenFileInput {
+  display: none;
+}
+
 .exportBtnSidebar {
   display: flex;
   align-items: center;
