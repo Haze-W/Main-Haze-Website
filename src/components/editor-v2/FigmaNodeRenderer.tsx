@@ -52,6 +52,10 @@ interface FigmaProps {
   fills: Paint[];
   strokes: Paint[];
   strokeWeight: number;
+  strokeTopWeight?: number | null;
+  strokeRightWeight?: number | null;
+  strokeBottomWeight?: number | null;
+  strokeLeftWeight?: number | null;
   strokeAlign: string;
   effects: Effect[];
   cornerRadius: number | null;
@@ -65,6 +69,17 @@ interface FigmaProps {
   fillEnabled?: boolean;
   strokeEnabled?: boolean;
   textHasNoBackgroundFill?: boolean;
+  vectorDetail?: {
+    vectorPaths?: Array<{ data: string; windingRule?: string }>;
+    fillColor?: string;
+    strokeColor?: string;
+    strokeWidth?: number;
+    strokeCap?: string;
+    strokeJoin?: string;
+    strokeMiterLimit?: number;
+    dashPattern?: number[];
+  } | null;
+  transform2d?: { a: number; b: number; c: number; d: number } | null;
 }
 
 function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined {
@@ -134,15 +149,45 @@ function getBackground(
 function getBorder(
   strokes: Paint[],
   strokeWeight: number,
+  perSide: { top?: number | null; right?: number | null; bottom?: number | null; left?: number | null } | undefined,
   strokeEnabled: boolean
-): string | undefined {
-  if (!strokeEnabled || !strokes || strokes.length === 0 || strokeWeight === 0)
-    return undefined;
+): { border?: string; borderTop?: string; borderRight?: string; borderBottom?: string; borderLeft?: string } | undefined {
+  if (!strokeEnabled || !strokes || strokes.length === 0) return undefined;
   const stroke = strokes[0];
   if (!isFillVisible(stroke)) return undefined;
   const color = paintToSolidColor(stroke) ?? (stroke.hex ? hexAlpha(stroke.hex, getFillAlpha(stroke)) : undefined);
   if (!color) return undefined;
-  return `${strokeWeight}px solid ${color}`;
+  const top = perSide?.top;
+  const right = perSide?.right;
+  const bottom = perSide?.bottom;
+  const left = perSide?.left;
+  const hasPerSide =
+    typeof top === "number" ||
+    typeof right === "number" ||
+    typeof bottom === "number" ||
+    typeof left === "number";
+  const anyPerSideWeight =
+    (typeof top === "number" && top > 0) ||
+    (typeof right === "number" && right > 0) ||
+    (typeof bottom === "number" && bottom > 0) ||
+    (typeof left === "number" && left > 0);
+
+  if (!hasPerSide) {
+    if (!strokeWeight) return undefined;
+    return { border: `${strokeWeight}px solid ${color}` };
+  }
+  if (!anyPerSideWeight && !strokeWeight) return undefined;
+  const base = strokeWeight || 0;
+  const wTop = typeof top === "number" ? top : base;
+  const wRight = typeof right === "number" ? right : base;
+  const wBottom = typeof bottom === "number" ? bottom : base;
+  const wLeft = typeof left === "number" ? left : base;
+  return {
+    ...(wTop > 0 ? { borderTop: `${wTop}px solid ${color}` } : {}),
+    ...(wRight > 0 ? { borderRight: `${wRight}px solid ${color}` } : {}),
+    ...(wBottom > 0 ? { borderBottom: `${wBottom}px solid ${color}` } : {}),
+    ...(wLeft > 0 ? { borderLeft: `${wLeft}px solid ${color}` } : {}),
+  };
 }
 
 function getBoxShadow(effects: Effect[]): string | undefined {
@@ -196,6 +241,16 @@ function getTextColor(props: Record<string, unknown>): string {
     return "transparent";
   }
   return "#000000";
+}
+
+function getFirstVisiblePaintColor(paints?: Paint[]): string | undefined {
+  if (!paints || paints.length === 0) return undefined;
+  for (const p of paints) {
+    if (!isFillVisible(p)) continue;
+    const color = paintToSolidColor(p) ?? (p.hex ? hexAlpha(p.hex, getFillAlpha(p)) : undefined);
+    if (color) return color;
+  }
+  return undefined;
 }
 
 /** Render multi-segment text with per-segment styling */
@@ -380,6 +435,7 @@ function FigmaNodeRendererInner({
   );
 
   const usesFlex = parentLayout === "HORIZONTAL" || parentLayout === "VERTICAL";
+  const isAbsoluteInAutoLayout = usesFlex && isChild && node.layoutPositioning === "ABSOLUTE";
   const showSelection = isSelected;
 
   const strokeWeight = figma?.strokeWeight ?? 0;
@@ -390,9 +446,9 @@ function FigmaNodeRendererInner({
   const effectiveHeight = minDim ? Math.max(node.height, minDim) : node.height;
 
   const style: React.CSSProperties = {
-    position: usesFlex ? "relative" : "absolute",
-    left: usesFlex ? undefined : node.x,
-    top: usesFlex ? undefined : node.y,
+    position: isAbsoluteInAutoLayout ? "absolute" : usesFlex ? "relative" : "absolute",
+    left: isAbsoluteInAutoLayout ? node.x : usesFlex ? undefined : node.x,
+    top: isAbsoluteInAutoLayout ? node.y : usesFlex ? undefined : node.y,
     width: effectiveWidth,
     height: effectiveHeight,
     boxSizing: "border-box",
@@ -400,7 +456,7 @@ function FigmaNodeRendererInner({
   };
 
   /** Auto-layout children: match Figma flex grow / stretch / min constraints */
-  if (usesFlex && isChild) {
+  if (usesFlex && isChild && !isAbsoluteInAutoLayout) {
     style.flexShrink = node.layoutGrow === 1 ? 0 : 1;
     style.flexGrow = node.layoutGrow ?? 0;
     if (node.layoutAlign === "STRETCH") style.alignSelf = "stretch";
@@ -423,18 +479,32 @@ function FigmaNodeRendererInner({
     style.opacity = node.opacity;
   }
 
-  if (node.rotation || node.props?.scaleX !== undefined || node.props?.scaleY !== undefined) {
+  const t2d = figma?.transform2d;
+  if (t2d || node.rotation || node.props?.scaleX !== undefined || node.props?.scaleY !== undefined) {
     const parts: string[] = [];
+    if (
+      t2d &&
+      typeof t2d.a === "number" &&
+      typeof t2d.b === "number" &&
+      typeof t2d.c === "number" &&
+      typeof t2d.d === "number"
+    ) {
+      // Keep translation at 0,0 because node.x/node.y already represent positioning.
+      parts.push(`matrix(${t2d.a},${t2d.b},${t2d.c},${t2d.d},0,0)`);
+    }
     if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
     if (node.props?.scaleX !== undefined) parts.push(`scaleX(${node.props.scaleX})`);
     if (node.props?.scaleY !== undefined) parts.push(`scaleY(${node.props.scaleY})`);
     if (parts.length) style.transform = parts.join(" ");
+    // Match Figma: rotation is around the layer's center by default.
+    style.transformOrigin = "center";
   }
 
   const dragStyle = mergeDragTransform(style.transform, dragOffset);
   if (dragStyle) Object.assign(style, dragStyle);
 
-  const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData)) && !isText;
+  const hasVectorPaths = !!figma?.vectorDetail?.vectorPaths?.length;
+  const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData) || (isVector && hasVectorPaths)) && !isText;
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
 
@@ -452,8 +522,22 @@ function FigmaNodeRendererInner({
     /* Vectors need CSS borders too when stroke-only or stroke+fill (no raster/SVG). */
     if (!hasImageFill) {
       const strokeEnabled = figma.strokeEnabled !== false;
-      const border = getBorder(figma.strokes, figma.strokeWeight, strokeEnabled);
-      if (border) style.border = border;
+      const border = getBorder(
+        figma.strokes,
+        figma.strokeWeight,
+        {
+          top: figma.strokeTopWeight,
+          right: figma.strokeRightWeight,
+          bottom: figma.strokeBottomWeight,
+          left: figma.strokeLeftWeight,
+        },
+        strokeEnabled
+      );
+      if (border?.border) style.border = border.border;
+      if (border?.borderTop) style.borderTop = border.borderTop;
+      if (border?.borderRight) style.borderRight = border.borderRight;
+      if (border?.borderBottom) style.borderBottom = border.borderBottom;
+      if (border?.borderLeft) style.borderLeft = border.borderLeft;
     }
 
     if (!isVectorOrImageWithData) {
@@ -614,6 +698,74 @@ function FigmaNodeRendererInner({
   }
 
   // ── IMAGE / VECTOR NODE ───────────────────────────────────────
+  if (isVector && hasVectorPaths) {
+    const vector = figma?.vectorDetail;
+    const paths = vector?.vectorPaths ?? [];
+    const fillColor = vector?.fillColor ?? getFirstVisiblePaintColor(figma?.fills);
+    const strokeColor = vector?.strokeColor ?? getFirstVisiblePaintColor(figma?.strokes);
+    const strokeWidth =
+      figma?.strokeEnabled === false
+        ? 0
+        : (typeof vector?.strokeWidth === "number" ? vector.strokeWidth : (figma?.strokeWeight ?? 0));
+    const capMap: Record<string, React.SVGProps<SVGPathElement>["strokeLinecap"]> = {
+      NONE: "butt",
+      ROUND: "round",
+      SQUARE: "square",
+    };
+    const joinMap: Record<string, React.SVGProps<SVGPathElement>["strokeLinejoin"]> = {
+      MITER: "miter",
+      ROUND: "round",
+      BEVEL: "bevel",
+    };
+    const cap = capMap[String(vector?.strokeCap ?? "NONE")] ?? "butt";
+    const join = joinMap[String(vector?.strokeJoin ?? "MITER")] ?? "miter";
+    const dash = Array.isArray(vector?.dashPattern) && vector!.dashPattern!.length > 0
+      ? vector!.dashPattern!.join(" ")
+      : undefined;
+    const miterLimit = typeof vector?.strokeMiterLimit === "number" ? vector.strokeMiterLimit : undefined;
+
+    return (
+      <div
+        style={{
+          ...style,
+          // Vector nodes should render from path geometry only, never as a filled box.
+          background: "transparent",
+          backgroundColor: "transparent",
+          border: "none",
+          boxShadow: "none",
+          overflow: "visible",
+        }}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerDown={handlePointerDown}
+      >
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${Math.max(node.width, 1)} ${Math.max(node.height, 1)}`}
+          preserveAspectRatio="none"
+          style={{ display: "block", pointerEvents: "none", overflow: "visible" }}
+        >
+          {paths.map((p, i) => (
+            <path
+              key={i}
+              d={p.data}
+              fill={fillColor ?? "none"}
+              fillRule={String(p.windingRule).toUpperCase() === "EVENODD" ? "evenodd" : "nonzero"}
+              stroke={strokeWidth > 0 ? (strokeColor ?? "none") : "none"}
+              strokeWidth={strokeWidth > 0 ? strokeWidth : undefined}
+              strokeLinecap={strokeWidth > 0 ? cap : undefined}
+              strokeLinejoin={strokeWidth > 0 ? join : undefined}
+              strokeDasharray={strokeWidth > 0 ? dash : undefined}
+              strokeMiterlimit={strokeWidth > 0 ? miterLimit : undefined}
+            />
+          ))}
+        </svg>
+        {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
+      </div>
+    );
+  }
+
   if (hasImageFill || (isVector && node.props?._imageData)) {
     const imageData = node.props?._imageData as string | undefined;
     const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
