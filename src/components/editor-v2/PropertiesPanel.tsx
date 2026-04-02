@@ -20,6 +20,12 @@ import {
   AlignHorizontalJustifyCenter,
   AlignVerticalJustifyCenter,
   Scaling,
+  Upload,
+  PlusCircle,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ColorPickerPopover } from "@/components/editor/ColorPickerPopover";
@@ -30,6 +36,12 @@ import { GOOGLE_FONTS, loadGoogleFont } from "@/lib/editor/fonts";
 import { BLOCK_TYPE_OPTIONS, TRANSITION_OPTIONS as BLOCK_TRANSITION_OPTIONS, HOVER_PRESETS } from "@/lib/editor/blocks";
 import type { Interaction, Block, BlockType, BlockParams, InteractionList, HoverPreset } from "@/lib/editor/blocks";
 import styles from "./PropertiesPanel.module.css";
+import {
+  hexToHsv,
+  hsvToHex,
+  isValidHex,
+  normalizeHex,
+} from "@/lib/color-utils";
 
 /** Number input that shows empty when value is 0, so typing "245" doesn't become "0245" */
 function NumberInput({
@@ -415,7 +427,147 @@ function FontSelector({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-type FillMode = "solid" | "gradient" | "image";
+function ColorPickerStatic({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  const hex = isValidHex(value) ? normalizeHex(value) : "#888888";
+  const initial = hexToHsv(hex) ?? { h: 0, s: 0, v: 0.5 };
+  const [h, setH] = useState(initial.h);
+  const [s, setS] = useState(initial.s);
+  const [v, setV] = useState(initial.v);
+  const [isDragging, setIsDragging] = useState<"sv" | "h" | null>(null);
+  const svRef = useRef<HTMLDivElement>(null);
+  const hRef = useRef<HTMLDivElement>(null);
+
+  const currentHex = hsvToHex(h, s, v);
+
+  const updateFromHsv = useCallback((nh: number, ns: number, nv: number) => {
+    setH(nh);
+    setS(ns);
+    setV(nv);
+    const newHex = hsvToHex(nh, ns, nv);
+    onChange(newHex);
+  }, [onChange]);
+
+  const handleSvMove = useCallback((clientX: number, clientY: number) => {
+    const el = svRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
+    updateFromHsv(h, x, y);
+  }, [h, updateFromHsv]);
+
+  const handleHMove = useCallback((clientX: number) => {
+    const el = hRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    updateFromHsv(x * 360, s, v);
+  }, [s, v, updateFromHsv]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (isDragging === "sv") handleSvMove(e.clientX, e.clientY);
+      else if (isDragging === "h") handleHMove(e.clientX);
+    };
+    const onMouseUp = () => setIsDragging(null);
+    if (isDragging) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging, handleSvMove, handleHMove]);
+
+  return (
+    <div className={styles.staticColorPicker}>
+      <div 
+        ref={svRef}
+        className={styles.staticSvArea}
+        style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(h, 1, 1)})` }}
+        onMouseDown={(e) => { e.preventDefault(); setIsDragging("sv"); handleSvMove(e.clientX, e.clientY); }}
+      >
+        <div 
+          className={styles.staticSvCursor} 
+          style={{ left: `${s * 100}%`, top: `${(1 - v) * 100}%`, background: currentHex }}
+        />
+      </div>
+      <div className={styles.staticTools}>
+        <div 
+          ref={hRef}
+          className={styles.staticHueBar}
+          onMouseDown={(e) => { e.preventDefault(); setIsDragging("h"); handleHMove(e.clientX); }}
+        >
+          <div className={styles.staticHueCursor} style={{ left: `${(h / 360) * 100}%` }} />
+        </div>
+        <div className={styles.staticHexRow}>
+           <div className={styles.swatchSm} style={{ background: currentHex, width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} />
+           <input 
+             className={styles.colorHexInput} 
+             value={currentHex.toUpperCase()} 
+             onChange={(e) => { if (isValidHex(e.target.value)) onChange(e.target.value); }}
+           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DirectImagePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    onChange(url);
+    e.target.value = "";
+  };
+
+  return (
+    <div className={styles.row} style={{ gap: 8 }}>
+      <input
+        type="text"
+        className={styles.colorHexInput}
+        style={{ flex: 1, fontFamily: "sans-serif" }}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="https://image-url"
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleFileUpload}
+      />
+      <button
+        type="button"
+        className={styles.toolBtn}
+        style={{ width: 32, height: 32, background: "#000", border: "1px solid #333", borderRadius: 6 }}
+        onClick={() => fileInputRef.current?.click()}
+        title="Upload Image"
+      >
+        <Upload size={14} />
+      </button>
+    </div>
+  );
+}
+
+type FillMode = "solid" | "gradient" | "pattern" | "picture";
 
 function PageColorPicker({
   label,
@@ -427,7 +579,8 @@ function PageColorPicker({
   onChange: (v: string) => void;
 }) {
   const [mode, setMode] = useState<FillMode>(() => {
-    if (value.startsWith("url(")) return "image";
+    if (value.includes("pattern")) return "pattern";
+    if (value.startsWith("url(")) return "picture";
     if (value.includes("gradient")) return "gradient";
     return "solid";
   });
@@ -435,7 +588,10 @@ function PageColorPicker({
   const [gradientFrom, setGradientFrom] = useState("#5e5ce6");
   const [gradientTo, setGradientTo] = useState("#ff6b6b");
   const [imageUrl, setImageUrl] = useState(value.startsWith("url(") ? value.replace(/^url\(["']?|["']?\)$/g, "") : "");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Pattern states (Two pickers)
+  const [patternUrl, setPatternUrl] = useState("");
+  const [overlayUrl, setOverlayUrl] = useState("");
 
   const handleSolidChange = (v: string) => {
     onChange(v);
@@ -451,7 +607,7 @@ function PageColorPicker({
   const handleImageUrl = (url: string) => {
     setImageUrl(url);
     onChange(url ? `url("${url}")` : "#1e1e1e");
-    setMode("image");
+    setMode("picture");
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -467,79 +623,52 @@ function PageColorPicker({
       <div className={styles.label}>{label}</div>
       <div className={styles.colorPickerModern}>
         <div className={styles.colorPickerTabs}>
-          {(["solid", "gradient", "image"] as const).map((m) => (
+          {(["solid", "gradient", "pattern", "picture"] as const).map((m) => (
             <button
               key={m}
               type="button"
               className={`${styles.colorTab} ${mode === m ? styles.colorTabActive : ""}`}
               onClick={() => setMode(m)}
             >
-              {m === "solid" && <Palette size={12} />}
-              {m === "gradient" && "G"}
-              {m === "image" && <Image size={12} aria-hidden />}
+              <span style={{ textTransform: "capitalize" }}>{m}</span>
             </button>
           ))}
         </div>
 
         {mode === "solid" && (
-          <ColorPickerInline value={value} onChange={handleSolidChange} />
-        )}
-
-        {mode === "gradient" && (
-          <div className={styles.colorGradientRow}>
-            <div className={styles.gradientInputs}>
-              <div className={styles.gradientAngle}>
-                <span>Angle</span>
-                <NumberInput
-                  min={0}
-                  max={360}
-                  value={gradientAngle}
-                  onChange={setGradientAngle}
-                  className={styles.gradientAngleInput}
-                />
-              </div>
-              <div className={styles.gradientStops}>
-                <GradientStopPicker
-                  label="From"
-                  value={gradientFrom}
-                  onChange={setGradientFrom}
-                />
-                <GradientStopPicker
-                  label="To"
-                  value={gradientTo}
-                  onChange={setGradientTo}
-                />
-              </div>
-            </div>
-            <button type="button" className={styles.gradientApplyBtn} onClick={handleGradientApply}>
-              Apply
-            </button>
+          <div style={{ padding: "0 12px 12px 12px" }}>
+             <ColorPickerStatic value={value} onChange={handleSolidChange} />
           </div>
         )}
 
-        {mode === "image" && (
-          <div className={styles.colorImageRow}>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={(e) => handleImageUrl(e.target.value)}
-              placeholder="Image URL"
-              className={`${styles.colorImageUrl} ${imageUrl && !imageUrl.startsWith("https") ? styles.textBlack : ""}`}
+        {mode === "pattern" && (
+          <div className={styles.directImagePicker}>
+            <div className={styles.imagePickerLabel}>Pattern Base</div>
+            <DirectImagePicker 
+               value={patternUrl} 
+               onChange={(url) => {
+                 setPatternUrl(url);
+                 onChange(url ? `url("${url}") pattern` : "#1e1e1e");
+               }} 
             />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className={styles.colorFileInput}
+            <div className={styles.imagePickerLabel}>Overlay Mask</div>
+            <DirectImagePicker 
+               value={overlayUrl} 
+               onChange={(url) => {
+                 setOverlayUrl(url);
+                 // Logic for multi-layer patterns could go here
+               }} 
             />
-            <button
-              type="button"
-              className={styles.colorUploadBtn}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Upload
-            </button>
+          </div>
+        )}
+
+        {mode === "picture" && (
+          <div className={styles.directImagePicker}>
+            <div className={styles.imagePickerLabel}>Background Image</div>
+            <DirectImagePicker 
+               value={imageUrl} 
+               onChange={handleImageUrl} 
+            />
           </div>
         )}
       </div>
