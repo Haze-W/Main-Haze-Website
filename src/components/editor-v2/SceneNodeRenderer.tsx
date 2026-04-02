@@ -367,6 +367,9 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
           fontSize,
           fontWeight,
           textAlign: textAlign as React.CSSProperties["textAlign"],
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          tabSize: 4,
           ...(color && { color }),
           ...(fontFamily && { fontFamily: `"${fontFamily}", sans-serif` }),
         }}

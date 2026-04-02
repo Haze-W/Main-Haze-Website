@@ -28,8 +28,17 @@ export interface Effect {
   spread?: number;
 }
 
+/** Figma `lineHeight` as exported by the plugin (mirrors Plugin API). */
+export type FigmaLineHeight =
+  | { unit: "PIXELS"; value: number }
+  | { unit: "PERCENT"; value: number }
+  | { unit: "AUTO" };
+
 export interface TextSegment {
   characters: string;
+  /** Figma UTF-16 indices into the full text when present (end exclusive). */
+  start?: number;
+  end?: number;
   fontFamily: string | null;
   fontStyle: string | null;
   fontSize: number;
@@ -38,7 +47,7 @@ export interface TextSegment {
   /** Numeric weight when provided; otherwise infer from `fontStyle` (e.g. SemiBold) */
   fontWeight?: number;
   letterSpacing?: number;
-  lineHeight?: number | string;
+  lineHeight?: number | string | FigmaLineHeight;
 }
 
 export interface TextStyle {
@@ -47,7 +56,7 @@ export interface TextStyle {
   fontStyle: string | null;
   fontSize: number | null;
   fontWeight: number | null;
-  lineHeight: string | number;
+  lineHeight: string | number | FigmaLineHeight;
   letterSpacing: number;
   textAlign: string | null;
   textDecoration: string | null;

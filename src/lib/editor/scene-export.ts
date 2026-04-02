@@ -11,6 +11,7 @@ import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
+import { alignFigmaTextSegmentsToContent, type TextSegmentWithRange } from "@/lib/figma/text-segments";
 import type { TopBarConfig, TopBarLayout, InteractionList, Block, HoverPreset } from "./blocks";
 import { createDefaultTopBarConfig } from "./blocks";
 import { getIconSvg } from "@/lib/icon-svg";
@@ -143,8 +144,10 @@ function getTextColor(props: Record<string, unknown>): string {
 }
 
 function textSegmentsToHtml(props: Record<string, unknown>): string {
-  const segments = props._textSegments as TextSegment[] | undefined;
+  const raw = props._textSegments as TextSegmentWithRange[] | undefined;
   const content = (props.content as string) ?? "";
+  const segments =
+    raw && raw.length > 0 ? alignFigmaTextSegmentsToContent(content, raw) : undefined;
   if (!segments || segments.length <= 1) return escapeHtml(content);
   return segments.map((seg) => {
     const styles: string[] = [];
@@ -419,7 +422,15 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   // TEXT NODE
   if (isText) {
     const props = node.props ?? {};
-    const textStyle: Record<string, string> = { ...style, color: getTextColor(props), whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "0", padding: "0" };
+    const textStyle: Record<string, string> = {
+      ...style,
+      color: getTextColor(props),
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      tabSize: "4",
+      margin: "0",
+      padding: "0",
+    };
     if (usesFlex) {
       textStyle.flexShrink = "0";
       textStyle.minWidth =

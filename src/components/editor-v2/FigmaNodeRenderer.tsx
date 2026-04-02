@@ -7,7 +7,12 @@ import { useEditorStore } from "@/lib/editor/store";
 import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { loadGoogleFont } from "@/lib/editor/fonts";
 import { hexAlpha, paintToSolidColor, fontStyleToFontWeight } from "@/lib/figma/types";
-import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
+import type { Paint, Effect } from "@/lib/figma/types";
+import {
+  alignFigmaTextSegmentsToContent,
+  normalizeFigmaUnicodeLineBreaks,
+  type TextSegmentWithRange,
+} from "@/lib/figma/text-segments";
 import { ResizeHandles } from "./ResizeHandles";
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -255,8 +260,12 @@ function getFirstVisiblePaintColor(paints?: Paint[]): string | undefined {
 
 /** Render multi-segment text with per-segment styling */
 function renderTextContent(props: Record<string, unknown>): React.ReactNode {
-  const segments = props._textSegments as TextSegment[] | undefined;
-  const content = (props.content as string) ?? "";
+  const rawSegments = props._textSegments as TextSegmentWithRange[] | undefined;
+  const content = normalizeFigmaUnicodeLineBreaks((props.content as string) ?? "");
+  const segments =
+    rawSegments && rawSegments.length > 0
+      ? alignFigmaTextSegmentsToContent(content, rawSegments)
+      : undefined;
   const fallbackFont = props.fontFamily as string | undefined;
 
   if (!segments || segments.length <= 1) {
@@ -582,6 +591,7 @@ function FigmaNodeRendererInner({
     style.color = getTextColor(props);
     style.whiteSpace = "pre-wrap";
     style.wordBreak = "break-word";
+    style.tabSize = 4;
     style.margin = 0;
     style.padding = 0;
     /** Prevent flex from shrinking text width to ~0 (one char per line). */

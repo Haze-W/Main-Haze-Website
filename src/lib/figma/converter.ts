@@ -1,5 +1,10 @@
 import type { SceneNode, SceneNodeType } from "@/lib/editor/types";
 import { fontStyleToFontWeight, type FigmaNode, type RenderPayload } from "./types";
+import {
+  alignFigmaTextSegmentsToContent,
+  normalizeFigmaUnicodeLineBreaks,
+  type TextSegmentWithRange,
+} from "./text-segments";
 
 function mapType(figmaType: string): SceneNodeType {
   switch (figmaType) {
@@ -36,6 +41,20 @@ function mapLayoutMode(mode: string | null): "NONE" | "HORIZONTAL" | "VERTICAL" 
   if (mode === "HORIZONTAL") return "HORIZONTAL";
   if (mode === "VERTICAL") return "VERTICAL";
   return "NONE";
+}
+
+/** Map plugin / Figma `lineHeight` to CSS `line-height` (px, %, or auto). */
+function figmaLineHeightToCss(lh: unknown): string | number | undefined {
+  if (lh == null) return undefined;
+  if (typeof lh === "number") return lh;
+  if (typeof lh === "string") return lh;
+  if (typeof lh === "object" && lh !== null) {
+    const o = lh as { unit?: string; value?: number };
+    if (o.unit === "PIXELS" && typeof o.value === "number") return o.value;
+    if (o.unit === "PERCENT" && typeof o.value === "number") return `${o.value}%`;
+    if (o.unit === "AUTO") return "auto";
+  }
+  return undefined;
 }
 
 /** UTF-8 → base64 (SVG in data URLs — avoids huge encodeURIComponent URLs in Chromium/Tauri). */
@@ -260,10 +279,15 @@ function convertNode(
   }
 
   if (node.text) {
-    props.content = node.text.content;
+    const textContent = normalizeFigmaUnicodeLineBreaks(String(node.text.content ?? ""));
+    props.content = textContent;
 
     // Extract typography from segments if available, fall back to top-level text props
-    const seg0 = node.text.segments?.[0];
+    const alignedSegments =
+      node.text.segments && node.text.segments.length > 0
+        ? alignFigmaTextSegmentsToContent(textContent, node.text.segments as TextSegmentWithRange[])
+        : undefined;
+    const seg0 = alignedSegments?.[0] ?? node.text.segments?.[0];
     const rawTw = node.text.fontWeight;
     const numericTw =
       typeof rawTw === "number"
@@ -288,7 +312,8 @@ function convertNode(
     props.textAlign = String(textAlign).toLowerCase();
 
     props.letterSpacing = seg0?.letterSpacing ?? node.text.letterSpacing ?? 0;
-    props.lineHeight = seg0?.lineHeight ?? node.text.lineHeight;
+    props.lineHeight =
+      figmaLineHeightToCss(seg0?.lineHeight ?? node.text.lineHeight) ?? "auto";
     props.textDecoration = seg0?.textDecoration ?? node.text.textDecoration;
 
     // Text fills: prefer segments[0].fills, then text.fills, then fallback to white
@@ -302,9 +327,9 @@ function convertNode(
       props._textFills = [{ hex: "#ffffff", alpha: 1 }];
     }
 
-    // Store all segments for multi-style text rendering
-    if (node.text.segments && node.text.segments.length > 0) {
-      props._textSegments = node.text.segments;
+    // Store all segments for multi-style text rendering (aligned to full content for \n / \t)
+    if (alignedSegments && alignedSegments.length > 0) {
+      props._textSegments = alignedSegments;
     }
 
     // Vertical text alignment
