@@ -57,7 +57,7 @@
   display: flex;
   flex-direction: column;
   padding: var(--space-4);
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid #a9a9a9;
   gap: var(--space-2);
 }
 
@@ -603,20 +603,53 @@
   padding: 0 12px;
 }
 
-.gradientAngleInput {
+.anglePickerContainer {
   width: 72px;
-  padding: 8px 10px;
-  font-size: 0.8125rem;
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
-  border-radius: 8px;
-  color: var(--shade-09);
-  outline: none;
-  transition: border-color 0.12s ease;
+  height: 72px;
+  cursor: crosshair;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
 }
 
-.gradientAngleInput:focus {
-  border-color: var(--accent);
+.anglePickerCircle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  position: relative;
+  background: #1a1a1a;
+}
+
+.anglePickerHand {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 3px;
+  height: 32px;
+  background: var(--accent);
+  transform-origin: bottom center;
+  margin-left: -1.5px;
+}
+
+.anglePickerCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.gradientAngleValue {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 44px;
+  text-align: right;
 }
 
 .gradientStops {
@@ -1693,4 +1726,29 @@
   padding: 8px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.06);
+}
+.gridPreviewNone {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  position: relative;
+  display: block;
+}
+
+.gridPreviewNone::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -2px;
+  width: 16px;
+  height: 2px;
+  background: #555;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.gridTypeBtnActive .gridPreviewNone,
+.gridTypeBtnActive .gridPreviewNone::after {
+  border-color: #888;
+  background: #888;
 }

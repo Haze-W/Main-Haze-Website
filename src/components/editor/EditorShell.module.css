@@ -42,7 +42,7 @@
   display: flex;
   background: var(--bg-raised);
   border-left: 1px solid var(--border-muted);
-  min-width: 240px;
+  min-width: 300px;
 }
 
 .resizeHandleLeft {

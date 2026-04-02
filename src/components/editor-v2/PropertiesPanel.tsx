@@ -568,6 +568,50 @@ function DirectImagePicker({
 
 type FillMode = "solid" | "gradient" | "pattern" | "picture";
 
+function AnglePicker({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handlePointer = (e: React.PointerEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    let angle = Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 90;
+    if (angle < 0) angle += 360;
+    onChange(angle % 360);
+  };
+
+  const handleDrag = (e: React.PointerEvent) => {
+    if (e.buttons !== 1) return;
+    handlePointer(e);
+  };
+
+  return (
+    <div 
+      ref={containerRef}
+      className={styles.anglePickerContainer}
+      onPointerDown={handlePointer}
+      onPointerMove={handleDrag}
+    >
+      <div className={styles.anglePickerCircle}>
+        <div 
+          className={styles.anglePickerHand} 
+          style={{ transform: `rotate(${value}deg)` }} 
+        />
+        <div className={styles.anglePickerCenter} />
+      </div>
+    </div>
+  );
+}
+
 function PageColorPicker({
   label,
   value,
@@ -640,14 +684,11 @@ function PageColorPicker({
         {mode === "gradient" && (
           <div className={styles.colorGradientRow}>
              <div className={styles.gradientAngle}>
-                <span>Angle</span>
-                <NumberInput
-                  min={0}
-                  max={360}
-                  value={gradientAngle}
-                  onChange={setGradientAngle}
-                  className={styles.gradientAngleInput}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <AnglePicker value={gradientAngle} onChange={setGradientAngle} />
+                  <span>Angle</span>
+                </div>
+                <div className={styles.gradientAngleValue}>{gradientAngle}°</div>
               </div>
               <div className={styles.gradientStops}>
                  <div className={styles.gradientStopInline}>
@@ -1361,7 +1402,7 @@ function CanvasProperties() {
                     {t === "dots" && <span className={styles.gridPreviewDots} />}
                     {t === "lines" && <span className={styles.gridPreviewLines} />}
                     {t === "cross" && <span className={styles.gridPreviewCross} />}
-                    {t === "none" && "None"}
+                    {t === "none" && <span className={styles.gridPreviewNone} />}
                   </button>
                 ))}
               </div>

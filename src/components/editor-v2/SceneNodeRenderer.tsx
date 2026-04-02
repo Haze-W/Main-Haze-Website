@@ -1275,7 +1275,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
           {isSelected && <ResizeHandles onResizeStart={handleResizeStart} />}
           <div className={styles.carouselSlide} style={{ width: "100%", flex: 1, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", fontWeight: 600 }}>{slides[activeSlide]}</div>
           <div className={styles.carouselNav} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 8, background: "var(--haze-comp-surface)", borderTop: "1px solid var(--haze-comp-border)" }}>
-            <span className={styles.carouselArrow} onPointerDown={prev} style={{ fontSize: 14, color: "var(--haze-comp-text)", cursor: "pointer" }}>‹</span>
+            <span className={styles.carouselArrow} onPointerDown={prev}>«</span>
             {slides.map((_, i) => (
               <span
                 key={i}
@@ -1284,7 +1284,7 @@ function GenericNode({ node, isSelected, zoom, parentHasLayoutMode = false }: Sc
                 onPointerDown={(e) => { e.stopPropagation(); updateNode(node.id, { props: { ...props, activeSlide: i } }); setSelectedIds([node.id]); }}
               />
             ))}
-            <span className={styles.carouselArrow} onPointerDown={next} style={{ fontSize: 14, color: "var(--haze-comp-text)", cursor: "pointer" }}>›</span>
+            <span className={styles.carouselArrow} onPointerDown={next}>»</span>
           </div>
         </div>
       );

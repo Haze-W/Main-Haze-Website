@@ -668,8 +668,9 @@
 .carouselArrow {
   cursor: pointer;
   font-size: 20px;
-  color: var(--haze-comp-text-secondary);
+  color: var(--haze-comp-text);
   padding: 0 4px;
   user-select: none;
+  font-weight: 700;
 }
-.carouselArrow:hover { color: var(--haze-comp-text); }
+.carouselArrow:hover { color: var(--accent); }
