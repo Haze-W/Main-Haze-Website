@@ -399,7 +399,7 @@ function handleBackendMode(prompt: string): CoralResponse {
   if ((has(lower, "chatbot", "chat app", "full chat") && has(lower, "gpt", "openai", "api key")) || has(lower, "full chatbot with gpt")) {
     return {
       action: "GENERATE_UI",
-      text: "Generated a full chatbot app. Chat calls your server at /api/ai/chat-completions (OpenAI when OPENAI_API_KEY is set). Export and deploy with your API key configured.",
+      text: "Generated a full chatbot app. Chat calls your server at /api/ai/chat-completions.",
       nodes: buildChatbotApp(true),
     };
   }
@@ -408,7 +408,7 @@ function handleBackendMode(prompt: string): CoralResponse {
   if (has(lower, "chat", "textbox", "text box", "input", "send message", "ai chatbot")) {
     return {
       action: "GENERATE_CODE",
-      text: "Your chatbot calls /api/ai/chat-completions on your deployed app. Set OPENAI_API_KEY (or ANTHROPIC_API_KEY) on the server for AI replies.",
+      text: "Your chatbot calls /api/ai/chat-completions on your deployed app.",
       js: `// Chat calls /api/ai/chat-completions (OpenAI / Anthropic via Haze backend).
 // Configure OPENAI_API_KEY on the server.`,
       deps: [],
@@ -633,7 +633,7 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! **Coral** runs locally when no API key is set. With **ANTHROPIC_API_KEY** (or **OPENAI_API_KEY**), Chat uses cloud models.\n\n- **/ui** — Generate UI layouts (shadcn-style when the LLM runs)\n- **/code** — Tauri 2 Rust + TypeScript (invoke, dialogs, fs)\n- **/agent** — Architecture and Tauri help\n- **/plan** — Step-by-step plans\n- **/ask** — Q&A\n- **/fix** — Heuristic canvas fixes\n\nTry something specific, like "How do I handle window close events?" or "folder picker for a file browser UI".`,
+    text: `I'm Coral 1.0, your AI coding assistant.\n\n- **/ui [prompt]** — Generate UI components and layouts on the canvas.\n- **/agent [prompt]** — Ask me any questions about your code, Tauri, or UI design.\n\nTry asking me to build a dashboard or explain how to handle window events!`,
   };
 }
 
@@ -684,7 +684,7 @@ function handlePlanMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout. Cloud AI (OpenAI) powers plans when your server has OPENAI_API_KEY.*`,
+    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout.*`,
   };
 }
 

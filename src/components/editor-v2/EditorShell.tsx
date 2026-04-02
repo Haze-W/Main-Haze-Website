@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
@@ -63,6 +63,10 @@ import type { SceneNode } from "@/lib/editor/types";
 import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
 import { useToast } from "@/components/Toast";
 import styles from "./EditorShell.module.css";
+
+const DEFAULT_SIDEBAR_WIDTH = 260;
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 480;
 
 /** Monaco + file tree load on demand — keeps initial editor bundle smaller & faster. */
 const CodePanel = dynamic(
@@ -672,12 +676,68 @@ export function EditorShell() {
     pushHistory,
   ]);
 
+  // ── Resizing Logic ───────────────────────────────────────────
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [rightWidth, setRightWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
+
+  const startResizingLeft = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingLeft(true);
+  }, []);
+
+  const startResizingRight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizingLeft(false);
+    setIsResizingRight(false);
+  }, []);
+
+  const resizeSidebars = useCallback((e: MouseEvent) => {
+    if (isResizingLeft) {
+      const newWidth = Math.min(Math.max(e.clientX - 12, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH);
+      setLeftWidth(newWidth);
+    }
+    if (isResizingRight) {
+      const newWidth = Math.min(Math.max(window.innerWidth - e.clientX - 12, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH);
+      setRightWidth(newWidth);
+    }
+  }, [isResizingLeft, isResizingRight]);
+
+  useEffect(() => {
+    if (isResizingLeft || isResizingRight) {
+      window.addEventListener("mousemove", resizeSidebars);
+      window.addEventListener("mouseup", stopResizing);
+    } else {
+      window.removeEventListener("mousemove", resizeSidebars);
+      window.removeEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resizeSidebars);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizingLeft, isResizingRight, resizeSidebars, stopResizing]);
+
   useEffect(() => {
     if (editingName && nameInputRef.current) {
       nameInputRef.current.focus();
       nameInputRef.current.select();
     }
   }, [editingName]);
+
+  // Transition to AI Chat from Bottom Prompt
+  useEffect(() => {
+    const h = () => {
+      setRightTab("chat");
+      setSidebarLeftVisible(true);
+    };
+    window.addEventListener("haze-open-chat", h);
+    return () => window.removeEventListener("haze-open-chat", h);
+  }, [setRightTab, setSidebarLeftVisible]);
 
   /* Debug telemetry removed for security */
 
@@ -693,6 +753,10 @@ export function EditorShell() {
         className={styles.shell}
         data-editor-theme={theme}
         data-sidebar-left-hidden={!sidebarLeftVisible}
+        style={{ 
+          paddingLeft: sidebarLeftVisible ? leftWidth + 24 : 64, 
+          paddingRight: rightWidth + 24 
+        } as any}
       >
         {collabRole !== "owner" && (
           <div className={styles.collabBanner} role="status">
@@ -703,7 +767,8 @@ export function EditorShell() {
         )}
         {/* ── Left Sidebar ───────────────────────────────────────── */}
         {sidebarLeftVisible && (
-        <aside className={styles.sidebarLeft}>
+        <aside className={styles.sidebarLeft} style={{ width: leftWidth }}>
+          <div className={styles.resizerLeft} onMouseDown={startResizingLeft} />
           <div className={styles.sidebarHeader}>
             <div className={styles.sidebarLogoRow}>
               <Link href="/dashboard" className={styles.sidebarLogoBrand}>
@@ -904,7 +969,8 @@ export function EditorShell() {
         )}
 
         {/* ── Right Sidebar ──────────────────────────────────────── */}
-        <aside className={styles.sidebarRight}>
+        <aside className={styles.sidebarRight} style={{ width: rightWidth }}>
+          <div className={styles.resizerRight} onMouseDown={startResizingRight} />
           <div className={styles.sidebarRightHeader}>
             <button
               type="button"
@@ -1052,7 +1118,13 @@ export function EditorShell() {
         </div>
 
         {/* ── Canvas Area ────────────────────────────────────────── */}
-        <main className={styles.canvasArea}>
+        <main 
+          className={styles.canvasArea} 
+          style={{ 
+            left: sidebarLeftVisible ? leftWidth + 24 : 64, 
+            right: rightWidth + 24 
+          }}
+        >
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}

@@ -5,8 +5,6 @@ import { Plus, ChevronDown, Mic, ChevronRight } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
-import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
-import { shouldUseRefineForBottomBar } from "@/lib/ai/agent/generate-intent";
 import { getCapabilities } from "@/lib/editor/collaboration";
 import styles from "./BottomAIPrompt.module.css";
 
@@ -65,68 +63,13 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       return;
     }
 
-    const stopTicker = startAiBuildTicker(text);
-    setLoading(true);
-    setPrompt("");
-
-    try {
-      const useRefine = shouldUseRefineForBottomBar(text, canvasNodes.length > 0);
-
-      if (useRefine) {
-        pushAiBuildStatus("Refining current canvas (partial update)…");
-        const res = await fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text, nodes: canvasNodes }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-        }
-        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
-          pushAiBuildStatus("Applying refined layout…");
-          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
-          pushAiBuildStatus("Done — changes merged into your UI.");
-        } else {
-          const hint =
-            typeof (data as { suggestion?: string }).suggestion === "string"
-              ? (data as { suggestion: string }).suggestion
-              : "No changes returned. Try a more specific edit, or say “build a …” for a fresh layout.";
-          throw new Error(hint);
-        }
-      } else {
-        pushAiBuildStatus("Generating new layout from your prompt…");
-        const res = await fetch("/api/ai/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: text,
-            style: colorMode,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-        }
-
-        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
-          pushAiBuildStatus("Applying generated UI to the canvas…");
-          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
-          pushAiBuildStatus("Done — preview is open. Tweak in Design mode if needed.");
-        } else {
-          throw new Error((data as { error?: string }).error || "No layout was returned");
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      show(err instanceof Error ? err.message : "Generation failed", "error");
-      pushAiBuildStatus(`Error: ${err instanceof Error ? err.message : "failed"}`);
-    } finally {
-      setLoading(false);
-      endAiBuildTicker(stopTicker);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("haze-open-chat"));
+      // The AI Panel intercepts this to execute the prompt via Coral 1.0 logic
+      window.dispatchEvent(new CustomEvent("haze-set-ai-input", { detail: { text, mode: "ui", submit: true } }));
     }
-  }, [prompt, loading, applyGeneratedLayout, colorMode, canvasNodes, show]);
+    setPrompt("");
+  }, [prompt, loading, show]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -168,9 +111,6 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
           onChange={(e) => {
             const v = e.target.value;
             setPrompt(v);
-            if (v.length > 0 && typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("haze-open-chat"));
-            }
           }}
           onKeyDown={onKeyDown}
           rows={1}

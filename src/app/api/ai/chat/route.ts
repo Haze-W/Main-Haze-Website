@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 
     const prompt = (lastUserMessage.content?.trim?.() || String(lastUserMessage.content || "")).trim();
 
-    const normalizedMode = normalizeChatMode(mode);
+    const normalizedMode = normalizeChatMode(mode) || "agent";
 
     if (normalizedMode === "ui" && (prompt || (images && images.length > 0))) {
       const imageUrls = images?.map((i) => i.dataUrl).filter(Boolean) ?? [];
