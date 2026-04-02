@@ -770,18 +770,23 @@ function FigmaNodeRendererInner({
     const imageData = node.props?._imageData as string | undefined;
     const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
     const isSvgDataUrl = imageData?.includes("image/svg+xml");
+    const renderAsPureImage = node.type === "IMAGE" || isVector;
     const objectFit: React.CSSProperties["objectFit"] =
-      isSvgDataUrl ? "fill" :
-      scaleMode === "FIT" ? "contain" :
-      scaleMode === "TILE" ? "none" : "fill";
+      isSvgDataUrl
+        ? "contain"
+        : scaleMode === "FIT"
+          ? "contain"
+          : scaleMode === "TILE"
+            ? "none"
+            : // Figma IMAGE scale modes: FILL/CROP behave like CSS cover.
+              "cover";
 
     const flexChildRaster = usesFlex && isChild;
     const containerStyle: React.CSSProperties = {
       ...style,
-      overflow: flexChildRaster ? "hidden" : "visible",
+      overflow: flexChildRaster ? "hidden" : (renderAsPureImage ? "visible" : style.overflow),
       ...(flexChildRaster ? { minWidth: 0, minHeight: 0 } : {}),
-      border: "none",
-      boxShadow: "none",
+      ...(renderAsPureImage ? { border: "none", boxShadow: "none" } : {}),
     };
 
     return (
@@ -799,16 +804,28 @@ function FigmaNodeRendererInner({
             style={{
               width: "100%",
               height: "100%",
+              position: renderAsPureImage ? "relative" : "absolute",
+              left: renderAsPureImage ? undefined : 0,
+              top: renderAsPureImage ? undefined : 0,
               maxWidth: "100%",
               maxHeight: "100%",
               minWidth: 0,
               minHeight: 0,
               objectFit,
+              objectPosition: "center",
+              ...(scaleMode === "TILE"
+                ? {
+                    objectFit: "none" as const,
+                    // Best-effort tiling: CSS can't "repeat" with <img>, so we keep 1:1 pixels.
+                    // For true tiling we’d need background-image or an SVG pattern.
+                  }
+                : {}),
               display: "block",
               pointerEvents: "none",
               stroke: "none",
               outline: "none",
               border: "none",
+              zIndex: renderAsPureImage ? undefined : 0,
             }}
             draggable={false}
           />
@@ -828,6 +845,16 @@ function FigmaNodeRendererInner({
             Image
           </div>
         )}
+        {!renderAsPureImage && node.children?.map((child) => (
+          <FigmaNodeRendererInner
+            key={child.id}
+            node={child}
+            isSelected={selectedIds.has(child.id)}
+            zoom={zoom}
+            parentLayout={layout !== "NONE" ? layout : "NONE"}
+            isChild={true}
+          />
+        ))}
         {showSelection && <ResizeHandles onResizeStart={handleResizeStart} />}
       </div>
     );
