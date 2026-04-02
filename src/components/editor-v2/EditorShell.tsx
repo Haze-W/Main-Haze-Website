@@ -45,6 +45,7 @@ import {
   saveCollaborators,
 } from "@/lib/editor/collaboration";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
+import { isRenderPayload } from "@/lib/figma/types";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { resolvePlacementParent } from "@/lib/editor/placement";
 import { Canvas } from "./Canvas";
@@ -318,6 +319,7 @@ export function EditorShell() {
   const [renamingPage, setRenamingPage] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
   const theme = useEditorStore((s) => s.theme);
@@ -685,6 +687,49 @@ export function EditorShell() {
     () => filterLayersForSearch(nodes, searchQuery),
     [nodes, searchQuery]
   );
+
+  const openImportPicker = () => {
+    if (!caps.canEditScene) return;
+    importInputRef.current?.click();
+  };
+
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.currentTarget.value = "";
+    if (!file) return;
+    if (!/\.json$/i.test(file.name)) {
+      show("Please select a .json file.", "info");
+      return;
+    }
+    let text = "";
+    try {
+      text = await file.text();
+    } catch {
+      show("Could not read file.", "error");
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      show("Invalid JSON file.", "error");
+      return;
+    }
+    const maybeRenderCopy =
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as Record<string, unknown>)._renderCopy === true &&
+      Array.isArray((parsed as Record<string, unknown>).nodes);
+    if (!isRenderPayload(parsed) && !maybeRenderCopy) {
+      show("JSON format is not a valid Haze/Figma import payload.", "error");
+      return;
+    }
+    const ok = await tryPasteFromClipboard(text);
+    show(
+      ok ? "Imported JSON into canvas." : "Import failed: unsupported payload.",
+      ok ? "success" : "error"
+    );
+  };
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
@@ -1065,6 +1110,8 @@ export function EditorShell() {
           onClose={() => setSettingsPopoverOpen(false)}
           exportDisabled={!caps.canExport}
           saveAsDisabled={!caps.canManageProject}
+          importDisabled={!caps.canEditScene}
+          onImportJson={openImportPicker}
           onExport={() => setExportOpen(true)}
           onSave={() => {
             const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -1076,6 +1123,13 @@ export function EditorShell() {
             }
           }}
           onSaveAs={() => setSaveAsOpen(true)}
+        />
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          className={styles.hiddenFileInput}
+          onChange={handleImportJsonFile}
         />
 
         {/* ── Bottom: AI prompt (dock) ─────────────────────── */}
