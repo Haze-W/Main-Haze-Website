@@ -124,22 +124,84 @@ function findAncestorTopBar(nodes: SceneNode[], nodeId: string): SceneNode | nul
 
 /** 3×3 Figma-style alignment: [primaryAxis, counterAxis] per cell */
 const ALIGN_GRID: [string, string][][] = [
-  [
-    ["MIN", "MIN"],
-    ["MIN", "CENTER"],
-    ["MIN", "MAX"],
-  ],
-  [
-    ["CENTER", "MIN"],
-    ["CENTER", "CENTER"],
-    ["CENTER", "MAX"],
-  ],
-  [
-    ["MAX", "MIN"],
-    ["MAX", "CENTER"],
-    ["MAX", "MAX"],
-  ],
+  [["MIN", "MIN"], ["MIN", "CENTER"], ["MIN", "MAX"]],
+  [["CENTER", "MIN"], ["CENTER", "CENTER"], ["CENTER", "MAX"]],
+  [["MAX", "MIN"], ["MAX", "CENTER"], ["MAX", "MAX"]],
 ];
+
+// ── NEW DESIGN SYSTEM COMPONENTS ─────────────────────────────────────────────
+
+function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionHeader} onClick={() => setOpen(!open)}>
+        <ChevronDown size={14} style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.2s" }} />
+        <span className={styles.label}>{title}</span>
+      </div>
+      {open && <div className={styles.sectionContent}>{children}</div>}
+    </div>
+  );
+}
+
+function LayoutGrid({ children }: { children: React.ReactNode }) {
+  return <div className={styles.layoutGrid}>{children}</div>;
+}
+
+function PropertyInput({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className={styles.inputGroup}>
+      <span className={styles.inputPrefix}>{label}</span>
+      <input {...props} />
+    </div>
+  );
+}
+
+function PropertyNumberInput({ label, value, onChange, min, max, ...props }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "min" | "max">) {
+  return (
+    <div className={styles.inputGroup}>
+      <span className={styles.inputPrefix}>{label}</span>
+      <NumberInput value={value} onChange={onChange} min={min} max={max} {...props} />
+    </div>
+  );
+}
+
+function VisualSpacingWidget({
+  padding,
+  onPaddingChange,
+}: {
+  padding: { top: number; right: number; bottom: number; left: number };
+  onPaddingChange: (key: keyof typeof padding, val: number) => void;
+}) {
+  return (
+    <div className={styles.spacingWidget}>
+      <div className={styles.spacingOuter}>
+        <div className={styles.spacingValue + " " + styles.spacingT} onClick={() => {
+          const val = prompt("Padding Top", String(padding.top));
+          if (val !== null) onPaddingChange("top", Number(val));
+        }}>{padding.top}</div>
+        <div className={styles.spacingValue + " " + styles.spacingB} onClick={() => {
+          const val = prompt("Padding Bottom", String(padding.bottom));
+          if (val !== null) onPaddingChange("bottom", Number(val));
+        }}>{padding.bottom}</div>
+        <div className={styles.spacingValue + " " + styles.spacingL} onClick={() => {
+          const val = prompt("Padding Left", String(padding.left));
+          if (val !== null) onPaddingChange("left", Number(val));
+        }}>{padding.left}</div>
+        <div className={styles.spacingValue + " " + styles.spacingR} onClick={() => {
+          const val = prompt("Padding Right", String(padding.right));
+          if (val !== null) onPaddingChange("right", Number(val));
+        }}>{padding.right}</div>
+      </div>
+      <div className={styles.spacingInner}>
+        <div className={styles.spacingLink}>
+          <Scaling size={16} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function AutoLayoutFrameSection({
   node,
@@ -154,12 +216,12 @@ function AutoLayoutFrameSection({
   const counter = node.counterAxisAlignItems ?? "MIN";
 
   return (
-    <div className={styles.section}>
-      <div className={styles.label}>Layout</div>
+    <Section title="Auto Layout">
       {layoutMode === "NONE" && (
         <button
           type="button"
-          className={styles.autoLayoutAddBtn}
+          className={styles.standaloneInput}
+          style={{ color: "var(--accent)", fontWeight: 600 }}
           onClick={() =>
             updateNode(node.id, {
               layoutMode: "HORIZONTAL",
@@ -173,17 +235,15 @@ function AutoLayoutFrameSection({
             })
           }
         >
-          + Auto Layout
+          + Add Auto Layout
         </button>
       )}
       {isAuto && (
         <>
-          <div className={styles.row} style={{ alignItems: "center", marginTop: 4 }}>
-            <span className={styles.autoLayoutMiniLabel}>Direction</span>
+          <div className={styles.row}>
             <div className={styles.directionBtnGroup}>
               <button
                 type="button"
-                title="Horizontal"
                 className={`${styles.directionIconBtn} ${layoutMode === "HORIZONTAL" ? styles.directionIconBtnActive : ""}`}
                 onClick={() => updateNode(node.id, { layoutMode: "HORIZONTAL" })}
               >
@@ -191,47 +251,49 @@ function AutoLayoutFrameSection({
               </button>
               <button
                 type="button"
-                title="Vertical"
                 className={`${styles.directionIconBtn} ${layoutMode === "VERTICAL" ? styles.directionIconBtnActive : ""}`}
                 onClick={() => updateNode(node.id, { layoutMode: "VERTICAL" })}
               >
                 <ArrowUpDown size={16} />
               </button>
             </div>
+            <PropertyNumberInput
+              label="Gap"
+              value={node.itemSpacing ?? 0}
+              onChange={(v) => updateNode(node.id, { itemSpacing: v })}
+            />
           </div>
 
-          <div className={styles.row} style={{ marginTop: 8 }}>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>Gap</span>
-              <NumberInput
-                value={node.itemSpacing ?? 0}
-                onChange={(v) => updateNode(node.id, { itemSpacing: v })}
-              />
-            </div>
-          </div>
-
-          <div className={styles.autoLayoutSubLabel}>Padding</div>
+          <div className={styles.label} style={{ marginTop: 12 }}>Dimensions</div>
           <div className={styles.row}>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>T</span>
-              <NumberInput value={node.paddingTop ?? 0} onChange={(v) => updateNode(node.id, { paddingTop: v })} />
-            </div>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>R</span>
-              <NumberInput value={node.paddingRight ?? 0} onChange={(v) => updateNode(node.id, { paddingRight: v })} />
-            </div>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>B</span>
-              <NumberInput value={node.paddingBottom ?? 0} onChange={(v) => updateNode(node.id, { paddingBottom: v })} />
-            </div>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>L</span>
-              <NumberInput value={node.paddingLeft ?? 0} onChange={(v) => updateNode(node.id, { paddingLeft: v })} />
-            </div>
+            <PropertyNumberInput
+              label="W"
+              value={node.width}
+              onChange={(v) => updateNode(node.id, { width: v })}
+            />
+            <PropertyNumberInput
+              label="H"
+              value={node.height}
+              onChange={(v) => updateNode(node.id, { height: v })}
+            />
           </div>
 
-          <div className={styles.autoLayoutSubLabel}>Align</div>
-          <div className={styles.alignGrid9} role="group" aria-label="Alignment">
+          <div className={styles.label} style={{ marginTop: 12 }}>Padding</div>
+          <VisualSpacingWidget
+            padding={{
+              top: node.paddingTop ?? 0,
+              right: node.paddingRight ?? 0,
+              bottom: node.paddingBottom ?? 0,
+              left: node.paddingLeft ?? 0,
+            }}
+            onPaddingChange={(key, val) => {
+              const k = `padding${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof SceneNode;
+              updateNode(node.id, { [k]: val });
+            }}
+          />
+
+          <div className={styles.label} style={{ marginTop: 12 }}>Alignment</div>
+          <div className={styles.alignGrid9} style={{ margin: "8px 0" }}>
             {ALIGN_GRID.map((row, ri) =>
               row.map(([p, c], ci) => {
                 const active = primary === p && counter === c && primary !== "SPACE_BETWEEN";
@@ -240,7 +302,6 @@ function AutoLayoutFrameSection({
                     key={`${ri}-${ci}`}
                     type="button"
                     className={`${styles.alignCell9} ${active ? styles.alignCell9Active : ""}`}
-                    title={`${p} / ${c}`}
                     onClick={() =>
                       updateNode(node.id, {
                         primaryAxisAlignItems: p,
@@ -252,115 +313,31 @@ function AutoLayoutFrameSection({
               })
             )}
           </div>
-          <button
-            type="button"
-            className={`${styles.spaceBetweenBtn} ${primary === "SPACE_BETWEEN" ? styles.spaceBetweenBtnActive : ""}`}
-            onClick={() => updateNode(node.id, { primaryAxisAlignItems: "SPACE_BETWEEN" })}
-          >
-            Space between (main axis)
-          </button>
 
-          <label className={styles.wrapToggle}>
-            <input
-              type="checkbox"
-              checked={node.layoutWrap === "WRAP"}
-              onChange={(e) => updateNode(node.id, { layoutWrap: e.target.checked ? "WRAP" : "NO_WRAP" })}
-            />
-            <WrapText size={14} />
-            <span>Wrap</span>
+          <label className={styles.checkboxModern}>
+            <div className={styles.checkboxTrack}>
+              <input
+                type="checkbox"
+                checked={node.layoutWrap === "WRAP"}
+                onChange={(e) => updateNode(node.id, { layoutWrap: e.target.checked ? "WRAP" : "NO_WRAP" })}
+                className={styles.checkboxInput}
+              />
+              <span className={styles.checkboxThumb} />
+            </div>
+            <span>Wrap items</span>
           </label>
-
-          <div className={styles.row} style={{ marginTop: 8 }}>
-            <div className={styles.inputGroup} style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
-              <span className={styles.autoLayoutMiniLabel}>Primary axis sizing</span>
-              <select
-                className={styles.select}
-                value={node.primaryAxisSizingMode ?? "FIXED"}
-                onChange={(e) =>
-                  updateNode(node.id, {
-                    primaryAxisSizingMode: e.target.value as "FIXED" | "AUTO",
-                  })
-                }
-              >
-                <option value="FIXED">Fixed</option>
-                <option value="AUTO">Hug contents</option>
-              </select>
-            </div>
-            <div className={styles.inputGroup} style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
-              <span className={styles.autoLayoutMiniLabel}>Counter axis sizing</span>
-              <select
-                className={styles.select}
-                value={node.counterAxisSizingMode ?? "FIXED"}
-                onChange={(e) =>
-                  updateNode(node.id, {
-                    counterAxisSizingMode: e.target.value as "FIXED" | "AUTO",
-                  })
-                }
-              >
-                <option value="FIXED">Fixed</option>
-                <option value="AUTO">Hug contents</option>
-              </select>
-            </div>
-          </div>
 
           <button
             type="button"
             className={styles.clearAutoLayoutBtn}
+            style={{ marginTop: 12, fontSize: 11, color: "#ff453a" }}
             onClick={() => updateNode(node.id, { layoutMode: "NONE" })}
           >
             Remove auto layout
           </button>
         </>
       )}
-    </div>
-  );
-}
-
-function AutoLayoutChildSection({
-  node,
-  parent,
-  updateNode,
-}: {
-  node: SceneNode;
-  parent: SceneNode;
-  updateNode: (id: string, p: Partial<SceneNode>) => void;
-}) {
-  const parentAuto =
-    parent.layoutMode === "HORIZONTAL" || parent.layoutMode === "VERTICAL";
-  if (!parentAuto) return null;
-
-  return (
-    <div className={styles.section}>
-      <div className={styles.label}>In auto layout</div>
-      <label className={styles.checkboxModern}>
-        <div className={styles.checkboxTrack}>
-          <input
-            type="checkbox"
-            checked={node.layoutGrow === 1}
-            onChange={(e) => updateNode(node.id, { layoutGrow: e.target.checked ? 1 : 0 })}
-            className={styles.checkboxInput}
-          />
-          <span className={styles.checkboxThumb} />
-        </div>
-        <span>Fill container</span>
-      </label>
-      <label className={styles.checkboxModern} style={{ marginTop: 8 }}>
-        <div className={styles.checkboxTrack}>
-          <input
-            type="checkbox"
-            checked={node.primaryAxisSizingMode === "AUTO"}
-            onChange={(e) =>
-              updateNode(node.id, {
-                primaryAxisSizingMode: e.target.checked ? "AUTO" : "FIXED",
-              })
-            }
-            className={styles.checkboxInput}
-          />
-          <span className={styles.checkboxThumb} />
-        </div>
-        <span>Hug contents</span>
-      </label>
-    </div>
+    </Section>
   );
 }
 
@@ -799,119 +776,67 @@ function SceneFillsEditor({
   };
 
   return (
-    <div className={styles.section}>
-      <div className={styles.interactionsSectionHeader}>
-        <div className={styles.label}>Fills</div>
-        <button
-          type="button"
-          className={styles.addInteractionBtn}
-          title="Add fill"
-          onClick={() => setFills([...fills, defaultSolidFill()])}
-        >
-          <Plus size={12} /> Add
-        </button>
+    <Section title="Backgrounds">
+      <div className={styles.row} style={{ marginBottom: 12 }}>
+        <div className={styles.colorPickerTabs} style={{ flex: 1, height: 32 }}>
+          {["SOLID", "GRADIENT_LINEAR", "IMAGE"].map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`${styles.colorTab} ${fills[0]?.type === t ? styles.colorTabActive : ""}`}
+              onClick={() => fills.length ? setFillType(0, t as ScenePaint["type"]) : setFills([defaultSolidFill()])}
+              style={{ fontSize: 10 }}
+            >
+              {t.replace("GRADIENT_LINEAR", "Gradient").replace("SOLID", "Solid").replace("IMAGE", "Image")}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {fills.length === 0 && <div className={styles.fillsMutedNote}>No fills — click Add or use Fill below.</div>}
-
       {fills.map((fill, i) => (
-        <div key={i} className={styles.sceneFillCard}>
-          <div className={styles.row} style={{ alignItems: "center" }}>
-            <select
-              className={styles.select}
-              value={fill.type}
-              onChange={(e) => setFillType(i, e.target.value as ScenePaint["type"])}
-            >
-              <option value="SOLID">Solid</option>
-              <option value="GRADIENT_LINEAR">Linear gradient</option>
-              <option value="GRADIENT_RADIAL">Radial gradient</option>
-              <option value="IMAGE">Image</option>
-            </select>
-            <button type="button" className={styles.interactionRemoveBtn} title="Remove fill" onClick={() => removeFill(i)}>
-              <Trash2 size={13} />
-            </button>
+        <div key={i} className={styles.sceneFillCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+          <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <span className={styles.label} style={{ textTransform: "none" }}>{fill.type.replace("_", " ").toLowerCase()}</span>
+            <button type="button" onClick={() => removeFill(i)}><Trash2 size={12} color="#666" /></button>
           </div>
 
           {fill.type === "SOLID" && (
-            <>
-              <div className={styles.row} style={{ alignItems: "center" }}>
-                <span className={styles.label} style={{ textTransform: "none" }}>
-                  Color
-                </span>
-                <SceneSwatchColorPicker
-                  value={fill.color}
-                  onChange={(v) => replaceFill(i, { ...fill, color: v })}
-                />
-              </div>
-              <div className={styles.section}>
-                <div className={styles.label}>Opacity</div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round((fill.opacity ?? 1) * 100)}
-                  onChange={(e) =>
-                    replaceFill(i, { ...fill, opacity: Number(e.target.value) / 100 })
-                  }
-                  className={styles.fillOpacityRange}
-                />
-              </div>
-            </>
+            <div className={styles.row}>
+              <SceneSwatchColorPicker value={fill.color} onChange={(v) => replaceFill(i, { ...fill, color: v })} />
+              <PropertyInput label="#" value={fill.color} onChange={(e) => replaceFill(i, { ...fill, color: e.target.value })} style={{ fontFamily: "monospace" }} />
+              <PropertyNumberInput label="%" value={Math.round((fill.opacity ?? 1) * 100)} onChange={(v) => replaceFill(i, { ...fill, opacity: v / 100 })} style={{ width: 60 }} />
+            </div>
           )}
 
           {(fill.type === "GRADIENT_LINEAR" || fill.type === "GRADIENT_RADIAL") && (
-            <>
-              <div className={styles.gradientInputs}>
-              {fill.type === "GRADIENT_LINEAR" && (
-                <div className={styles.gradientAngle}>
-                  <span>Angle</span>
-                  <NumberInput
-                    min={0}
-                    max={360}
-                    value={fill.angle ?? 90}
-                    onChange={(v) => replaceFill(i, { ...fill, angle: v })}
-                    className={styles.gradientAngleInput}
-                  />
-                </div>
-              )}
-              <div className={styles.gradientStops}>
-                <GradientStopPicker
-                  label="Start"
-                  value={fill.stops[0]?.color ?? "#5e5ce6"}
-                  onChange={(v) => {
-                    const stops = [...fill.stops];
-                    stops[0] = { position: 0, color: v };
-                    if (!stops[1]) stops[1] = { position: 1, color: "#ff6b6b" };
-                    replaceFill(i, { ...fill, stops });
-                  }}
-                />
-                <GradientStopPicker
-                  label="End"
-                  value={fill.stops[1]?.color ?? "#ff6b6b"}
-                  onChange={(v) => {
-                    const stops = [...fill.stops];
-                    if (!stops[0]) stops[0] = { position: 0, color: "#5e5ce6" };
-                    stops[1] = { position: 1, color: v };
-                    replaceFill(i, { ...fill, stops });
-                  }}
-                />
-              </div>
-              </div>
-            </>
+            <div className={styles.row}>
+              <GradientStopPicker label="S" value={fill.stops[0]?.color ?? "#5e5ce6"} onChange={(v) => {
+                const stops = [...fill.stops];
+                stops[0] = { position: 0, color: v };
+                replaceFill(i, { ...fill, stops });
+              }} />
+              <GradientStopPicker label="E" value={fill.stops[1]?.color ?? "#ff6b6b"} onChange={(v) => {
+                const stops = [...fill.stops];
+                stops[1] = { position: 1, color: v };
+                replaceFill(i, { ...fill, stops });
+              }} />
+              <PropertyNumberInput label="Angle" value={fill.angle ?? 90} onChange={(v) => replaceFill(i, { ...fill, angle: v })} />
+            </div>
           )}
 
           {fill.type === "IMAGE" && (
-            <input
-              type="text"
-              className={styles.standaloneInput}
-              placeholder="Image URL"
-              value={fill.src ?? ""}
-              onChange={(e) => replaceFill(i, { ...fill, src: e.target.value })}
-            />
+            <PropertyInput label="URL" value={fill.src ?? ""} onChange={(e) => replaceFill(i, { ...fill, src: e.target.value })} placeholder="https://..." />
           )}
         </div>
       ))}
-    </div>
+
+      {!fills.length && (
+        <button
+          className={styles.standaloneInput}
+          onClick={() => setFills([defaultSolidFill()])}
+        >+ Add Fill</button>
+      )}
+    </Section>
   );
 }
 
@@ -939,160 +864,104 @@ function SceneEffectsEditor({
     updateNode(node.id, { effects: next.length ? next : undefined });
   };
 
-  const updateEffectAt = (index: number, efx: SceneEffect) => {
-    const next = [...effects];
-    next[index] = efx;
-    setEffects(next);
-  };
-
   const removeEffect = (index: number) => {
     setEffects(effects.filter((_, i) => i !== index));
   };
 
+  const updateEffect = (index: number, eff: SceneEffect) => {
+    const next = [...effects];
+    next[index] = eff;
+    setEffects(next);
+  };
+
   return (
-    <div className={styles.section}>
-      <div className={`${styles.interactionsSectionHeader} ${styles.effectsMenuWrap}`}>
-        <div className={styles.label}>Effects</div>
-        <button
-          type="button"
-          className={styles.addInteractionBtn}
-          onClick={() => setMenuOpen((o) => !o)}
-        >
-          <Plus size={12} /> Add
-        </button>
-        {menuOpen && (
-          <div className={styles.effectsAddMenu}>
-            <button
-              type="button"
-              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
-              onClick={() => {
-                setEffects([...effects, newDropShadowEffect()]);
-                setMenuOpen(false);
-              }}
-            >
-              Drop shadow
-            </button>
-            <button
-              type="button"
-              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
-              onClick={() => {
-                setEffects([...effects, newInnerShadowEffect()]);
-                setMenuOpen(false);
-              }}
-            >
-              Inner shadow
-            </button>
-            <button
-              type="button"
-              className={`${styles.fontItem} ${styles.effectsAddMenuItem}`}
-              onClick={() => {
-                setEffects([...effects, newLayerBlurEffect()]);
-                setMenuOpen(false);
-              }}
-            >
-              Layer blur
-            </button>
-          </div>
-        )}
-      </div>
-
-      {effects.map((efx, i) => (
-        <div
-          key={i}
-          style={{
-            border: "1px solid var(--color-s-02)",
-            borderRadius: 8,
-            padding: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
-          <div className={styles.row} style={{ alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--shade-06)" }}>
-              {efx.type === "DROP_SHADOW"
-                ? "Drop shadow"
-                : efx.type === "INNER_SHADOW"
-                  ? "Inner shadow"
-                  : "Layer blur"}
-            </span>
-            <button type="button" className={styles.interactionRemoveBtn} title="Remove" onClick={() => removeEffect(i)}>
-              <Trash2 size={13} />
-            </button>
+    <Section title="Effects">
+      {effects.map((eff, i) => (
+        <div key={i} className={styles.sceneFillCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+          <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <span className={styles.label} style={{ textTransform: "none" }}>{eff.type.replace("_", " ").toLowerCase()}</span>
+            <button type="button" onClick={() => removeEffect(i)}><Trash2 size={12} color="#666" /></button>
           </div>
 
-          {(efx.type === "DROP_SHADOW" || efx.type === "INNER_SHADOW") && (
+          {(eff.type === "DROP_SHADOW" || eff.type === "INNER_SHADOW") && (
             <>
               <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>X</span>
-                  <NumberInput
-                    value={efx.offsetX}
-                    onChange={(v) => updateEffectAt(i, { ...efx, offsetX: v })}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>Y</span>
-                  <NumberInput
-                    value={efx.offsetY}
-                    onChange={(v) => updateEffectAt(i, { ...efx, offsetY: v })}
-                  />
-                </div>
+                <PropertyNumberInput label="X" value={eff.offsetX ?? 0} onChange={(v) => updateEffect(i, { ...eff, offsetX: v })} />
+                <PropertyNumberInput label="Y" value={eff.offsetY ?? 0} onChange={(v) => updateEffect(i, { ...eff, offsetY: v })} />
               </div>
-              <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>Blur</span>
-                  <NumberInput value={efx.blur} onChange={(v) => updateEffectAt(i, { ...efx, blur: v })} />
+              <div className={styles.row} style={{ marginTop: 8 }}>
+                <PropertyNumberInput label="Blur" value={eff.blur ?? 4} onChange={(v) => updateEffect(i, { ...eff, blur: v })} />
+                <div className={styles.row} style={{ background: "#0f0f0f", padding: "4px 8px", borderRadius: 6, border: "1px solid #333", flex: 1 }}>
+                  <SceneSwatchColorPicker value={eff.color ?? "#000000"} onChange={(v) => updateEffect(i, { ...eff, color: v })} />
+                  <span style={{ fontSize: 10, color: "#666", marginLeft: 4 }}>Shadow</span>
                 </div>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>Spr</span>
-                  <NumberInput
-                    value={efx.spread ?? 0}
-                    onChange={(v) => updateEffectAt(i, { ...efx, spread: v })}
-                  />
-                </div>
-              </div>
-              <div className={styles.row} style={{ alignItems: "center" }}>
-                <span className={styles.label} style={{ textTransform: "none" }}>
-                  Color
-                </span>
-                <SceneSwatchColorPicker
-                  value={efx.color}
-                  onChange={(v) => updateEffectAt(i, { ...efx, color: v })}
-                />
-              </div>
-              <div className={styles.section}>
-                <div className={styles.label}>Opacity</div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(efx.opacity * 100)}
-                  onChange={(e) =>
-                    updateEffectAt(i, { ...efx, opacity: Number(e.target.value) / 100 })
-                  }
-                  className={styles.fillOpacityRange}
-                />
               </div>
             </>
           )}
 
-          {efx.type === "LAYER_BLUR" && (
-            <div className={styles.section}>
-              <div className={styles.label}>Radius</div>
-              <input
-                type="range"
-                min={0}
-                max={64}
-                value={efx.radius}
-                onChange={(e) => updateEffectAt(i, { ...efx, radius: Number(e.target.value) })}
-                className={styles.fillOpacityRange}
-              />
-            </div>
+          {eff.type === "LAYER_BLUR" && (
+            <PropertyNumberInput label="Radius" value={eff.radius ?? 8} onChange={(v) => updateEffect(i, { ...eff, radius: v })} />
           )}
         </div>
       ))}
-    </div>
+
+      <button
+        className={styles.standaloneInput}
+        style={{ color: "#7c3aed" }}
+        onClick={() => setEffects([...effects, { type: "DROP_SHADOW", color: "#00000033", blur: 4, offsetX: 0, offsetY: 2, opacity: 0.2, spread: 0 }])}
+      >+ Add Effect</button>
+    </Section>
+  );
+}
+
+function AutoLayoutChildSection({
+  node,
+  updateNode,
+}: {
+  node: SceneNode;
+  updateNode: (id: string, p: Partial<SceneNode>) => void;
+}) {
+  return (
+    <Section title="Resizing">
+      <div className={styles.row}>
+        <div style={{ flex: 1 }}>
+          <div className={styles.label} style={{ marginBottom: 4 }}>Horizontal</div>
+          <select
+            className={styles.select}
+            value={node.layoutGrow ? "FILL" : node.primaryAxisSizingMode === "AUTO" ? "HUG" : "FIXED"}
+            onChange={(e) => {
+              const val = e.target.value;
+              updateNode(node.id, {
+                layoutGrow: val === "FILL" ? 1 : 0,
+                primaryAxisSizingMode: val === "HUG" ? "AUTO" : "FIXED",
+              });
+            }}
+          >
+            <option value="FIXED">Fixed width</option>
+            <option value="HUG">Hug contents</option>
+            <option value="FILL">Fill container</option>
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className={styles.label} style={{ marginBottom: 4 }}>Vertical</div>
+          <select
+            className={styles.select}
+            value={node.layoutAlign === "STRETCH" ? "FILL" : node.counterAxisSizingMode === "AUTO" ? "HUG" : "FIXED"}
+            onChange={(e) => {
+              const val = e.target.value;
+              updateNode(node.id, {
+                layoutAlign: val === "FILL" ? "STRETCH" : "INHERIT",
+                counterAxisSizingMode: val === "HUG" ? "AUTO" : "FIXED",
+              });
+            }}
+          >
+            <option value="FIXED">Fixed height</option>
+            <option value="HUG">Hug contents</option>
+            <option value="FILL">Fill container</option>
+          </select>
+        </div>
+      </div>
+    </Section>
   );
 }
 
@@ -1274,31 +1143,44 @@ function FigmaProperties({
 
       {isFrame && <AutoLayoutFrameSection node={node} updateNode={updateNode} />}
 
-      <div className={styles.section}>
-        <div className={styles.label}>Rotation</div>
-        <div className={styles.inputGroup}>
-          <span className={styles.inputPrefix}>deg</span>
-          <NumberInput
-            value={node.rotation ?? 0}
-            onChange={(v) => updateNode(node.id, { rotation: v })}
-          />
-        </div>
-      </div>
-
-      <div className={styles.section}>
-        <label className={styles.checkboxModern}>
-          <div className={styles.checkboxTrack}>
-            <input
-              type="checkbox"
-              checked={node.visible !== false}
-              onChange={(e) => updateNode(node.id, { visible: e.target.checked })}
-              className={styles.checkboxInput}
+        <Section title="Appearance">
+          <LayoutGrid>
+            <PropertyNumberInput
+              label="Opacity"
+              value={Math.round((node.opacity ?? 1) * 100)}
+              onChange={(v) => updateNode(node.id, { opacity: v / 100 })}
+              min={0}
+              max={100}
             />
-            <span className={styles.checkboxThumb} />
+            <PropertyNumberInput
+              label="Rotation"
+              value={Math.round(node.rotation ?? 0)}
+              onChange={(v) => updateNode(node.id, { rotation: v })}
+            />
+          </LayoutGrid>
+          <div style={{ marginTop: 12 }}>
+            <PropertyNumberInput
+              label="Corners"
+              value={(node.props?.cornerRadius as number) ?? 0}
+              onChange={(v) => updateNode(node.id, { props: { ...(node.props ?? {}), cornerRadius: v } })}
+              min={0}
+            />
           </div>
-          <span>Visible</span>
-        </label>
-      </div>
+          <div style={{ marginTop: 12 }}>
+             <label className={styles.checkboxModern}>
+              <div className={styles.checkboxTrack}>
+                <input
+                  type="checkbox"
+                  checked={node.visible !== false}
+                  onChange={(e) => updateNode(node.id, { visible: e.target.checked })}
+                  className={styles.checkboxInput}
+                />
+                <span className={styles.checkboxThumb} />
+              </div>
+              <span>Visible</span>
+            </label>
+          </div>
+        </Section>
     </>
   );
 }
@@ -1315,9 +1197,11 @@ function CanvasProperties() {
     <div className={styles.panel}>
       <div className={styles.header}>Page</div>
       <div className={styles.content}>
-        <PageColorPicker label="Background" value={canvasBg} onChange={setCanvasBg} />
+        <Section title="Background">
+          <PageColorPicker label="Color" value={canvasBg} onChange={setCanvasBg} />
+        </Section>
 
-        <div className={styles.section}>
+        <Section title="Grid">
           <label className={styles.checkboxModern}>
             <div className={styles.checkboxTrack}>
               <input
@@ -1330,28 +1214,28 @@ function CanvasProperties() {
             </div>
             <span>Show grid</span>
           </label>
-        </div>
 
-        {showGrid && (
-          <div className={styles.section}>
-            <div className={styles.label}>Grid style</div>
-            <div className={styles.gridTypeGrid}>
-              {(["dots", "lines", "cross", "none"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`${styles.gridTypeBtn} ${gridType === t ? styles.gridTypeBtnActive : ""}`}
-                  onClick={() => setGridType(t)}
-                >
-                  {t === "dots" && <span className={styles.gridPreviewDots} />}
-                  {t === "lines" && <span className={styles.gridPreviewLines} />}
-                  {t === "cross" && <span className={styles.gridPreviewCross} />}
-                  {t === "none" && "None"}
-                </button>
-              ))}
+          {showGrid && (
+            <div style={{ marginTop: 12 }}>
+              <div className={styles.label} style={{ marginBottom: 8 }}>Grid style</div>
+              <div className={styles.gridTypeGrid}>
+                {(["dots", "lines", "cross", "none"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`${styles.gridTypeBtn} ${gridType === t ? styles.gridTypeBtnActive : ""}`}
+                    onClick={() => setGridType(t)}
+                  >
+                    {t === "dots" && <span className={styles.gridPreviewDots} />}
+                    {t === "lines" && <span className={styles.gridPreviewLines} />}
+                    {t === "cross" && <span className={styles.gridPreviewCross} />}
+                    {t === "none" && "None"}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </Section>
       </div>
     </div>
   );
@@ -1845,10 +1729,11 @@ function InteractionEditor({
   };
 
   return (
-    <div className={styles.interactionCard}>
-      <div className={styles.interactionHeader}>
+    <div className={styles.interactionCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 12, border: "1px solid #333" }}>
+      <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 12 }}>
         <select
-          className={styles.triggerSelect}
+          className={styles.select}
+          style={{ width: "auto", minWidth: 120 }}
           value={interaction.trigger}
           onChange={(e) =>
             onChange({ ...interaction, trigger: e.target.value as Interaction["trigger"] })
@@ -1860,8 +1745,8 @@ function InteractionEditor({
           <option value="ON_CHANGE">On Change</option>
           <option value="ON_LOAD">On Load</option>
         </select>
-        <button type="button" className={styles.interactionRemoveBtn} onClick={onRemove} title="Remove interaction">
-          <Trash2 size={13} />
+        <button type="button" onClick={onRemove} title="Remove interaction">
+          <Trash2 size={14} color="#666" />
         </button>
       </div>
 
@@ -1877,128 +1762,83 @@ function InteractionEditor({
         ))}
       </div>
 
-      <button type="button" className={styles.addBlockBtn} onClick={addBlock}>
-        <Plus size={11} /> Add action
+      <button
+        type="button"
+        className={styles.standaloneInput}
+        style={{ marginTop: 8, fontSize: 11, background: "#0f0f0f" }}
+        onClick={addBlock}
+      >
+        <Plus size={12} style={{ marginRight: 4 }} /> Add action
       </button>
     </div>
   );
 }
 
-function InteractionsPanel({ node }: { node: SceneNode }) {
-  const { nodes, updateNode } = useEditorStore();
-  const interactions: InteractionList = (node.props?._interactions as InteractionList) ?? [];
-  const hoverPreset: HoverPreset = (node.props?._hoverPreset as HoverPreset) ?? "none";
-  const [expandedInteractionId, setExpandedInteractionId] = useState<string | null>(null);
+function InteractionsPanel({ node, updateNode }: { node: SceneNode; updateNode: (id: string, p: Partial<SceneNode>) => void }) {
+  const interactions = (node.props?.interactions as InteractionList) ?? [];
+  const hoverPreset = (node.props?.hoverPreset as HoverPreset) ?? "none";
+  const nodes = useEditorStore((s) => s.nodes);
 
-  const save = useCallback((list: InteractionList) => {
-    updateNode(node.id, { props: { ...(node.props ?? {}), _interactions: list } });
-  }, [node, updateNode]);
-
-  const setHoverPreset = useCallback((preset: HoverPreset) => {
-    updateNode(node.id, { props: { ...(node.props ?? {}), _hoverPreset: preset } });
-  }, [node, updateNode]);
+  const setInteractionsList = (list: InteractionList) => {
+    updateNode(node.id, {
+      props: {
+        ...(node.props ?? {}),
+        interactions: list,
+      },
+    });
+  };
 
   const addInteraction = () => {
-    const block: Block = {
-      id: uid(),
-      type: "NAVIGATE_TO_FRAME",
-      label: "Navigate to Frame",
-      enabled: true,
-      params: { transition: "fade" },
-    };
-    const interaction: Interaction = {
+    const next: Interaction = {
       id: uid(),
       trigger: "ON_CLICK",
-      blocks: [block],
+      blocks: [
+        { id: uid(), type: "NAVIGATE_TO_FRAME", label: "Navigate", enabled: true, params: {} }
+      ],
     };
-    save([...interactions, interaction]);
-  };
-
-  const updateInteraction = (idx: number, i: Interaction) => {
-    const list = [...interactions];
-    list[idx] = i;
-    save(list);
-  };
-
-  const removeInteraction = (idx: number) => {
-    save(interactions.filter((_, i) => i !== idx));
+    setInteractionsList([...interactions, next]);
   };
 
   return (
     <>
-      {/* Hover Presets */}
-      <div className={styles.section}>
-        <div className={styles.label} style={{ marginBottom: 6 }}>Hover Effect</div>
-        <div className={styles.hoverPresetGrid}>
-          {HOVER_PRESETS.filter((p) => p.value !== "none").map((preset) => (
-            <button
-              key={preset.value}
-              type="button"
-              title={preset.description}
-              className={`${styles.hoverPresetBtn} ${hoverPreset === preset.value ? styles.hoverPresetActive : ""}`}
-              onClick={() => setHoverPreset(hoverPreset === preset.value ? "none" : preset.value)}
-            >
-              {preset.label}
-            </button>
+      <Section title="Interactions">
+        <div className={styles.label} style={{ marginBottom: 8 }}>Hover Preset</div>
+        <select
+          className={styles.select}
+          value={hoverPreset}
+          onChange={(e) => updateNode(node.id, { props: { ...(node.props ?? {}), hoverPreset: e.target.value as HoverPreset } })}
+        >
+          {HOVER_PRESETS.map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+
+        <div style={{ marginTop: 16 }}>
+          {interactions.map((interaction, idx) => (
+            <InteractionEditor
+              key={interaction.id}
+              interaction={interaction}
+              nodes={nodes}
+              onChange={(i) => {
+                const next = [...interactions];
+                next[idx] = i;
+                setInteractionsList(next);
+              }}
+              onRemove={() => {
+                setInteractionsList(interactions.filter((_, i) => i !== idx));
+              }}
+            />
           ))}
         </div>
-      </div>
 
-      {/* Interactions */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeaderBar}>
-          <h3 className={styles.sectionHeaderLabel}>
-            <Zap size={11} aria-hidden />
-            Interactions
-          </h3>
-          <button type="button" className={styles.addInteractionBtn} onClick={addInteraction} title="Add interaction">
-            <Plus size={12} /> Add
-          </button>
-        </div>
-
-        {interactions.length === 0 && <div className={styles.interactionsEmptyNew}>No interactions</div>}
-
-        <div className={styles.interactionsList}>
-          {interactions.map((interaction, idx) => {
-            const summary =
-              interaction.blocks[0]?.label ??
-              BLOCK_TYPE_OPTIONS.find((o) => o.value === interaction.blocks[0]?.type)?.label ??
-              "Configure action";
-            const open = expandedInteractionId === interaction.id;
-            const badge = TRIGGER_LABELS[interaction.trigger] ?? interaction.trigger;
-            return (
-              <div key={interaction.id}>
-                <div className={styles.interactionSummaryRow}>
-                  <span className={styles.interactionTriggerBadge}>{badge}</span>
-                  <span className={styles.interactionArrow} aria-hidden>
-                    →
-                  </span>
-                  <span className={styles.interactionSummaryText}>{summary}</span>
-                  <button
-                    type="button"
-                    className={styles.interactionRowEdit}
-                    title="Edit interaction"
-                    onClick={() => setExpandedInteractionId(open ? null : interaction.id)}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                </div>
-                {open && (
-                  <InteractionEditor
-                    interaction={interaction}
-                    nodes={nodes}
-                    onChange={(i) => updateInteraction(idx, i)}
-                    onRemove={() => {
-                      removeInteraction(idx);
-                      setExpandedInteractionId(null);
-                    }}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+        <button
+          className={styles.standaloneInput}
+          style={{ marginTop: 8, color: "var(--accent)" }}
+          onClick={addInteraction}
+        >
+          <Plus size={12} style={{ marginRight: 4 }} /> Add Interaction
+        </button>
+      </Section>
     </>
   );
 }
@@ -2066,55 +1906,40 @@ export function PropertiesPanel() {
             </div>
           </div>
         )}
-        <div className={styles.section}>
-          <div className={styles.label}>Name</div>
+        <Section title="General">
+          <div className={styles.label} style={{ marginBottom: 8 }}>Name</div>
           <input
             type="text"
             className={styles.standaloneInput}
             value={node.name}
             onChange={(e) => updateNode(node.id, { name: e.target.value })}
           />
-        </div>
+        </Section>
 
-        <div className={styles.section}>
-          <div className={styles.label}>Position</div>
-          <div className={styles.row}>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>X</span>
-              <NumberInput
-                value={Math.round(node.x)}
-                onChange={(v) => updateNode(node.id, { x: v })}
-              />
-            </div>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>Y</span>
-              <NumberInput
-                value={Math.round(node.y)}
-                onChange={(v) => updateNode(node.id, { y: v })}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <div className={styles.label}>Size</div>
-          <div className={styles.row}>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>W</span>
-              <NumberInput
-                value={Math.round(node.width)}
-                onChange={(v) => updateNode(node.id, { width: v })}
-              />
-            </div>
-            <div className={styles.inputGroup}>
-              <span className={styles.inputPrefix}>H</span>
-              <NumberInput
-                value={Math.round(node.height)}
-                onChange={(v) => updateNode(node.id, { height: v })}
-              />
-            </div>
-          </div>
-        </div>
+        <Section title="Layout">
+          <LayoutGrid>
+            <PropertyNumberInput
+              label="X"
+              value={Math.round(node.x)}
+              onChange={(v) => updateNode(node.id, { x: v })}
+            />
+            <PropertyNumberInput
+              label="Y"
+              value={Math.round(node.y)}
+              onChange={(v) => updateNode(node.id, { y: v })}
+            />
+            <PropertyNumberInput
+              label="W"
+              value={Math.round(node.width)}
+              onChange={(v) => updateNode(node.id, { width: v })}
+            />
+            <PropertyNumberInput
+              label="H"
+              value={Math.round(node.height)}
+              onChange={(v) => updateNode(node.id, { height: v })}
+            />
+          </LayoutGrid>
+        </Section>
 
         {node.parentId &&
           (() => {
@@ -2127,7 +1952,7 @@ export function PropertiesPanel() {
         {node.parentId &&
           (() => {
             const p = findNode(nodes, node.parentId!);
-            return p ? <AutoLayoutChildSection node={node} parent={p} updateNode={updateNode} /> : null;
+            return p ? <AutoLayoutChildSection node={node} updateNode={updateNode} /> : null;
           })()}
 
         {(node.type === "FRAME" || node.type === "CONTAINER") && (
@@ -2136,18 +1961,18 @@ export function PropertiesPanel() {
 
         {(node.type === "TEXT" || node.name === "Label") && (
           <>
-            <div className={styles.section}>
-              <div className={styles.label}>Content</div>
+            <Section title="Text">
+              <div className={styles.label} style={{ marginBottom: 8 }}>Content</div>
               <textarea
                 className={styles.contentTextarea}
+                style={{ background: "#1a1a1a", border: "1px solid #333", color: "#fff" }}
                 value={(props.content as string) ?? ""}
                 onChange={(e) => updateProps(node, updateNode, "content", e.target.value)}
                 placeholder="Text content"
                 rows={3}
               />
-            </div>
-            <div className={styles.section}>
-              <div className={styles.label}>Typography</div>
+
+              <div className={styles.label} style={{ margin: "12px 0 8px" }}>Typography</div>
               <FontSelector
                 value={(props.fontFamily as string) ?? "Inter"}
                 onChange={(v) => {
@@ -2155,41 +1980,61 @@ export function PropertiesPanel() {
                   updateProps(node, updateNode, "fontFamily", v);
                 }}
               />
-              <div className={styles.row} style={{ marginTop: 4 }}>
-                <div className={styles.inputGroup}>
-                  <span className={styles.inputPrefix}>Size</span>
-                  <NumberInput
-                    value={(props.fontSize as number) ?? 14}
-                    onChange={(v) => updateProps(node, updateNode, "fontSize", v)}
-                  />
-                </div>
+              <LayoutGrid>
                 <select
                   value={(props.fontWeight as string) ?? "normal"}
                   onChange={(e) => updateProps(node, updateNode, "fontWeight", e.target.value)}
                   className={styles.select}
+                  style={{ marginTop: 8 }}
                 >
                   <option value="normal">Regular</option>
                   <option value="medium">Medium</option>
                   <option value="bold">Bold</option>
                 </select>
-              </div>
-              <div className={styles.row} style={{ marginTop: 4 }}>
-                <select
+                <PropertyNumberInput
+                  label="Size"
+                  style={{ marginTop: 8 }}
+                  value={(props.fontSize as number) ?? 14}
+                  onChange={(v) => updateProps(node, updateNode, "fontSize", v)}
+                />
+              </LayoutGrid>
+              <LayoutGrid>
+                <PropertyNumberInput
+                  label="L-S"
+                  style={{ marginTop: 8 }}
+                  title="Letter Spacing"
+                  value={(props.letterSpacing as number) ?? 0}
+                  onChange={(v) => updateProps(node, updateNode, "letterSpacing", v)}
+                />
+                <PropertyInput
+                  label="L-H"
+                  style={{ marginTop: 8 }}
+                  title="Line Height"
+                  value={String((props.lineHeight as string | number) ?? "auto")}
+                  onChange={(e) => updateProps(node, updateNode, "lineHeight", e.target.value)}
+                />
+              </LayoutGrid>
+              <div className={styles.row} style={{ marginTop: 8 }}>
+                 <select
                   value={(props.textAlign as string) ?? "left"}
                   onChange={(e) => updateProps(node, updateNode, "textAlign", e.target.value)}
                   className={styles.select}
                 >
-                  <option value="left">Align Left</option>
+                  <option value="left">Left</option>
                   <option value="center">Center</option>
                   <option value="right">Right</option>
                 </select>
+                <div className={styles.row} style={{ background: "#1a1a1a", padding: "4px 8px", borderRadius: 6, border: "1px solid #333", flex: 1 }}>
+                  <SceneSwatchColorPicker
+                    value={(props.color as string) ?? "#ffffff"}
+                    onChange={(v) => updateProps(node, updateNode, "color", v)}
+                  />
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#888", marginLeft: 4 }}>
+                    {(props.color as string ?? "#ffffff").toUpperCase()}
+                  </span>
+                </div>
               </div>
-            </div>
-            <ColorRow
-              label="Text color"
-              value={(props.color as string) ?? "#ffffff"}
-              onChange={(v) => updateProps(node, updateNode, "color", v)}
-            />
+            </Section>
           </>
         )}
 
@@ -2386,7 +2231,7 @@ export function PropertiesPanel() {
 
         <PrototypeSection node={node} updateNode={updateNode} />
 
-        <InteractionsPanel node={node} />
+        <InteractionsPanel node={node} updateNode={updateNode} />
       </div>
     </div>
   );
