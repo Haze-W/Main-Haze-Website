@@ -1348,8 +1348,8 @@ function CanvasProperties() {
           </label>
 
           {showGrid && (
-            <div style={{ marginTop: 12 }}>
-              <div className={styles.label} style={{ marginBottom: 8 }}>Grid style</div>
+            <div className={styles.gridMechanism} style={{ marginTop: 12 }}>
+              <div className={styles.label}>Grid style</div>
               <div className={styles.gridTypeGrid}>
                 {(["dots", "lines", "cross", "none"] as const).map((t) => (
                   <button
