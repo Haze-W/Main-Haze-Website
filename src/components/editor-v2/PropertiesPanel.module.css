@@ -5,9 +5,14 @@
 .panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background-color: #0f0f0f; /* Premium dark charcoal */
-  color: #ffffff;
+  height: auto; /* As per request */
+  max-height: 100%;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f3f7 100%); /* Light premium gradient */
+  color: #1a1a1a;
+  border-radius: 12px;
+  margin: 12px; /* Add some margin for the rounded corners to be visible if parent allows */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
 .header {
@@ -17,10 +22,10 @@
   height: 44px;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #ffffff;
-  border-bottom: 1px solid #1f1f1f;
+  color: #1a1a1a;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
   flex-shrink: 0;
-  background-color: #0f0f0f;
+  background: transparent;
 }
 
 .empty {
@@ -67,8 +72,8 @@
 
 .label {
   font-size: 0.75rem;
-  font-weight: 700; /* Bold as per request */
-  color: #888888;
+  font-weight: 700;
+  color: #666666; /* Slightly darker for readability on light */
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding-left: 2px;
@@ -83,8 +88,8 @@
 .inputGroup {
   display: flex;
   align-items: center;
-  background: #1a1a1a;
-  border: 1px solid #333333;
+  background: #ffffff;
+  border: 1px solid #dddddd;
   border-radius: 6px;
   transition: all var(--transition-fast);
   overflow: hidden;
@@ -110,7 +115,8 @@
   width: 100%;
   padding: 6px 8px;
   font-size: 0.8125rem;
-  color: #ffffff;
+  color: #000000 !important; /* Bold black text as requested */
+  font-weight: 700;
   background: transparent;
   border: none;
   outline: none;
@@ -120,9 +126,10 @@
   width: 100%;
   padding: 8px 10px;
   font-size: 0.8125rem;
-  color: #ffffff;
-  background: #1a1a1a;
-  border: 1px solid #333333;
+  color: #000000 !important;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid #dddddd;
   border-radius: 6px;
   transition: all var(--transition-fast);
   outline: none;
@@ -139,9 +146,10 @@
   padding: 8px 10px;
   font-size: 0.8125rem;
   font-family: inherit;
-  color: var(--shade-09);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: #000000;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid #dddddd;
   border-radius: 8px;
   outline: none;
   resize: vertical;
@@ -159,16 +167,16 @@
   flex: 1;
   padding: 6px 28px 6px 10px;
   font-size: 0.8125rem;
-  font-weight: 500;
-  color: #ffffff;
-  background: #1a1a1a;
-  border: 1px solid #333333;
+  font-weight: 700;
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #dddddd;
   border-radius: 6px;
   outline: none;
   transition: all var(--transition-fast);
   appearance: none;
   /* Solid arrow */
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 5 5-5z' fill='%23888888'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 5 5-5z' fill='%23000000'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }

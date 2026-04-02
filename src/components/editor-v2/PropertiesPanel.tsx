@@ -1965,7 +1965,6 @@ export function PropertiesPanel() {
               <div className={styles.label} style={{ marginBottom: 8 }}>Content</div>
               <textarea
                 className={styles.contentTextarea}
-                style={{ background: "#1a1a1a", border: "1px solid #333", color: "#fff" }}
                 value={(props.content as string) ?? ""}
                 onChange={(e) => updateProps(node, updateNode, "content", e.target.value)}
                 placeholder="Text content"
@@ -2024,12 +2023,12 @@ export function PropertiesPanel() {
                   <option value="center">Center</option>
                   <option value="right">Right</option>
                 </select>
-                <div className={styles.row} style={{ background: "#1a1a1a", padding: "4px 8px", borderRadius: 6, border: "1px solid #333", flex: 1 }}>
+                <div className={styles.row} style={{ background: "rgba(0,0,0,0.04)", padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.08)", flex: 1 }}>
                   <SceneSwatchColorPicker
                     value={(props.color as string) ?? "#ffffff"}
                     onChange={(v) => updateProps(node, updateNode, "color", v)}
                   />
-                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#888", marginLeft: 4 }}>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#666", marginLeft: 4 }}>
                     {(props.color as string ?? "#ffffff").toUpperCase()}
                   </span>
                 </div>
