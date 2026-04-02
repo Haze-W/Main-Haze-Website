@@ -7,12 +7,35 @@
   flex-direction: column;
   height: auto; /* As per request */
   max-height: 100%;
-  background: linear-gradient(180deg, #ffffff 0%, #f3f3f7 100%); /* Light premium gradient */
-  color: #1a1a1a;
+  background: var(--panel-bg);
+  color: var(--panel-text);
   border-radius: 12px;
-  margin: 12px; /* Add some margin for the rounded corners to be visible if parent allows */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  margin: 12px;
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
+
+  /* Theme Defaults (Dark) */
+  --panel-bg: #1a1a1c;
+  --panel-text: #f5f5f7;
+  --panel-section-border: 1px solid #33333e;
+  --inner-bg: rgba(46, 46, 48, 0.4);
+  --inner-border: 1px solid rgba(255, 255, 255, 0.1);
+  --inner-shadow: none;
+  --inner-blur: blur(20px);
+  --panel-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --hex-row-bg: #1f1f1f;
+}
+
+:global([data-editor-theme="light"]) .panel {
+  --panel-bg: linear-gradient(180deg, #ffffff 0%, #f3f3f7 100%);
+  --panel-text: #1a1a1a;
+  --panel-section-border: 1px solid #e2e2e2;
+  --inner-bg: #ffffff;
+  --inner-border: 1px solid #dddddd;
+  --inner-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --inner-blur: none;
+  --panel-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --hex-row-bg: #ffffff;
 }
 
 .header {
@@ -22,8 +45,8 @@
   height: 44px;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #1a1a1a;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  color: var(--panel-text);
+  border-bottom: var(--panel-section-border);
   flex-shrink: 0;
   background: transparent;
 }
@@ -57,7 +80,7 @@
   display: flex;
   flex-direction: column;
   padding: var(--space-4);
-  border-bottom: 1px solid #a9a9a9;
+  border-bottom: var(--panel-section-border);
   gap: var(--space-2);
 }
 
@@ -73,7 +96,8 @@
 .label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #666666; /* Slightly darker for readability on light */
+  color: var(--panel-text); /* Theme aware */
+  opacity: 0.7;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding-left: 2px;
@@ -88,8 +112,8 @@
 .inputGroup {
   display: flex;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dddddd;
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 6px;
   transition: all var(--transition-fast);
   overflow: hidden;
@@ -126,10 +150,10 @@
   width: 100%;
   padding: 8px 10px;
   font-size: 0.8125rem;
-  color: #000000 !important;
+  color: var(--panel-text);
   font-weight: 700;
-  background: #ffffff;
-  border: 1px solid #dddddd;
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 6px;
   transition: all var(--transition-fast);
   outline: none;
@@ -146,10 +170,10 @@
   padding: 8px 10px;
   font-size: 0.8125rem;
   font-family: inherit;
-  color: #000000;
+  color: var(--panel-text);
   font-weight: 600;
-  background: #ffffff;
-  border: 1px solid #dddddd;
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   outline: none;
   resize: vertical;
@@ -164,19 +188,19 @@
 }
 
 .select {
-  flex: 1;
-  padding: 6px 28px 6px 10px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #000000;
-  background: #ffffff;
-  border: 1px solid #dddddd;
+  width: 100%;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: var(--inner-border);
   border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--panel-text);
   outline: none;
-  transition: all var(--transition-fast);
+  cursor: pointer;
+  box-shadow: var(--inner-shadow);
   appearance: none;
-  /* Solid arrow */
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 5 5-5z' fill='%23000000'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 5 5-5z' fill='%23888888'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
@@ -191,7 +215,7 @@
   align-items: center;
   gap: var(--space-2);
   font-size: 0.8125rem;
-  color: var(--shade-09);
+  color: var(--panel-text);
   cursor: pointer;
   user-select: none;
   padding: 4px 2px;
@@ -201,8 +225,8 @@
   appearance: none;
   width: 16px;
   height: 16px;
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 6px;
   cursor: pointer;
   position: relative;
@@ -242,8 +266,8 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  background: #1a1a1a;
-  border: 1px dashed #333333;
+  background: var(--inner-bg);
+  border: 1px dashed var(--panel-text);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -255,7 +279,7 @@
 .spacingOuter {
   position: absolute;
   inset: 12px;
-  border: 1px dashed #444444;
+  border: 1px dashed var(--panel-text);
   border-radius: 4px;
   pointer-events: none;
 }
@@ -263,8 +287,8 @@
 .spacingInner {
   width: 100%;
   height: 100%;
-  background: #252528;
-  border: 1px solid #333333;
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -275,7 +299,7 @@
 .spacingLink {
   width: 32px;
   height: 32px;
-  background: #7c3aed;
+  background: var(--accent);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -289,16 +313,16 @@
   position: absolute;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #888888;
-  background: #0f0f0f;
+  color: var(--panel-text);
+  background: var(--panel-bg);
   padding: 2px 4px;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .spacingValue:hover {
-  color: #ffffff;
-  background: #333333;
+  color: var(--panel-text);
+  background: var(--inner-bg);
 }
 
 .spacingT { top: -10px; left: 50%; transform: translateX(-50%); }
@@ -312,7 +336,7 @@
   min-width: 24px;
   min-height: 24px;
   border-radius: 50%; /* Circle swatch */
-  border: 1px solid #333333;
+  border: var(--inner-border);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
@@ -341,7 +365,7 @@
   padding: 4px 8px;
   font-size: 0.8125rem;
   font-family: var(--font-mono);
-  color: var(--shade-09);
+  color: var(--panel-text);
   background: transparent;
   border: none;
   outline: none;
@@ -353,7 +377,7 @@
   align-items: center;
   gap: 10px;
   font-size: 0.8125rem;
-  color: var(--shade-09);
+  color: var(--panel-text);
   cursor: pointer;
   user-select: none;
 }
@@ -362,8 +386,8 @@
   position: relative;
   width: 36px;
   height: 20px;
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 10px;
   transition: background 0.2s ease;
 }
@@ -381,7 +405,7 @@
   left: 2px;
   width: 16px;
   height: 16px;
-  background: var(--surface-01);
+  background: var(--panel-text);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
@@ -410,17 +434,16 @@
   padding: 8px 6px;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.12s ease;
 }
 
 .gridTypeBtn:hover {
-  background: var(--shade-07_05);
-  color: var(--shade-09);
+  background: var(--panel-bg);
 }
 
 .gridTypeBtnActive {
@@ -439,29 +462,29 @@
 }
 
 .gridPreviewDots {
-  background-image: radial-gradient(circle, var(--shade-06) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--panel-text) 1px, transparent 1px);
 }
 
 .gridPreviewLines {
   background-image:
-    linear-gradient(var(--shade-06) 1px, transparent 1px),
-    linear-gradient(90deg, var(--shade-06) 1px, transparent 1px);
+    linear-gradient(var(--panel-text) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel-text) 1px, transparent 1px);
 }
 
 .gridPreviewCross {
   background-image:
-    radial-gradient(circle at center, var(--shade-06) 1px, transparent 1px),
-    linear-gradient(var(--shade-06_30) 1px, transparent 1px),
-    linear-gradient(90deg, var(--shade-06_30) 1px, transparent 1px);
+    radial-gradient(circle at center, var(--panel-text) 1px, transparent 1px),
+    linear-gradient(var(--panel-text) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel-text) 1px, transparent 1px);
 }
 
 /* ── Modern color picker (Page background) ─────────────────── */
 .colorPickerModern {
-  background: #1a1a1a; /* Gray like top buttons */
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--panel-shadow);
   margin-top: 4px;
 }
 
@@ -471,11 +494,14 @@
 
 .colorPickerTabs {
   display: flex;
-  background: #000000;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: var(--inner-border);
   margin: 8px;
   padding: 3px;
   border-radius: 10px;
   gap: 2px;
+  box-shadow: var(--inner-shadow);
 }
 
 .colorTab {
@@ -486,7 +512,7 @@
   padding: 6px 4px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #888888;
+  color: var(--panel-text);
   background: transparent;
   border: none;
   border-radius: 7px;
@@ -495,9 +521,10 @@
 }
 
 .colorTabActive {
-  color: #ffffff !important;
-  background: #2a2a2e !important; /* Lighter gray for distinction */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: var(--panel-text) !important;
+  background: var(--panel-bg) !important; 
+  box-shadow: var(--inner-shadow);
+  backdrop-filter: var(--inner-blur);
 }
 
 .colorSolidRow {
@@ -513,7 +540,7 @@
   height: 32px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--color-s-02);
+  border: var(--inner-border);
   flex-shrink: 0;
 }
 
@@ -530,16 +557,39 @@
   pointer-events: none;
 }
 
+.staticValueText {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
+  border-radius: 6px;
+}
+
+.swatchWrapper {
+  display: flex;
+  align-items: center;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: var(--inner-border);
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex: 1;
+  gap: 4px;
+}
+
 .colorHexInput {
   flex: 1;
   padding: 6px 10px;
   font-size: 0.75rem;
   font-family: var(--font-mono);
-  color: #ffffff;
-  background: #000000;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 6px;
+  color: var(--panel-text);
+  background: transparent;
+  border: none;
   outline: none;
+  max-width: 120px;
 }
 
 .directImagePicker {
@@ -552,31 +602,37 @@
 .imagePickerLabel {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #888888;
+  color: var(--panel-text);
   margin-bottom: -4px;
 }
 
 .imagePickerSelected {
-  color: #ffffff !important;
+  color: var(--panel-text) !important;
   font-weight: 700;
 }
 
-.imageUploadBtnGray {
-  width: 32px;
-  height: 32px;
-  background: #3a3a3e !important; /* Gray like buttons */
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
+.imagePickerBtn {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  gap: 12px;
+  width: 100%;
+  height: 120px;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: 1px dashed var(--panel-text);
+  border-radius: 12px;
+  color: var(--panel-text);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  box-shadow: var(--inner-shadow);
+  opacity: 0.8;
 }
 
-.imageUploadBtnGray:hover {
-  background: #4a4a4e !important;
+.imagePickerBtn:hover {
+  background: var(--panel-bg);
+  opacity: 1;
 }
 
 .colorGradientRow {
@@ -599,7 +655,7 @@
   gap: 10px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #888888;
+  color: var(--panel-text);
   padding: 0 12px;
 }
 
@@ -617,9 +673,10 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--panel-text);
   position: relative;
-  background: #1a1a1a;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
 }
 
 .anglePickerHand {
@@ -639,7 +696,7 @@
   left: 50%;
   width: 8px;
   height: 8px;
-  background: #ffffff;
+  background: var(--panel-text);
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
@@ -647,7 +704,7 @@
 .gradientAngleValue {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--panel-text);
   min-width: 44px;
   text-align: right;
 }
@@ -664,7 +721,7 @@
   flex-direction: column;
   gap: 8px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: var(--inner-border);
 }
 
 .gradientStopInline:last-child {
@@ -680,7 +737,7 @@
 .gradientStopLabel {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
+  color: var(--panel-text);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   min-width: 32px;
@@ -691,7 +748,7 @@
   height: 36px;
   min-width: 36px;
   border-radius: 10px;
-  border: 1px solid var(--color-s-02);
+  border: var(--inner-border);
   cursor: pointer;
   padding: 0;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -706,16 +763,17 @@
   padding: 8px 16px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: white;
-  background: #3a3a3e;
-  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease;
+  box-shadow: var(--inner-shadow);
 }
 
 .gradientApplyBtn:hover {
-  background: #4a4a4e;
+  background: var(--panel-bg);
 }
 
 .colorImageRow {
@@ -729,9 +787,9 @@
   flex: 1;
   padding: 8px 10px;
   font-size: 0.8125rem;
-  color: var(--shade-09);
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   outline: none;
 }
@@ -748,16 +806,16 @@
   padding: 8px 14px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--shade-09);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.12s ease;
 }
 
 .colorUploadBtn:hover {
-  background: var(--shade-07_05);
+  background: var(--panel-bg);
 }
 
 /* ── Font Selector ────────────────────────────────────────── */
@@ -769,16 +827,16 @@
   padding: 8px 10px;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--shade-09);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .fontSelectorBtn:hover {
-  border-color: var(--shade-06);
+  border-color: var(--panel-text);
 }
 
 .fontSelectorLabel {
@@ -789,7 +847,7 @@
 
 .fontSelectorArrow {
   font-size: 10px;
-  color: var(--shade-06);
+  color: var(--panel-text);
   flex-shrink: 0;
   margin-left: 8px;
 }
@@ -801,10 +859,10 @@
   right: 0;
   z-index: 1000;
   margin-top: 4px;
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 12px;
-  box-shadow: var(--box-shadow-popover);
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
   animation: popIn var(--transition-fast) forwards;
 }
@@ -814,15 +872,16 @@
   padding: 8px 10px;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--shade-09);
-  background: var(--surface-01);
+  color: var(--panel-text);
+  background: var(--panel-bg);
   border: none;
-  border-bottom: 1px solid var(--color-s-01);
+  border-bottom: var(--inner-border);
   outline: none;
 }
 
 .fontSearchInput::placeholder {
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
 }
 
 .fontList {
@@ -838,7 +897,7 @@
   text-align: left;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--shade-09);
+  color: var(--panel-text);
   background: none;
   border: none;
   border-radius: 8px;
@@ -851,7 +910,7 @@
 }
 
 .fontItem:hover {
-  background: var(--shade-07_05);
+  background: var(--inner-bg);
 }
 
 .fontItemActive {
@@ -863,7 +922,8 @@
   padding: 12px;
   text-align: center;
   font-size: 0.75rem;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -898,10 +958,11 @@
 
 .interactionsEmpty {
   font-size: 0.75rem;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   padding: 12px;
   text-align: center;
-  border: 1px dashed var(--color-s-02);
+  border: 1px dashed var(--panel-text);
   border-radius: 8px;
   line-height: 1.5;
 }
@@ -910,11 +971,11 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px;
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
-  border-radius: 10px;
-  margin-bottom: 6px;
+  padding: 12px;
+  background: var(--inner-bg);
+  border: var(--inner-border);
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 
 .interactionHeader {
@@ -928,9 +989,9 @@
   padding: 6px 8px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--shade-09);
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -941,7 +1002,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: var(--shade-06);
+  color: var(--panel-text);
   background: none;
   border: none;
   border-radius: 6px;
@@ -950,7 +1011,7 @@
 }
 
 .interactionRemoveBtn:hover {
-  color: var(--error);
+  color: #ff453a;
   background: rgba(255, 69, 58, 0.1);
 }
 
@@ -965,8 +1026,8 @@
   flex-direction: column;
   gap: 4px;
   padding: 6px;
-  background: var(--surface-02);
-  border: 1px solid var(--color-s-01);
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 8px;
 }
 
@@ -980,9 +1041,9 @@
   flex: 1;
   padding: 4px 8px;
   font-size: 0.75rem;
-  color: var(--shade-09);
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -993,7 +1054,7 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--shade-06);
+  color: var(--panel-text);
   background: none;
   border: none;
   border-radius: 4px;
@@ -1002,7 +1063,7 @@
 }
 
 .blockRemoveBtn:hover {
-  color: var(--error);
+  color: #ff453a;
   background: rgba(255, 69, 58, 0.1);
 }
 
@@ -1015,7 +1076,8 @@
 .blockParamLabel {
   font-size: 0.625rem;
   font-weight: 600;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1025,9 +1087,9 @@
   width: 100%;
   padding: 6px 8px;
   font-size: 0.75rem;
-  color: var(--shade-09);
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 6px;
   outline: none;
 }
@@ -1038,7 +1100,8 @@
 }
 
 .blockParamInput::placeholder {
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
 }
 
 .addBlockBtn {
@@ -1047,7 +1110,8 @@
   gap: 3px;
   padding: 3px 0;
   font-size: 0.6875rem;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   background: none;
   border: none;
   cursor: pointer;
@@ -1070,9 +1134,9 @@
   padding: 6px 12px;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1083,9 +1147,7 @@
 }
 
 .hoverPresetBtn:hover {
-  background: var(--shade-07_05);
-  color: var(--shade-09);
-  border-color: var(--color-s-02);
+  background: var(--panel-bg);
 }
 
 .hoverPresetActive {
@@ -1119,13 +1181,14 @@
 }
 
 .autoLayoutAddBtn:hover {
-  background: var(--shade-07_05);
+  background: var(--inner-bg);
 }
 
 .autoLayoutMiniLabel {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   min-width: 64px;
@@ -1134,7 +1197,8 @@
 .autoLayoutSubLabel {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 10px;
@@ -1153,17 +1217,16 @@
   width: 36px;
   height: 32px;
   padding: 0;
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
-  color: var(--shade-08);
+  color: var(--panel-text);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .directionIconBtn:hover {
   border-color: var(--accent);
-  color: var(--shade-09);
 }
 
 .directionIconBtnActive {
@@ -1185,9 +1248,9 @@
   aspect-ratio: 1;
   min-height: 28px;
   padding: 0;
-  border: 1px solid var(--color-s-02);
+  border: var(--inner-border);
   border-radius: 4px;
-  background: var(--surface-03);
+  background: var(--inner-bg);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -1208,9 +1271,9 @@
   padding: 6px 10px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--shade-08);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1232,7 +1295,7 @@
   gap: 8px;
   margin-top: 10px;
   font-size: 0.8125rem;
-  color: var(--shade-09);
+  color: var(--panel-text);
   cursor: pointer;
   user-select: none;
 }
@@ -1246,16 +1309,17 @@
   width: 100%;
   padding: 8px;
   font-size: 0.75rem;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   background: transparent;
-  border: 1px solid var(--color-s-02);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
 }
 
 .clearAutoLayoutBtn:hover {
-  color: var(--shade-09);
-  border-color: var(--shade-06);
+  color: var(--panel-text);
+  border-color: var(--panel-text);
 }
 
 /* ── Master component / instance banners ───────────────────── */
@@ -1276,7 +1340,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #c4b5fd;
+  color: var(--accent);
 }
 
 .componentInstanceBanner {
@@ -1285,14 +1349,14 @@
   gap: 8px;
   padding: 10px 12px;
   margin-bottom: var(--space-2);
-  background: var(--surface-03);
-  border: 1px solid var(--color-s-02);
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 10px;
 }
 
 .componentInstanceTitle {
   font-size: 0.8125rem;
-  color: var(--shade-09);
+  color: var(--panel-text);
 }
 
 .componentInstanceTitle strong {
@@ -1310,9 +1374,9 @@
   padding: 6px 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--shade-09);
-  background: var(--surface-01);
-  border: 1px solid var(--color-s-02);
+  color: var(--panel-text);
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -1332,7 +1396,8 @@
 .constraintSubLabel {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--shade-06);
+  color: var(--panel-text);
+  opacity: 0.5;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 4px;
@@ -1360,17 +1425,17 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid var(--color-s-02);
+  border: var(--inner-border);
   border-radius: 8px;
-  background: var(--surface-03);
-  color: var(--shade-09);
+  background: var(--inner-bg);
+  color: var(--panel-text);
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 .constraintIconBtn:hover {
   border-color: var(--accent);
-  background: var(--shade-07_05);
+  background: var(--panel-bg);
 }
 
 .constraintIconBtnActive {
@@ -1382,19 +1447,16 @@
 /* —— Compact property inputs (Figma-style) —— */
 .compactNumInput {
   width: 100%;
-  height: 32px;
-  box-sizing: border-box;
-  padding: 0 8px;
-  font-size: 0.75rem;
-  color: #f4f4f5;
-  background: #1e1e22;
-  border: 1px solid #2e2e36;
-  border-radius: 4px;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--panel-text);
   outline: none;
 }
 
 .compactNumInput:focus {
-  border-color: #3b82f6;
+  border-color: var(--accent);
 }
 
 .inputPairGrid {
@@ -1460,14 +1522,16 @@
 }
 
 .sceneFillCard {
-  border: 1px solid #2e2e36;
+  border: var(--inner-border);
   border-radius: 8px;
-  padding: 8px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
-  background: rgba(30, 30, 34, 0.35);
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  box-shadow: var(--inner-shadow);
 }
 
 .sceneFillTypeTabs {
@@ -1480,17 +1544,19 @@
   padding: 4px 8px;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #71717a;
-  background: #1a1a1a;
-  border: 1px solid #2e2e36;
+  color: var(--panel-text);
+  opacity: 0.7;
+  background: var(--inner-bg);
+  border: var(--inner-border);
   border-radius: 999px;
   cursor: pointer;
 }
 
 .sceneFillTypeTabActive {
-  color: #f4f4f5;
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  opacity: 1;
 }
 
 .fillOpacityRange {
@@ -1503,15 +1569,15 @@
   top: 100%;
   z-index: 20;
   margin-top: 4px;
-  background: #1a1a1e;
-  border: 1px solid #2e2e36;
+  background: var(--panel-bg);
+  border: var(--inner-border);
   border-radius: 8px;
   padding: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 140px;
-  box-shadow: var(--box-shadow-popover);
+  box-shadow: var(--panel-shadow);
 }
 
 .effectsAddMenuItem {
@@ -1523,14 +1589,16 @@
 }
 
 .effectRowCompact {
-  border: 1px solid #2e2e36;
+  border: var(--inner-border);
   border-radius: 8px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 8px;
-  background: rgba(30, 30, 34, 0.35);
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  box-shadow: var(--inner-shadow);
 }
 
 .effectRowHead {
@@ -1557,9 +1625,11 @@
   gap: 8px;
   padding: 6px 8px;
   border-radius: 8px;
-  background: #1e1e22;
-  border: 1px solid #2e2e36;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: var(--inner-border);
   position: relative;
+  box-shadow: var(--inner-shadow);
 }
 
 .interactionSummaryRow:hover {
@@ -1571,8 +1641,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #e4e4e7;
-  background: #27272a;
+  color: var(--panel-text);
+  background: var(--panel-bg);
   padding: 4px 8px;
   border-radius: 999px;
   flex-shrink: 0;
@@ -1632,14 +1702,17 @@
   min-width: 20px !important;
   min-height: 20px !important;
   border-radius: 6px;
-  border: 1px solid #2e2e36;
+  border: var(--inner-border);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
 }
 
 .gridMechanism {
-  background: #212121;
+  background: var(--inner-bg);
+  backdrop-filter: var(--inner-blur);
+  border: var(--inner-border);
+  box-shadow: var(--inner-shadow);
   padding: 13px;
   border-radius: 12px;
   display: flex;
@@ -1648,14 +1721,28 @@
 }
 
 .gridMechanism .label {
-  color: #ffffff !important;
+  color: var(--panel-text) !important;
   font-weight: 600;
 }
 
-.gridMechanism .gridTypeBtnActive {
-  background: #333333 !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+.gridTypeBtn {
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--inner-bg);
+  border: var(--inner-border);
+  color: var(--panel-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--inner-shadow);
+}
+
+.gridTypeBtnActive {
+  background: var(--panel-bg) !important;
+  color: var(--panel-text) !important;
+  border-color: var(--panel-text) !important;
 }
 
 .gridMechanism .gridTypeBtn {
@@ -1676,7 +1763,7 @@
   border-radius: 8px;
   cursor: crosshair;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: var(--inner-border);
 }
 
 .staticSvCursor {
@@ -1721,12 +1808,13 @@
 .staticHexRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #000;
-  padding: 8px;
+  gap: 8px;
+  background: var(--hex-row-bg);
+  border: var(--inner-border);
+  padding: 4px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
 }
+
 .gridPreviewNone {
   width: 14px;
   height: 14px;

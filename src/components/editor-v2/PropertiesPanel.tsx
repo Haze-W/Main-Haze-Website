@@ -147,7 +147,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader} onClick={() => setOpen(!open)}>
-        <span style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.2s", fontSize: 10, display: "flex", alignItems: "center", color: "#666" }}>▼</span>
+        <span style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.2s", fontSize: 10, display: "flex", alignItems: "center" }}>▼</span>
         <span className={styles.label}>{title}</span>
       </div>
       {open && <div className={styles.sectionContent}>{children}</div>}
@@ -341,7 +341,7 @@ function AutoLayoutFrameSection({
           <button
             type="button"
             className={styles.clearAutoLayoutBtn}
-            style={{ marginTop: 12, fontSize: 11, color: "#ff453a" }}
+            style={{ marginTop: 12, fontSize: 11 }}
             onClick={() => updateNode(node.id, { layoutMode: "NONE" })}
           >
             Remove auto layout
@@ -967,10 +967,10 @@ function SceneFillsEditor({
       </div>
 
       {fills.map((fill, i) => (
-        <div key={i} className={styles.sceneFillCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+        <div key={i} className={styles.sceneFillCard}>
           <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 8 }}>
             <span className={styles.label} style={{ textTransform: "none" }}>{fill.type.replace("_", " ").toLowerCase()}</span>
-            <button type="button" onClick={() => removeFill(i)}><Trash2 size={12} color="#666" /></button>
+            <button type="button" onClick={() => removeFill(i)}><Trash2 size={12} /></button>
           </div>
 
           {fill.type === "SOLID" && (
@@ -1050,10 +1050,10 @@ function SceneEffectsEditor({
   return (
     <Section title="Effects">
       {effects.map((eff, i) => (
-        <div key={i} className={styles.sceneFillCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+        <div key={i} className={styles.sceneFillCard}>
           <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 8 }}>
             <span className={styles.label} style={{ textTransform: "none" }}>{eff.type.replace("_", " ").toLowerCase()}</span>
-            <button type="button" onClick={() => removeEffect(i)}><Trash2 size={12} color="#666" /></button>
+            <button type="button" onClick={() => removeEffect(i)}><Trash2 size={12} /></button>
           </div>
 
           {(eff.type === "DROP_SHADOW" || eff.type === "INNER_SHADOW") && (
@@ -1064,9 +1064,9 @@ function SceneEffectsEditor({
               </div>
               <div className={styles.row} style={{ marginTop: 8 }}>
                 <PropertyNumberInput label="Blur" value={eff.blur ?? 4} onChange={(v) => updateEffect(i, { ...eff, blur: v })} />
-                <div className={styles.row} style={{ background: "#0f0f0f", padding: "4px 8px", borderRadius: 6, border: "1px solid #333", flex: 1 }}>
+                <div className={styles.row} style={{ flex: 1 }}>
                   <SceneSwatchColorPicker value={eff.color ?? "#000000"} onChange={(v) => updateEffect(i, { ...eff, color: v })} />
-                  <span style={{ fontSize: 10, color: "#666", marginLeft: 4 }}>Shadow</span>
+                  <span style={{ fontSize: 10, marginLeft: 4 }}>Shadow</span>
                 </div>
               </div>
             </>
@@ -1080,7 +1080,7 @@ function SceneEffectsEditor({
 
       <button
         className={styles.standaloneInput}
-        style={{ color: "#7c3aed" }}
+        style={{ color: "var(--accent)" }}
         onClick={() => setEffects([...effects, { type: "DROP_SHADOW", color: "#00000033", blur: 4, offsetX: 0, offsetY: 2, opacity: 0.2, spread: 0 }])}
       >+ Add Effect</button>
     </Section>
@@ -1902,7 +1902,7 @@ function InteractionEditor({
   };
 
   return (
-    <div className={styles.interactionCard} style={{ background: "#1a1a1a", padding: 12, borderRadius: 8, marginBottom: 12, border: "1px solid #333" }}>
+    <div className={styles.interactionCard}>
       <div className={styles.row} style={{ justifyContent: "space-between", marginBottom: 12 }}>
         <select
           className={styles.select}
@@ -1919,7 +1919,7 @@ function InteractionEditor({
           <option value="ON_LOAD">On Load</option>
         </select>
         <button type="button" onClick={onRemove} title="Remove interaction">
-          <Trash2 size={14} color="#666" />
+          <Trash2 size={14} />
         </button>
       </div>
 
@@ -1938,7 +1938,7 @@ function InteractionEditor({
       <button
         type="button"
         className={styles.standaloneInput}
-        style={{ marginTop: 8, fontSize: 11, background: "#0f0f0f" }}
+        style={{ marginTop: 8, fontSize: 11 }}
         onClick={addBlock}
       >
         <Plus size={12} style={{ marginRight: 4 }} /> Add action
@@ -2006,7 +2006,7 @@ function InteractionsPanel({ node, updateNode }: { node: SceneNode; updateNode: 
 
         <button
           className={styles.standaloneInput}
-          style={{ marginTop: 8, color: "var(--accent)" }}
+          style={{ marginTop: 8 }}
           onClick={addInteraction}
         >
           <Plus size={12} style={{ marginRight: 4 }} /> Add Interaction
@@ -2196,12 +2196,12 @@ export function PropertiesPanel() {
                   <option value="center">Center</option>
                   <option value="right">Right</option>
                 </select>
-                <div className={styles.row} style={{ background: "rgba(0,0,0,0.04)", padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.08)", flex: 1 }}>
+                <div className={styles.swatchWrapper}>
                   <SceneSwatchColorPicker
                     value={(props.color as string) ?? "#ffffff"}
                     onChange={(v) => updateProps(node, updateNode, "color", v)}
                   />
-                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#666", marginLeft: 4 }}>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", marginLeft: 4 }}>
                     {(props.color as string ?? "#ffffff").toUpperCase()}
                   </span>
                 </div>
