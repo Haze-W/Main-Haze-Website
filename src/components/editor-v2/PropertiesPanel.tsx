@@ -8,7 +8,6 @@ import {
   Palette,
   Plus,
   Trash2,
-  ChevronDown,
   Zap,
   Pencil,
   ArrowLeftRight,
@@ -136,7 +135,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader} onClick={() => setOpen(!open)}>
-        <ChevronDown size={14} style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.2s" }} />
+        <span style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.2s", fontSize: 10, display: "flex", alignItems: "center", color: "#666" }}>▼</span>
         <span className={styles.label}>{title}</span>
       </div>
       {open && <div className={styles.sectionContent}>{children}</div>}
@@ -379,7 +378,7 @@ function FontSelector({ value, onChange }: { value: string; onChange: (v: string
         style={{ fontFamily: `"${value}", sans-serif` }}
       >
         <span className={styles.fontSelectorLabel}>{value}</span>
-        <span className={styles.fontSelectorArrow}>&#9662;</span>
+        <span className={styles.fontSelectorArrow}>&#9660;</span>
       </button>
       {open && (
         <div className={styles.fontDropdown}>
@@ -525,7 +524,7 @@ function PageColorPicker({
               value={imageUrl}
               onChange={(e) => handleImageUrl(e.target.value)}
               placeholder="Image URL"
-              className={styles.colorImageUrl}
+              className={`${styles.colorImageUrl} ${imageUrl && !imageUrl.startsWith("https") ? styles.textBlack : ""}`}
             />
             <input
               ref={fileInputRef}
@@ -739,6 +738,7 @@ function SceneSwatchColorPicker({
           onChange={onChange}
           anchor={anchor}
           onClose={() => setAnchor(null)}
+          onContrastChange={(isLight: boolean) => {/* Optional */}}
         />
       )}
     </>

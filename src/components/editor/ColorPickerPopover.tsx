@@ -17,6 +17,7 @@ interface ColorPickerPopoverProps {
   onChange: (hex: string) => void;
   anchor: HTMLElement | null;
   onClose: () => void;
+  onContrastChange?: (isLight: boolean) => void;
 }
 
 export function ColorPickerPopover({
@@ -24,6 +25,7 @@ export function ColorPickerPopover({
   onChange,
   anchor,
   onClose,
+  onContrastChange,
 }: ColorPickerPopoverProps) {
   const hex = isValidHex(value) ? normalizeHex(value) : "#888888";
   const initial = hexToHsv(hex) ?? { h: 0, s: 0, v: 0.5 };
@@ -108,6 +110,11 @@ export function ColorPickerPopover({
   }, [anchor, onClose]);
 
   const rgb = hexToRgb(currentHex);
+  const isLight = rgb ? (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255 > 0.5 : false;
+
+  useEffect(() => {
+    if (onContrastChange) onContrastChange(isLight);
+  }, [isLight, onContrastChange]);
 
   if (!anchor || typeof document === "undefined") return null;
 
@@ -248,7 +255,7 @@ export function ColorPickerPopover({
 
       <div className={styles.previewRow}>
         <div className={styles.previewSwatch} style={{ background: currentHex }} />
-        <span className={styles.previewHex}>{currentHex}</span>
+        <span className={styles.previewHex} style={{ color: isLight ? "#000" : "#fff", fontWeight: isLight ? 700 : 400 }}>{currentHex}</span>
       </div>
     </div>
   );
