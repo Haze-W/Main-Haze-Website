@@ -6,7 +6,7 @@ import type { SceneNode } from "@/lib/editor/types";
 
 export interface CoralRequest {
   prompt: string;
-  mode: "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
+  mode: "ui" | "backend" | "code" | "agent" | "fix" | "plan" | "ask" | null;
   nodes: SceneNode[];
   projectName: string;
 }
@@ -399,7 +399,7 @@ function handleBackendMode(prompt: string): CoralResponse {
   if ((has(lower, "chatbot", "chat app", "full chat") && has(lower, "gpt", "openai", "api key")) || has(lower, "full chatbot with gpt")) {
     return {
       action: "GENERATE_UI",
-      text: "Generated a full chatbot app. Chat calls your server at /api/ai/chat-completions (OpenAI when OPENAI_API_KEY is set). Export and deploy with your API key configured.",
+      text: "Generated a full chatbot app. Chat calls your server at /api/ai/chat-completions.",
       nodes: buildChatbotApp(true),
     };
   }
@@ -408,10 +408,38 @@ function handleBackendMode(prompt: string): CoralResponse {
   if (has(lower, "chat", "textbox", "text box", "input", "send message", "ai chatbot")) {
     return {
       action: "GENERATE_CODE",
-      text: "Your chatbot calls /api/ai/chat-completions on your deployed app. Set OPENAI_API_KEY (or ANTHROPIC_API_KEY) on the server for AI replies.",
+      text: "Your chatbot calls /api/ai/chat-completions on your deployed app.",
       js: `// Chat calls /api/ai/chat-completions (OpenAI / Anthropic via Haze backend).
 // Configure OPENAI_API_KEY on the server.`,
       deps: [],
+    };
+  }
+
+  if (
+    has(lower, "folder", "directory", "pick folder", "choose folder", "open folder", "browse folder", "file dialog", "native dialog") ||
+    (has(lower, "button") && has(lower, "folder"))
+  ) {
+    return {
+      action: "GENERATE_CODE",
+      text: "Use **pick_folder** with **tauri-plugin-dialog**. Register the command in Rust, add dialog capabilities, then `invoke('pick_folder')` from your button. In Haze, add prototype interaction **Open folder dialog** on the button and bind a text field with a stable node id to show the chosen path.",
+      rust: `use tauri::AppHandle;
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Result<Option<String>, String> {
+    match app.dialog().file().set_title("Select folder").pick_folder().await {
+        Some(path) => Ok(Some(path.to_string_lossy().to_string())),
+        None => Ok(None),
+    }
+}`,
+      js: `import { invoke } from "@tauri-apps/api/core";
+
+export async function pickFolder(): Promise<string | null> {
+  return await invoke<string | null>("pick_folder");
+}
+
+// Wire your exported button → pickFolder() → set label text to the path.`,
+      deps: ['tauri-plugin-dialog = "2"'],
     };
   }
 
@@ -605,7 +633,7 @@ function handleAgentMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `That's a great question! **Coral** runs locally (no cloud). Here's what it can do:\n\n- **/ui** — Generate UI layouts (login screens, dashboards, settings pages, etc.)\n- **/plan** — Create step-by-step plans before building\n- **/ask** — Ask about UI, Tauri, and app structure\n- **/backend** — Tauri 2 Rust command snippets and TS glue\n- **/agent** — Architecture, Rust, UI/UX\n- **/fix** — Heuristic fixes on your canvas\n\nTry something specific, like "How do I handle window close events?" or "Explain Tauri permissions". **Credits for cloud models** will plug in here later.`,
+    text: `I'm Coral 1.0, your AI coding assistant.\n\n- **/ui [prompt]** — Generate UI components and layouts on the canvas.\n- **/agent [prompt]** — Ask me any questions about your code, Tauri, or UI design.\n\nTry asking me to build a dashboard or explain how to handle window events!`,
   };
 }
 
@@ -656,7 +684,7 @@ function handlePlanMode(prompt: string): CoralResponse {
 
   return {
     action: "ANSWER",
-    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout. Cloud AI (OpenAI) powers plans when your server has OPENAI_API_KEY.*`,
+    text: `**Plan for: "${prompt.slice(0, 50)}${prompt.length > 50 ? "…" : ""}"**\n\n${plans.join("\n")}\n\n---\n*Use /ui to generate the layout.*`,
   };
 }
 
@@ -772,6 +800,7 @@ export function coralGenerate(request: CoralRequest): CoralResponse {
     case "ask":
       return handleAskMode(prompt);
     case "backend":
+    case "code":
       return handleBackendMode(prompt);
     case "agent":
       return handleAgentMode(prompt);

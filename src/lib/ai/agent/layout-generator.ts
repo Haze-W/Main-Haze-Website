@@ -16,7 +16,7 @@ import { parsePromptWithOptions } from "./prompt-parser";
 import { validateAndFixFrame } from "./rules-engine";
 import type { DesignTheme } from "./theme-generator";
 import { resolveRichTheme, type RichTheme } from "./layout-palettes";
-import { callLLM, getOpenAIDefaultModel } from "../providers";
+import { callLLM, getAnthropicApiKeyFromEnv, getOpenAIDefaultModel } from "../providers";
 
 export interface LayoutGeneratorOptions {
   apiKey?: string;
@@ -51,10 +51,12 @@ Coordinates relative to parent. Use DISTINCT hex palettes per request — never 
 
 const SYSTEM_PROMPT = `You are an elite product UI generator (FAST mode: think through intent → spec → layout internally; output only JSON).
 
+Design language: Prefer **shadcn/ui**-quality layouts (see ui.shadcn.com and blocks): zinc/slate neutrals, clear typography scale, **border** + **shadow-sm** on cards, **radius** 8–12px, muted-foreground secondary text, sensible **gap** and **padding**, sidebar + header patterns when the product is an app shell. Open-source reference: github.com/shadcn-ui/ui — mirror that craft (spacing, hierarchy), adapted to our JSON schema (not literal React components).
+
 Output ONE JSON object: { "frame": { "width", "height", "background", "children": [...] } }.
 
 Core:
-- USER / PRIORITY block is the only source of truth for app type, copy, and features. Never substitute a stock analytics dashboard unless they asked for metrics/SaaS KPIs.
+- USER / PRIORITY block is the only source of truth for app type, copy, and features. **Single-intent short prompts** (e.g. only "dashboard", only "settings"): build **exactly that one screen** — no extra landing sections, onboarding, or unrelated flows. Never substitute a stock analytics dashboard unless they asked for metrics/SaaS KPIs.
 - Internally classify archetype (chatbot, dashboard, landing, ecommerce, portfolio, CRM, admin, social, finance, booking, messaging, productivity) and include the regions that archetype implies — always complete, never hollow shells.
 - Short prompts expand into real products (e.g. "make a chatbot" → history sidebar, thread, bubbles, composer, new chat).
 
@@ -220,6 +222,13 @@ function buildUserPrompt(
   const arch = archetypeHintForPrompt(parsed.raw);
   const styleV = styleRotationHint();
 
+  const rawLower = parsed.raw.trim().toLowerCase();
+  const wordCount = rawLower.split(/\s+/).filter(Boolean).length;
+  const narrowIntent =
+    wordCount <= 3 && /^(dashboard|settings|login|admin)$/.test(rawLower)
+      ? "\n\nSCOPE LOCK: The user asked for a **single screen type** only. Deliver **one** complete screen for that type — no extra marketing sections, no unrelated frames."
+      : "";
+
   // Random color seed forces the model to use a different palette every call
   const randomColorSeed = COLOR_SEEDS[Math.floor(Math.random() * COLOR_SEEDS.length)];
   const uniqueBias = `COLOR DIRECTION: Build the palette around "${randomColorSeed}" unless the user's prompt specifies exact colors. GENERATION ID: ${Date.now()} — vary shell layout, sidebar width, card density, border-radius scale from any prior output. Obey PRIORITY block first, then this directive for freshness.`;
@@ -231,6 +240,7 @@ ${parsed.raw}
 === END PRIORITY ===
 
 PRODUCT SHAPING: ${arch}
+${narrowIntent}
 
 STYLE / UNIQUENESS: ${styleV}
 
@@ -300,10 +310,10 @@ function parseLayoutResponse(content: string): AIUILayout | null {
 
 function buildImageHint(userPrompt: string, images?: string[]): string {
   if (!images || images.length === 0) return "";
-  const isDesignReference = /replicate|recreate|copy|match|like this|similar to|based on this|design reference|reference image|screenshot|mockup|wireframe/i.test(userPrompt);
+  const isDesignReference = /replicate|recreate|copy|match|like this|similar to|based on this|design reference|reference image|screenshot|mockup|wireframe|1:1|pixel|identical/i.test(userPrompt);
   return isDesignReference
-    ? "\n\nDESIGN REFERENCE: The user attached a reference image. REPLICATE this design: layout, colors, typography, spacing, structure. Create JSON that matches the visual design."
-    : "\n\nThe user attached image(s). Use them as design inspiration. Place image elements where appropriate (hero, profile, product).";
+    ? "\n\nDESIGN REFERENCE — **1:1 fidelity**: The user attached a screenshot or mockup. Reproduce **layout regions, proportions, colors, typography weights, spacing, and component placement** as closely as this JSON schema allows. Do not substitute a generic template; mirror the reference."
+    : "\n\nThe user attached image(s). Match **composition and palette** closely; treat as a **visual spec** — not loose inspiration.";
 }
 
 function logDevParsedLayout(where: string, layout: AIUILayout) {
@@ -350,10 +360,10 @@ JSON SCHEMA (no example labels — all copy must come from the PRIORITY block ab
 ${ABSTRACT_JSON_SHAPE_GUIDE}`;
 
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
-  const hasCloudKey = Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
+  const hasCloudKey = Boolean(apiKey || getAnthropicApiKeyFromEnv());
 
   if (!hasCloudKey) {
-    console.warn("[Haze AI] ⚠️ No API key found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Falling back to local layout.");
+    console.warn("[Haze AI] ⚠️ No API key found (ANTHROPIC_API_KEY, CLAUDE_API_KEY, or OPENAI_API_KEY). Falling back to local layout.");
     return getFallbackLayout(parsed);
   }
 

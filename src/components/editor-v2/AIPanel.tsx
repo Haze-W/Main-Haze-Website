@@ -10,23 +10,13 @@ import {
 import {
   ArrowUp,
   Trash2,
-  ChevronDown,
-  Clock,
   Copy,
   Check,
   Layers,
-  Cpu,
   MessageCircle,
-  Wrench,
-  Sparkles,
-  RotateCcw,
   ExternalLink,
   ImagePlus,
   X,
-  Maximize2,
-  Minimize2,
-  ListTodo,
-  HelpCircle,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEditorStore } from "@/lib/editor/store";
@@ -34,7 +24,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import { consumeNormalizedChatSSE } from "@/lib/ai/sse-client";
 import styles from "./AIPanel.module.css";
 
-type SlashMode = "ui" | "backend" | "agent" | "fix" | "plan" | "ask" | null;
+type SlashMode = "ui" | "agent" | null;
 
 interface AttachedImage {
   id: string;
@@ -45,7 +35,6 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /** Model reasoning trace (streaming / reasoning models) */
   reasoning?: string;
   images?: AttachedImage[];
   action?: "GENERATE_UI" | "GENERATE_CODE" | "ANSWER" | "FIX";
@@ -60,27 +49,13 @@ interface Message {
 }
 
 const SLASH_COMMANDS = [
-  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layouts (local)" },
-  { mode: "plan" as SlashMode, cmd: "/plan", icon: ListTodo, desc: "Step-by-step plan (local)" },
-  { mode: "ask" as SlashMode, cmd: "/ask", icon: HelpCircle, desc: "Ask Coral" },
-  { mode: "backend" as SlashMode, cmd: "/backend", icon: Cpu, desc: "Tauri / Rust snippets" },
-  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Architecture & Tauri help" },
-  { mode: "fix" as SlashMode, cmd: "/fix", icon: Wrench, desc: "Canvas / layout fixes" },
-];
-
-const AGENTS = [{ id: "coral-local", name: "Coral 1.0", active: true }];
-
-const CHIPS: { mode: SlashMode; prompts: string[] }[] = [
-  { mode: "ui", prompts: ["Replicate this design (attach image first)", "Chatbot app with sidebar and settings", "Build a settings page", "Create a login screen"] },
-  { mode: "plan", prompts: ["Plan a dashboard layout", "Plan a multi-step form", "Plan an e-commerce product page"] },
-  { mode: "ask", prompts: ["How do I add dark mode?", "What's the best layout for a settings page?", "Explain flexbox vs grid"] },
-  { mode: "backend", prompts: ["Full chatbot with OpenAI backend", "System info backend", "File read/write commands"] },
-  { mode: "agent", prompts: ["Window events?", "Tauri permissions"] },
-  { mode: "fix", prompts: ["Make the chat textbox work", "Fix canvas layout", "Debug Rust command"] },
+  { mode: "ui" as SlashMode, cmd: "/ui", icon: Layers, desc: "Generate UI layout on the canvas" },
+  { mode: "agent" as SlashMode, cmd: "/agent", icon: MessageCircle, desc: "Talk with Coral 1.0 about code or design" },
 ];
 
 const MODE_LABELS: Record<string, string> = {
-  ui: "/ui", plan: "/plan", ask: "/ask", backend: "/backend", agent: "/agent", fix: "/fix",
+  ui: "/ui",
+  agent: "/agent",
 };
 
 function escapeHtml(s: string): string {
@@ -108,18 +83,16 @@ export function AIPanel() {
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
   const [slashIdx, setSlashIdx] = useState(0);
-  const [agent, setAgent] = useState("coral-local");
-  const [showAgents, setShowAgents] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
+  
+  // Hardcode theme to match EditorShell light/dark eventually without manual toggle
+  const theme = "dark"; 
 
   const threadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const agentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     threadRef.current?.scrollTo(0, threadRef.current.scrollHeight);
@@ -130,15 +103,6 @@ export function AIPanel() {
     window.addEventListener("haze-focus-ai", onFocus);
     return () => window.removeEventListener("haze-focus-ai", onFocus);
   }, []);
-
-  useEffect(() => {
-    if (!showAgents) return;
-    const h = (e: MouseEvent) => {
-      if (agentRef.current && !agentRef.current.contains(e.target as Node)) setShowAgents(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [showAgents]);
 
   useEffect(() => {
     if (!showSlash) return;
@@ -179,6 +143,8 @@ export function AIPanel() {
     setAttachedImages((prev) => prev.filter((img) => img.id !== id));
   }, []);
 
+  // Handlers moved below to avoid hoisting issues
+
   const send = useCallback(async (text: string, m: SlashMode) => {
     if (!text.trim() && attachedImages.length === 0) return;
     const imagesToSend = attachedImages.length > 0 ? [...attachedImages] : undefined;
@@ -197,24 +163,22 @@ export function AIPanel() {
     const lid = nanoid();
     setMessages((prev) => [...prev, { id: lid, role: "assistant", content: "", loading: true }]);
 
-    // Show thinking steps (UI: layout pipeline; other modes: connection + generation)
     const thinkingUiSteps = [
-      "Analyzing your request…",
-      "Designing layout structure…",
-      "Generating UI JSON…",
-      "Applying layout rules…",
+      "Generating Response...",
+      "Analyzing your request...",
+      "Designing layout structure...",
+      "Generating UI JSON...",
+      "Applying layout rules...",
     ];
     const thinkingChatSteps = [
-      "Connecting to model…",
-      "Thinking through your question…",
-      "Writing the answer…",
+      "Generating Response...",
+      "Thinking through your question...",
+      "Writing the answer...",
     ];
-    const thinkingCodeSteps = ["Processing…", "Generating response…"];
 
     if (m === "ui") {
       setThinkingSteps([thinkingUiSteps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
-      /* Local /ui is fast — don’t stagger fake “thinking” for >1s */
       thinkingUiSteps.slice(1).forEach((step, i) => {
         timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 90));
       });
@@ -234,7 +198,7 @@ export function AIPanel() {
             messages: hist,
             nodes: s.nodes,
             projectName: "Untitled",
-            mode: m,
+            mode: "ui",
             images: imagesToSend?.map((i) => ({ dataUrl: i.dataUrl })),
             style: theme,
           }),
@@ -266,12 +230,10 @@ export function AIPanel() {
         setLoading(false);
       }
     } else {
-      const wantStream = m === "ask" || m === "plan";
-      const steps =
-        wantStream ? thinkingChatSteps : thinkingCodeSteps;
-      setThinkingSteps([steps[0]]);
+      // Default Agent behavior
+      setThinkingSteps([thinkingChatSteps[0]]);
       const timers: ReturnType<typeof setTimeout>[] = [];
-      steps.slice(1).forEach((step, i) => {
+      thinkingChatSteps.slice(1).forEach((step, i) => {
         timers.push(setTimeout(() => setThinkingSteps((s) => (s.length ? [...s, step] : s)), (i + 1) * 90));
       });
       const clearThinking = () => {
@@ -291,15 +253,12 @@ export function AIPanel() {
             messages: hist,
             nodes: s.nodes,
             projectName: "Untitled",
-            mode: m,
-            stream: wantStream,
+            mode: "agent",
+            stream: true,
           }),
         });
 
-        const isSse =
-          res.ok &&
-          wantStream &&
-          (res.headers.get("content-type") ?? "").includes("text/event-stream");
+        const isSse = res.ok && (res.headers.get("content-type") ?? "").includes("text/event-stream");
 
         if (isSse && res.body) {
           let content = "";
@@ -374,14 +333,43 @@ export function AIPanel() {
     taRef.current?.focus();
   };
 
+  // Update input text externally (e.g. from BottomAIPrompt)
+  useEffect(() => {
+    const h = (e: CustomEvent<{ text: string, mode?: SlashMode, submit?: boolean }>) => {
+      const txt = e.detail.text;
+      const m = e.detail.mode;
+      if (txt) setInput(txt);
+      if (m !== undefined) setMode(m);
+      
+      // Let states update before sending if submit is true
+      if (e.detail.submit && txt) {
+        // Need to use the values from event as state update is async
+        setTimeout(() => send(txt, m ?? null), 10);
+      } else {
+        taRef.current?.focus();
+      }
+    };
+    window.addEventListener("haze-set-ai-input" as any, h);
+    return () => window.removeEventListener("haze-set-ai-input" as any, h);
+  }, [send]);
+
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSlash) {
       if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(i + 1, filtered.length - 1)); return; }
       if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(i - 1, 0)); return; }
-      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); if (filtered[slashIdx]) pickSlash(filtered[slashIdx]); return; }
+      if (e.key === "Enter" || e.key === "Tab") { 
+        e.preventDefault(); 
+        if (filtered[slashIdx]) pickSlash(filtered[slashIdx]); 
+        return; 
+      }
       if (e.key === "Escape") { e.preventDefault(); setShowSlash(false); return; }
     }
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading && (input.trim() || attachedImages.length > 0)) send(input, mode); }
+    if (e.key === "Enter" && !e.shiftKey) { 
+      e.preventDefault(); 
+      if (!loading && (input.trim() || attachedImages.length > 0)) {
+        send(input, mode); 
+      }
+    }
   };
 
   const onPaste = useCallback((e: React.ClipboardEvent) => {
@@ -410,7 +398,7 @@ export function AIPanel() {
 
   useEffect(() => {
     const ta = taRef.current;
-    if (ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 72) + "px"; }
+    if (ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }
   }, [input]);
 
   const renderMsg = (msg: Message) => {
@@ -426,7 +414,7 @@ export function AIPanel() {
         )}
         {msg.reasoning ? (
           <details open className={styles.reasoningBlock}>
-            <summary className={styles.reasoningSummary}>Thinking (model)</summary>
+            <summary className={styles.reasoningSummary}>Thinking</summary>
             <pre className={styles.reasoningPre}>{msg.reasoning}</pre>
           </details>
         ) : null}
@@ -457,15 +445,7 @@ export function AIPanel() {
     if (msg.error) return (
       <div className={`${styles.assistantCard} ${styles.errorCard}`}>
         <p>{msg.content}</p>
-        <button type="button" className={styles.retryBtn} onClick={() => {
-          const last = [...messages].reverse().find((x) => x.role === "user");
-          if (last) {
-            setMessages((p) => p.filter((x) => x.id !== msg.id));
-            send(last.content, mode ?? "ui");
-          }
-        }}>
-          <RotateCcw size={10} /> Retry
-        </button>
+        {/* We can provide a basic retry button without full logic here for simplicity */}
       </div>
     );
 
@@ -534,48 +514,13 @@ export function AIPanel() {
   };
 
   return (
-    <div className={`${styles.panel} ${fullscreen ? styles.panelFullscreen : ""}`}>
+    <div className={styles.panel}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.agentWrap} ref={agentRef}>
-          <button type="button" className={styles.agentBtn} onClick={() => setShowAgents((v) => !v)}>
-            <Sparkles size={12} />
-            <span>{AGENTS.find((a) => a.id === agent)?.name}</span>
-            <ChevronDown size={10} />
-          </button>
-          {showAgents && (
-            <div className={styles.agentDrop}>
-              {AGENTS.map((a) => (
-                <button type="button" key={a.id} className={`${styles.agentOpt} ${a.id === agent ? styles.agentOptActive : ""}`}
-                  disabled={!a.active} onClick={() => { if (a.active) { setAgent(a.id); setShowAgents(false); } }}>
-                  {a.active ? <Sparkles size={11} /> : <Clock size={11} />}
-                  <span>{a.name}</span>
-                  {!a.active && <span className={styles.agentSoon}>Coming soon</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <div className={styles.agentTitle}>Coral 1.0</div>
         <div className={styles.headerActions}>
-          <select
-            className={styles.themeSelect}
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as "light" | "dark")}
-            title="Theme for generated UI"
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-          <button
-            type="button"
-            className={styles.fullscreenBtn}
-            onClick={() => setFullscreen((v) => !v)}
-            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-          >
-            {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
           <button type="button" className={styles.clearBtn} onClick={() => { setMessages([]); setMode(null); }} title="Clear chat">
-            <Trash2 size={13} />
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
@@ -587,23 +532,10 @@ export function AIPanel() {
         </div>
       ) : (
         <div className={styles.empty}>
-          <Sparkles size={28} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Coral 1.0</p>
-          <p className={styles.emptyDesc}>Describe your UI or use / commands. Powered by Coral 1.0.</p>
-          <div className={styles.chipGroups}>
-            {CHIPS.map((g) => (
-              <div key={g.mode} className={styles.chipGroup}>
-                <span className={styles.chipLabel}>{SLASH_COMMANDS.find((c) => c.mode === g.mode)?.cmd}</span>
-                <div className={styles.chips}>
-                  {g.prompts.map((p) => (
-                    <button type="button" key={p} className={styles.chip} onClick={() => { setMode(g.mode); setInput(p); taRef.current?.focus(); }}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className={styles.emptyTitle}>Start a conversation</p>
+          <p className={styles.emptyDesc}>
+            Type anything below or use /ui to generate layouts.
+          </p>
         </div>
       )}
 
@@ -628,9 +560,10 @@ export function AIPanel() {
 
         {mode && (
           <div className={styles.modePill}>
-            <Sparkles size={9} />
             <span>{MODE_LABELS[mode]}</span>
-            <button type="button" className={styles.pillClear} onClick={() => setMode(null)}>×</button>
+            <button type="button" className={styles.pillClear} onClick={() => setMode(null)}>
+              <X size={10} />
+            </button>
           </div>
         )}
 
@@ -655,14 +588,21 @@ export function AIPanel() {
             className={styles.fileInput}
             onChange={onFileChange}
           />
-          <button type="button" className={styles.attachBtn} onClick={() => fileInputRef.current?.click()} title="Upload image (or paste)">
+          <button type="button" className={styles.attachBtn} onClick={() => fileInputRef.current?.click()} title="Attach Image">
             <ImagePlus size={16} />
           </button>
-          <textarea ref={taRef} className={styles.textarea}
-            placeholder={mode ? `Message (${mode})...` : "Describe your UI, paste image, or type /..."}
-            value={input} onChange={(e) => onInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={1} />
+          <textarea 
+            ref={taRef} 
+            className={styles.textarea}
+            placeholder={mode ? `Message (${mode})...` : "Type a message or / for commands..."}
+            value={input} 
+            onChange={(e) => onInput(e.target.value)} 
+            onKeyDown={onKey} 
+            onPaste={onPaste} 
+            rows={1} 
+          />
           <button type="button" className={styles.sendBtn} disabled={loading || (!input.trim() && attachedImages.length === 0)} onClick={() => send(input, mode)}>
-            <ArrowUp size={13} strokeWidth={2.5} />
+            <ArrowUp size={14} strokeWidth={2.5} />
           </button>
         </div>
       </div>
