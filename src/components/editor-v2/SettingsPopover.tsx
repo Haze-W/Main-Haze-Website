@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { useEditorStore } from "@/lib/editor/store";
 import { useToast } from "@/components/Toast";
-import { Moon, Sun, LayoutDashboard, Keyboard, Save, Copy } from "lucide-react";
+import { Moon, Sun, LayoutDashboard, Keyboard, Save, Copy, FileUp } from "lucide-react";
 import styles from "./SettingsPopover.module.css";
 
 interface SettingsPopoverProps {
@@ -14,8 +14,10 @@ interface SettingsPopoverProps {
   onExport?: () => void;
   onSave?: () => void;
   onSaveAs?: () => void;
+  onImportJson?: () => void;
   exportDisabled?: boolean;
   saveAsDisabled?: boolean;
+  importDisabled?: boolean;
 }
 
 export function SettingsPopover({
@@ -25,8 +27,10 @@ export function SettingsPopover({
   onExport,
   onSave,
   onSaveAs,
+  onImportJson,
   exportDisabled,
   saveAsDisabled,
+  importDisabled,
 }: SettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const { show } = useToast();
@@ -90,6 +94,19 @@ export function SettingsPopover({
         >
           <Copy size={16} strokeWidth={2} />
           <span>Save As</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.menuItem} ${styles.menuItemIcon}`}
+          disabled={importDisabled}
+          onClick={() => {
+            if (importDisabled) return;
+            onImportJson?.();
+            onClose();
+          }}
+        >
+          <FileUp size={16} strokeWidth={2} />
+          <span>Import JSON</span>
         </button>
         <button
           type="button"

@@ -75,6 +75,8 @@ export interface FigmaNode {
   rotation: number;
   opacity: number;
   blendMode: string;
+  /** 2×2 transform matrix (a,b,c,d). Translation is represented by x/y. */
+  transform2d?: { a: number; b: number; c: number; d: number } | null;
   clipsContent: boolean;
   overflowDirection?: string;
   fillEnabled?: boolean;
@@ -97,6 +99,10 @@ export interface FigmaNode {
   fills: Paint[];
   strokes: Paint[];
   strokeWeight: number;
+  strokeTopWeight?: number | null;
+  strokeRightWeight?: number | null;
+  strokeBottomWeight?: number | null;
+  strokeLeftWeight?: number | null;
   strokeAlign: string;
   effects: Effect[];
   layoutMode: string | null;
@@ -123,6 +129,16 @@ export interface FigmaNode {
   minHeight?: number | null;
   maxHeight?: number | null;
   text?: TextStyle;
+  vectorDetail?: {
+    vectorPaths?: Array<{ data: string; windingRule?: string }>;
+    fillColor?: string;
+    strokeColor?: string;
+    strokeWidth?: number;
+    strokeCap?: string;
+    strokeJoin?: string;
+    strokeMiterLimit?: number;
+    dashPattern?: number[];
+  };
   children?: FigmaNode[];
 }
 

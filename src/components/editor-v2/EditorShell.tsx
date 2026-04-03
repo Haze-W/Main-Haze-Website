@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
@@ -45,6 +45,7 @@ import {
   saveCollaborators,
 } from "@/lib/editor/collaboration";
 import { tryPasteFromClipboard } from "@/lib/figma/paste-listener";
+import { isRenderPayload } from "@/lib/figma/types";
 import { COMPONENT_PRESETS } from "@/lib/editor/component-presets";
 import { resolvePlacementParent } from "@/lib/editor/placement";
 import { Canvas } from "./Canvas";
@@ -56,13 +57,17 @@ import { ShareModal } from "./ShareModal";
 import { IconPickerModal } from "@/components/editor/IconPickerModal";
 import { ComponentsPanel } from "./ComponentsPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { AnimationsPanel } from "./AnimationsPanel";
+import { AIPanel } from "./AIPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { BottomAIPrompt } from "./BottomAIPrompt";
 import type { SceneNode } from "@/lib/editor/types";
 import { addLayoutPresetToCanvas, type LayoutPresetId } from "@/lib/editor/layout-presets";
 import { useToast } from "@/components/Toast";
 import styles from "./EditorShell.module.css";
+
+const DEFAULT_SIDEBAR_WIDTH = 260;
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 480;
 
 /** Monaco + file tree load on demand — keeps initial editor bundle smaller & faster. */
 const CodePanel = dynamic(
@@ -308,7 +313,7 @@ export function EditorShell() {
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
   const [sidebarLeftVisible, setSidebarLeftVisible] = useState(true);
   const [leftTab, setLeftTab] = useState<"layers" | "components">("layers");
-  const [rightTab, setRightTab] = useState<"properties" | "animations">("properties");
+  const [rightTab, setRightTab] = useState<"properties" | "chat">("properties");
   const [projectName, setProjectName] = useState("Untitled");
   const [editingName, setEditingName] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -318,6 +323,7 @@ export function EditorShell() {
   const [renamingPage, setRenamingPage] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
   const theme = useEditorStore((s) => s.theme);
@@ -367,6 +373,13 @@ export function EditorShell() {
   useEffect(() => {
     if (!caps.canManageProject) setEditingName(false);
   }, [caps.canManageProject]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const openChat = () => setRightTab("chat");
+    window.addEventListener("haze-open-chat", openChat);
+    return () => window.removeEventListener("haze-open-chat", openChat);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -665,12 +678,68 @@ export function EditorShell() {
     pushHistory,
   ]);
 
+  // ── Resizing Logic ───────────────────────────────────────────
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [rightWidth, setRightWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
+
+  const startResizingLeft = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingLeft(true);
+  }, []);
+
+  const startResizingRight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizingLeft(false);
+    setIsResizingRight(false);
+  }, []);
+
+  const resizeSidebars = useCallback((e: MouseEvent) => {
+    if (isResizingLeft) {
+      const newWidth = Math.min(Math.max(e.clientX - 12, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH);
+      setLeftWidth(newWidth);
+    }
+    if (isResizingRight) {
+      const newWidth = Math.min(Math.max(window.innerWidth - e.clientX - 12, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH);
+      setRightWidth(newWidth);
+    }
+  }, [isResizingLeft, isResizingRight]);
+
+  useEffect(() => {
+    if (isResizingLeft || isResizingRight) {
+      window.addEventListener("mousemove", resizeSidebars);
+      window.addEventListener("mouseup", stopResizing);
+    } else {
+      window.removeEventListener("mousemove", resizeSidebars);
+      window.removeEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resizeSidebars);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizingLeft, isResizingRight, resizeSidebars, stopResizing]);
+
   useEffect(() => {
     if (editingName && nameInputRef.current) {
       nameInputRef.current.focus();
       nameInputRef.current.select();
     }
   }, [editingName]);
+
+  // Transition to AI Chat from Bottom Prompt
+  useEffect(() => {
+    const h = () => {
+      setRightTab("chat");
+      setSidebarLeftVisible(true);
+    };
+    window.addEventListener("haze-open-chat", h);
+    return () => window.removeEventListener("haze-open-chat", h);
+  }, [setRightTab, setSidebarLeftVisible]);
 
   /* Debug telemetry removed for security */
 
@@ -679,6 +748,49 @@ export function EditorShell() {
     [nodes, searchQuery]
   );
 
+  const openImportPicker = () => {
+    if (!caps.canEditScene) return;
+    importInputRef.current?.click();
+  };
+
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.currentTarget.value = "";
+    if (!file) return;
+    if (!/\.json$/i.test(file.name)) {
+      show("Please select a .json file.", "info");
+      return;
+    }
+    let text = "";
+    try {
+      text = await file.text();
+    } catch {
+      show("Could not read file.", "error");
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      show("Invalid JSON file.", "error");
+      return;
+    }
+    const maybeRenderCopy =
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as Record<string, unknown>)._renderCopy === true &&
+      Array.isArray((parsed as Record<string, unknown>).nodes);
+    if (!isRenderPayload(parsed) && !maybeRenderCopy) {
+      show("JSON format is not a valid Haze/Figma import payload.", "error");
+      return;
+    }
+    const ok = await tryPasteFromClipboard(text);
+    show(
+      ok ? "Imported JSON into canvas." : "Import failed: unsupported payload.",
+      ok ? "success" : "error"
+    );
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
       <div
@@ -686,6 +798,10 @@ export function EditorShell() {
         className={styles.shell}
         data-editor-theme={theme}
         data-sidebar-left-hidden={!sidebarLeftVisible}
+        style={{ 
+          paddingLeft: sidebarLeftVisible ? leftWidth + 24 : 64, 
+          paddingRight: rightWidth + 24 
+        } as any}
       >
         {collabRole !== "owner" && (
           <div className={styles.collabBanner} role="status">
@@ -696,7 +812,8 @@ export function EditorShell() {
         )}
         {/* ── Left Sidebar ───────────────────────────────────────── */}
         {sidebarLeftVisible && (
-        <aside className={styles.sidebarLeft}>
+        <aside className={styles.sidebarLeft} style={{ width: leftWidth }}>
+          <div className={styles.resizerLeft} onMouseDown={startResizingLeft} />
           <div className={styles.sidebarHeader}>
             <div className={styles.sidebarLogoRow}>
               <Link href="/dashboard" className={styles.sidebarLogoBrand}>
@@ -897,7 +1014,8 @@ export function EditorShell() {
         )}
 
         {/* ── Right Sidebar ──────────────────────────────────────── */}
-        <aside className={styles.sidebarRight}>
+        <aside className={styles.sidebarRight} style={{ width: rightWidth }}>
+          <div className={styles.resizerRight} onMouseDown={startResizingRight} />
           <div className={styles.sidebarRightHeader}>
             <button
               type="button"
@@ -933,16 +1051,16 @@ export function EditorShell() {
               </button>
               <button
                 type="button"
-                className={`${styles.rightTabBtn} ${rightTab === "animations" ? styles.rightTabBtnActive : ""}`}
-                onClick={() => setRightTab("animations")}
+                className={`${styles.rightTabBtn} ${rightTab === "chat" ? styles.rightTabBtnActive : ""}`}
+                onClick={() => setRightTab("chat")}
               >
-                Animations
+                Chat
               </button>
             </div>
           </div>
           <div className={styles.rightPanelContent}>
             {rightTab === "properties" && <PropertiesPanel />}
-            {rightTab === "animations" && <AnimationsPanel />}
+            {rightTab === "chat" && <AIPanel />}
           </div>
         </aside>
 
@@ -1045,7 +1163,13 @@ export function EditorShell() {
         </div>
 
         {/* ── Canvas Area ────────────────────────────────────────── */}
-        <main className={styles.canvasArea}>
+        <main 
+          className={styles.canvasArea} 
+          style={{ 
+            left: sidebarLeftVisible ? leftWidth + 24 : 64, 
+            right: rightWidth + 24 
+          }}
+        >
           {mode === "design" && <Canvas />}
           {mode === "code" && <CodePanel />}
           {mode === "preview" && <PreviewPanel />}
@@ -1058,6 +1182,8 @@ export function EditorShell() {
           onClose={() => setSettingsPopoverOpen(false)}
           exportDisabled={!caps.canExport}
           saveAsDisabled={!caps.canManageProject}
+          importDisabled={!caps.canEditScene}
+          onImportJson={openImportPicker}
           onExport={() => setExportOpen(true)}
           onSave={() => {
             const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -1069,6 +1195,13 @@ export function EditorShell() {
             }
           }}
           onSaveAs={() => setSaveAsOpen(true)}
+        />
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          className={styles.hiddenFileInput}
+          onChange={handleImportJsonFile}
         />
 
         {/* ── Bottom: AI prompt (dock) ─────────────────────── */}

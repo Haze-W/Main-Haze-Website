@@ -5,8 +5,6 @@ import { Plus, ChevronDown, Mic, ChevronRight } from "lucide-react";
 import { useEditorStore } from "@/lib/editor/store";
 import { useToast } from "@/components/Toast";
 import type { SceneNode } from "@/lib/editor/types";
-import { endAiBuildTicker, pushAiBuildStatus, startAiBuildTicker } from "@/lib/editor/ai-build-ui";
-import { shouldUseRefineForBottomBar } from "@/lib/ai/agent/generate-intent";
 import { getCapabilities } from "@/lib/editor/collaboration";
 import styles from "./BottomAIPrompt.module.css";
 
@@ -67,8 +65,11 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       return;
     }
 
-    const stopTicker = startAiBuildTicker(text);
-    setLoading(true);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("haze-open-chat"));
+      // The AI Panel intercepts this to execute the prompt via Coral 1.0 logic
+      window.dispatchEvent(new CustomEvent("haze-set-ai-input", { detail: { text, mode: "ui", submit: true } }));
+    }
     setPrompt("");
 
     try {
@@ -184,7 +185,13 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
             canAi ? "What would you like to build?" : "View-only — AI build is disabled for your role."
           }
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onFocus={() => {
+            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("haze-open-chat"));
+          }}
+          onChange={(e) => {
+            const v = e.target.value;
+            setPrompt(v);
+          }}
           onKeyDown={onKeyDown}
           rows={1}
           autoComplete="off"
@@ -259,3 +266,31 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
     </div>
   );
 }
+function shouldUseRefineForBottomBar(text: string, arg1: boolean) {
+  throw new Error("Function not implemented.");
+}
+
+function pushAiBuildStatus(arg0: string) {
+  throw new Error("Function not implemented.");
+}
+
+function applyGeneratedLayout(nodes: SceneNode[]) {
+  throw new Error("Function not implemented.");
+}
+
+function show(arg0: string, arg1: string) {
+  throw new Error("Function not implemented.");
+}
+
+function setLoading(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+
+function endAiBuildTicker(stopTicker: any) {
+  throw new Error("Function not implemented.");
+}
+
+function send() {
+  throw new Error("Function not implemented.");
+}
+

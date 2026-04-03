@@ -249,6 +249,10 @@ function blockToJs(block: Block): string {
       const payload = p.ipcPayload ? String(p.ipcPayload) : "{}";
       return `var _tauri=window.__TAURI_INTERNALS__;if(_tauri&&_tauri.invoke){try{_tauri.invoke('plugin:event|emit',{event:'${evtName}',payload:${payload}});}catch(e){}}window.dispatchEvent(new CustomEvent('${evtName}',{detail:${payload}}));`;
     }
+    case "OPEN_FOLDER_DIALOG": {
+      const nid = p.targetNodeId ? String(p.targetNodeId).replace(/"/g, '\\"') : "";
+      return `var _nid="${nid}";var _el=_nid?document.querySelector('[data-node-id="'+_nid+'"]'):null;var _show=function(t){if(_el)_el.textContent=t||'';};var _inv=window.__TAURI_INTERNALS__&&window.__TAURI_INTERNALS__.invoke;if(_inv){_inv('pick_folder').then(function(p){_show(typeof p==='string'?p:(p&&p.path)?p.path:JSON.stringify(p));}).catch(function(){_show('Pick failed');});}else if(window.showDirectoryPicker){window.showDirectoryPicker().then(function(d){_show(d.name||'(folder)');}).catch(function(){_show('');});}else{_show('Export to Tauri for native folder picker');}`;
+    }
     default: return "";
   }
 }
