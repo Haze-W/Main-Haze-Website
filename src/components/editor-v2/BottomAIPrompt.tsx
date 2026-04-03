@@ -20,6 +20,8 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
+  /** Coral = single-shot /api/ai/generate; Pipeline = multi-step /api/generate-ui (Claude SDK). */
+  const [agentMode, setAgentMode] = useState<"coral" | "pipeline">("coral");
   const taRef = useRef<HTMLTextAreaElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
   const colorMode = useEditorStore((s) => s.theme);
@@ -94,6 +96,26 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
               : "No changes returned. Try a more specific edit, or say “build a …” for a fresh layout.";
           throw new Error(hint);
         }
+      } else if (agentMode === "pipeline") {
+        pushAiBuildStatus("Claude pipeline: intent → layout → components → style…");
+        const res = await fetch("/api/generate-ui", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying pipeline UI to the canvas…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — Claude pipeline applied. Preview is open.");
+        } else {
+          throw new Error((data as { error?: string }).error || "No layout was returned from pipeline");
+        }
       } else {
         pushAiBuildStatus("Generating new layout from your prompt…");
         const res = await fetch("/api/ai/generate", {
@@ -126,7 +148,7 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       setLoading(false);
       endAiBuildTicker(stopTicker);
     }
-  }, [prompt, loading, applyGeneratedLayout, colorMode, canvasNodes, show]);
+  }, [prompt, loading, applyGeneratedLayout, colorMode, canvasNodes, show, agentMode]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -176,18 +198,32 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
               className={styles.agentBtn}
               onClick={() => setShowAgent((v) => !v)}
             >
-              Coral 1.0
+              {agentMode === "pipeline" ? "Claude pipeline" : "Coral 1.0"}
               <ChevronDown size={16} />
             </button>
             {showAgent && (
               <div className={styles.dropdown}>
                 <button
                   type="button"
-                  className={`${styles.dropdownItem} ${styles.dropdownItemActive}`}
-                  onClick={() => setShowAgent(false)}
+                  className={`${styles.dropdownItem} ${agentMode === "coral" ? styles.dropdownItemActive : ""}`}
+                  onClick={() => {
+                    setAgentMode("coral");
+                    setShowAgent(false);
+                  }}
                 >
                   <span className={styles.dropdownDot} />
                   Coral 1.0
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.dropdownItem} ${agentMode === "pipeline" ? styles.dropdownItemActive : ""}`}
+                  onClick={() => {
+                    setAgentMode("pipeline");
+                    setShowAgent(false);
+                  }}
+                >
+                  <span className={styles.dropdownDot} />
+                  Claude pipeline
                 </button>
                 <div className={`${styles.dropdownItem} ${styles.dropdownItemDisabled}`}>
                   Hybrid Pro
