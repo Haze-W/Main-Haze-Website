@@ -1,5 +1,5 @@
 import type { SceneNode, SceneNodeType } from "@/lib/editor/types";
-import { firstVisibleFillIsImage, indexOfFirstVisibleFill } from "./fill-visibility";
+import { firstVisibleFillIsImage, indexOfFirstVisibleFill, isImagePaintType } from "./fill-visibility";
 import { fontStyleToFontWeight, type FigmaNode, type RenderPayload } from "./types";
 import {
   alignFigmaTextSegmentsToContent,
@@ -149,10 +149,33 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
     }
   }
 
-  // 4) IMAGE layer: `images` bucket keyed by imageHash (deduped bitmaps)
-  if (node.type === "IMAGE" && node.imageHash && assets?.[node.imageHash]) {
-    const fromHash = getStr(assets[node.imageHash]);
-    if (fromHash) return toDataUrl(fromHash);
+  // 4) `images` / assets keyed by Figma imageHash (node.imageHash and/or IMAGE fills). Order: layer hash, primary fill, then other fills.
+  const imageHashCandidates: string[] = [];
+  const pushImageHash = (h: unknown) => {
+    if (h == null) return;
+    const s = String(h).trim();
+    if (s.length > 0 && !imageHashCandidates.includes(s)) imageHashCandidates.push(s);
+  };
+  if (allowPrimaryImageRaster) {
+    pushImageHash(node.imageHash);
+    const pri = indexOfFirstVisibleFill(fillsList);
+    if (pri >= 0 && isImagePaintType(fillsList[pri]?.type)) {
+      const pf = fillsList[pri];
+      pushImageHash(pf.imageHash);
+      pushImageHash(pf.imageRef);
+    }
+    for (const f of fillsList) {
+      if (isImagePaintType(f?.type)) {
+        pushImageHash(f.imageHash);
+        pushImageHash(f.imageRef);
+      }
+    }
+  }
+  if (assets && imageHashCandidates.length > 0) {
+    for (const hk of imageHashCandidates) {
+      const fromHash = getStr(assets[hk]);
+      if (fromHash) return toDataUrl(fromHash);
+    }
   }
 
   // 5) Deduped blob keyed by node id — avoid baking whole-node PNG as <img> when image isn’t the top fill
@@ -168,11 +191,12 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
   // 6) IMAGE fill only when it is the topmost visible fill (matches plugin export)
   if (allowPrimaryImageRaster && node.fills && node.fills.length > 0) {
     const primaryIdx = indexOfFirstVisibleFill(node.fills);
-    if (primaryIdx >= 0 && node.fills[primaryIdx]?.type === "IMAGE") {
+    if (primaryIdx >= 0 && isImagePaintType(node.fills[primaryIdx]?.type)) {
       const fill = node.fills[primaryIdx];
       const i = primaryIdx;
-      if (fill.imageHash && assets?.[fill.imageHash]) {
-        const fromFillHash = getStr(assets[fill.imageHash]);
+      const fillHashKey = fill.imageHash != null ? String(fill.imageHash).trim() : "";
+      if (fillHashKey && assets?.[fillHashKey]) {
+        const fromFillHash = getStr(assets[fillHashKey]);
         if (fromFillHash) return toDataUrl(fromFillHash);
       }
       if (fill.imageData) return toDataUrl(fill.imageData);
@@ -293,7 +317,9 @@ function convertNode(
     props._imageData = imageSrc;
     const primaryIdx = indexOfFirstVisibleFill(fills);
     const imageFill =
-      primaryIdx >= 0 && fills[primaryIdx]?.type === "IMAGE" ? fills[primaryIdx] : fills.find((f) => f.type === "IMAGE");
+      primaryIdx >= 0 && isImagePaintType(fills[primaryIdx]?.type)
+        ? fills[primaryIdx]
+        : fills.find((f) => isImagePaintType(f.type));
     props._imageScaleMode = imageFill?.scaleMode ?? "FILL";
   }
 

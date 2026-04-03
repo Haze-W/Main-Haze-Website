@@ -30,8 +30,13 @@ export function firstVisibleFill(fills: Paint[] | undefined): Paint | undefined 
   return i >= 0 ? fills![i] : undefined;
 }
 
+/** Match plugin + Figma variants (`IMAGE`, `image`). */
+export function isImagePaintType(type: string | undefined): boolean {
+  return String(type ?? "").toUpperCase() === "IMAGE";
+}
+
 /** Only the topmost visible paint may drive raster `<img>` / image hash export. */
 export function firstVisibleFillIsImage(fills: Paint[] | undefined): boolean {
   const f = firstVisibleFill(fills);
-  return f?.type === "IMAGE";
+  return isImagePaintType(f?.type);
 }
