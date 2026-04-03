@@ -6,6 +6,7 @@ import type { SceneNode } from "@/lib/editor/types";
 import { useEditorStore } from "@/lib/editor/store";
 import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { loadGoogleFont } from "@/lib/editor/fonts";
+import { getFillAlpha, isFillVisible } from "@/lib/figma/fill-visibility";
 import { hexAlpha, paintToSolidColor, fontStyleToFontWeight } from "@/lib/figma/types";
 import type { Paint, Effect } from "@/lib/figma/types";
 import {
@@ -83,8 +84,46 @@ interface FigmaProps {
     strokeJoin?: string;
     strokeMiterLimit?: number;
     dashPattern?: number[];
+    pointCount?: number;
   } | null;
   transform2d?: { a: number; b: number; c: number; d: number } | null;
+}
+
+function polygonPathFromPointCount(pointCount: number, width: number, height: number): string {
+  const count = Math.max(3, Math.floor(pointCount));
+  const cx = Math.max(width, 1) / 2;
+  const cy = Math.max(height, 1) / 2;
+  const r = Math.min(cx, cy);
+  const pts: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / count;
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    pts.push(`${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`);
+  }
+  return `M ${pts.join(" L ")} Z`;
+}
+
+function figmaBlendModeToCss(mode: string | undefined): React.CSSProperties["mixBlendMode"] | undefined {
+  if (!mode || mode === "NORMAL" || mode === "PASS_THROUGH") return undefined;
+  const map: Record<string, React.CSSProperties["mixBlendMode"]> = {
+    MULTIPLY: "multiply",
+    SCREEN: "screen",
+    OVERLAY: "overlay",
+    DARKEN: "darken",
+    LIGHTEN: "lighten",
+    COLOR_DODGE: "color-dodge",
+    COLOR_BURN: "color-burn",
+    HARD_LIGHT: "hard-light",
+    SOFT_LIGHT: "soft-light",
+    DIFFERENCE: "difference",
+    EXCLUSION: "exclusion",
+    HUE: "hue",
+    SATURATION: "saturation",
+    COLOR: "color",
+    LUMINOSITY: "luminosity",
+  };
+  return map[mode];
 }
 
 function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined {
@@ -105,21 +144,6 @@ function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined 
   }
   if (cornerRadius != null && cornerRadius > 0) return `${cornerRadius}px`;
   return undefined;
-}
-
-function getFillAlpha(fill: Paint): number {
-  if (fill.alpha != null) return fill.alpha;
-  if (fill.opacity != null) return fill.opacity;
-  const c = fill.color as { a?: number } | undefined;
-  if (c && typeof c.a === "number") return c.a;
-  return 1;
-}
-
-function isFillVisible(fill: Paint): boolean {
-  if (fill.transparent === true) return false;
-  if (fill.visible === false) return false;
-  if (getFillAlpha(fill) === 0) return false;
-  return true;
 }
 
 function getBackground(
@@ -145,6 +169,43 @@ function getBackground(
           .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
           .join(", ");
         return `linear-gradient(${angle}deg, ${stopsStr})`;
+      }
+    }
+    if (fill.type === "GRADIENT_RADIAL") {
+      const resolvedStops = resolveGradientStops(fill);
+      if (resolvedStops && resolvedStops.length >= 2) {
+        const H = fill.gradientHandlePositions;
+        let atX = 50;
+        let atY = 50;
+        let ew = 70;
+        let eh = 70;
+        if (H && H.length >= 2) {
+          atX = Math.round(H[0].x * 10000) / 100;
+          atY = Math.round(H[0].y * 10000) / 100;
+          const rdx = H[1].x - H[0].x;
+          const rdy = H[1].y - H[0].y;
+          ew = Math.round(Math.sqrt(rdx * rdx + rdy * rdy) * 20000) / 100;
+          eh = ew;
+          if (H.length >= 3) {
+            const rdx2 = H[2].x - H[0].x;
+            const rdy2 = H[2].y - H[0].y;
+            eh = Math.round(Math.sqrt(rdx2 * rdx2 + rdy2 * rdy2) * 20000) / 100;
+          }
+        }
+        const stopsStr = resolvedStops
+          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
+          .join(", ");
+        return `radial-gradient(${ew}% ${eh}% at ${atX}% ${atY}%, ${stopsStr})`;
+      }
+    }
+    if (fill.type === "GRADIENT_ANGULAR" || fill.type === "GRADIENT_DIAMOND") {
+      const resolvedStops = resolveGradientStops(fill);
+      if (resolvedStops && resolvedStops.length >= 2) {
+        const angle = computeGradientAngle(fill.gradientHandlePositions);
+        const stopsStr = resolvedStops
+          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
+          .join(", ");
+        return `conic-gradient(from ${angle}deg, ${stopsStr})`;
       }
     }
   }
@@ -217,6 +278,13 @@ function getBoxShadow(effects: Effect[]): string | undefined {
 function getFilter(effects: Effect[]): string | undefined {
   if (!effects || effects.length === 0) return undefined;
   const blurs = effects.filter((e) => e.type === "LAYER_BLUR");
+  if (blurs.length === 0) return undefined;
+  return blurs.map((e) => `blur(${e.blur ?? 0}px)`).join(" ");
+}
+
+function getBackdropFilter(effects: Effect[]): string | undefined {
+  if (!effects || effects.length === 0) return undefined;
+  const blurs = effects.filter((e) => e.type === "BACKGROUND_BLUR");
   if (blurs.length === 0) return undefined;
   return blurs.map((e) => `blur(${e.blur ?? 0}px)`).join(" ");
 }
@@ -510,7 +578,8 @@ function FigmaNodeRendererInner({
       // Keep translation at 0,0 because node.x/node.y already represent positioning.
       parts.push(`matrix(${t2d.a},${t2d.b},${t2d.c},${t2d.d},0,0)`);
     }
-    if (node.rotation) parts.push(`rotate(${node.rotation}deg)`);
+    // `transform2d` already encodes Figma rotation/skew/flip; avoid double-rotation.
+    if (!t2d && node.rotation) parts.push(`rotate(${node.rotation}deg)`);
     if (node.props?.scaleX !== undefined) parts.push(`scaleX(${node.props.scaleX})`);
     if (node.props?.scaleY !== undefined) parts.push(`scaleY(${node.props.scaleY})`);
     if (parts.length) style.transform = parts.join(" ");
@@ -522,6 +591,13 @@ function FigmaNodeRendererInner({
   if (dragStyle) Object.assign(style, dragStyle);
 
   const hasVectorPaths = !!figma?.vectorDetail?.vectorPaths?.length;
+  const polygonPointCount = figma?.vectorDetail?.pointCount;
+  const hasPolygonFallbackPath =
+    isVector &&
+    !hasVectorPaths &&
+    (figma?.originalType === "POLYGON" || figma?.originalType === "REGULAR_POLYGON") &&
+    typeof polygonPointCount === "number" &&
+    polygonPointCount >= 3;
   const isVectorOrImageWithData = (hasImageFill || (isVector && node.props?._imageData) || (isVector && hasVectorPaths)) && !isText;
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
@@ -529,7 +605,11 @@ function FigmaNodeRendererInner({
     if (!hasImageFill && !isTextNode) {
       const bg = getBackground(figma.fills ?? [], fillEnabled, false);
       if (bg) {
-        if (bg.startsWith("linear-gradient") || bg.startsWith("radial-gradient")) {
+        if (
+          bg.startsWith("linear-gradient") ||
+          bg.startsWith("radial-gradient") ||
+          bg.startsWith("conic-gradient")
+        ) {
           style.background = bg;
         } else {
           style.backgroundColor = bg;
@@ -558,16 +638,23 @@ function FigmaNodeRendererInner({
       if (border?.borderLeft) style.borderLeft = border.borderLeft;
     }
 
-    if (!isVectorOrImageWithData) {
-      const shadow = getBoxShadow(figma.effects);
-      if (shadow) style.boxShadow = shadow;
-    }
+    const shadow = getBoxShadow(figma.effects);
+    if (shadow) style.boxShadow = shadow;
 
     const br = getBorderRadius(figma, isEllipse);
     if (br) style.borderRadius = br;
 
     const filter = getFilter(figma.effects);
     if (filter) style.filter = filter;
+
+    const backdrop = getBackdropFilter(figma.effects);
+    if (backdrop) {
+      style.backdropFilter = backdrop;
+      (style as React.CSSProperties & { WebkitBackdropFilter?: string }).WebkitBackdropFilter = backdrop;
+    }
+
+    const blend = figmaBlendModeToCss(figma.blendMode);
+    if (blend) style.mixBlendMode = blend;
 
     if (node.overflow === "HIDDEN") style.overflow = "hidden";
     else if (node.overflow === "SCROLL") style.overflow = "auto";
@@ -722,9 +809,11 @@ function FigmaNodeRendererInner({
   }
 
   // ── IMAGE / VECTOR NODE ───────────────────────────────────────
-  if (isVector && hasVectorPaths) {
+  if (isVector && (hasVectorPaths || hasPolygonFallbackPath)) {
     const vector = figma?.vectorDetail;
-    const paths = vector?.vectorPaths ?? [];
+    const paths = hasVectorPaths
+      ? vector?.vectorPaths ?? []
+      : [{ data: polygonPathFromPointCount(polygonPointCount ?? 3, node.width, node.height), windingRule: "NONZERO" }];
     const fillColor = vector?.fillColor ?? getFirstVisiblePaintColor(figma?.fills);
     const strokeColor = vector?.strokeColor ?? getFirstVisiblePaintColor(figma?.strokes);
     const strokeWidth =
@@ -756,7 +845,6 @@ function FigmaNodeRendererInner({
           background: "transparent",
           backgroundColor: "transparent",
           border: "none",
-          boxShadow: "none",
           overflow: "visible",
         }}
         onClick={handleClick}
@@ -790,7 +878,7 @@ function FigmaNodeRendererInner({
     );
   }
 
-  if (hasImageFill || (isVector && node.props?._imageData)) {
+  if ((hasImageFill || (isVector && node.props?._imageData)) && !(isVector && (hasVectorPaths || (node.children?.length ?? 0) > 0))) {
     const imageData = node.props?._imageData as string | undefined;
     const scaleMode = (node.props?._imageScaleMode as string) ?? "FILL";
     const isSvgDataUrl = imageData?.includes("image/svg+xml");
@@ -810,7 +898,6 @@ function FigmaNodeRendererInner({
       ...style,
       overflow: flexChildRaster ? "hidden" : (renderAsPureImage ? "visible" : style.overflow),
       ...(flexChildRaster ? { minWidth: 0, minHeight: 0 } : {}),
-      ...(renderAsPureImage ? { border: "none", boxShadow: "none" } : {}),
     };
 
     return (
@@ -926,3 +1013,4 @@ function FigmaNodeRendererInner({
 }
 
 export const FigmaNodeRenderer = memo(FigmaNodeRendererInner);
+

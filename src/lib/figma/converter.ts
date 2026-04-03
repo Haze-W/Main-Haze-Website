@@ -1,4 +1,5 @@
 import type { SceneNode, SceneNodeType } from "@/lib/editor/types";
+import { firstVisibleFillIsImage, indexOfFirstVisibleFill } from "./fill-visibility";
 import { fontStyleToFontWeight, type FigmaNode, type RenderPayload } from "./types";
 import {
   alignFigmaTextSegmentsToContent,
@@ -124,13 +125,18 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
   const getStr = (val: unknown) =>
     extractAssetString(val as string | { data?: string; base64?: string; svg?: string; png?: string } | undefined);
   const altIds = [node.id.replace(/:/g, "-"), node.id.replace(/:/g, "_")];
+  const fillsList = Array.isArray(node.fills) ? node.fills : [];
+  const allowPrimaryImageRaster =
+    node.type === "IMAGE" || firstVisibleFillIsImage(fillsList);
+  const skipInlineNodeBitmap =
+    node.type !== "IMAGE" && !allowPrimaryImageRaster;
 
   // 1) Explicit PNG on node
-  if (node.pngData) return toDataUrl(node.pngData);
+  if (node.pngData && !skipInlineNodeBitmap) return toDataUrl(node.pngData);
 
   // 2) Inline hydration (plugin may mirror the same URL as pngData / assets[id])
-  if (node.imageData) return toDataUrl(node.imageData);
-  if (node.src) return toDataUrl(node.src);
+  if (node.imageData && !skipInlineNodeBitmap) return toDataUrl(node.imageData);
+  if (node.src && !skipInlineNodeBitmap) return toDataUrl(node.src);
 
   // 3) assets[id_png] / alt id variants
   if (assets) {
@@ -149,8 +155,8 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
     if (fromHash) return toDataUrl(fromHash);
   }
 
-  // 5) Deduped blob keyed by node id only (large selections omit inline fields)
-  if (assets) {
+  // 5) Deduped blob keyed by node id — avoid baking whole-node PNG as <img> when image isn’t the top fill
+  if (allowPrimaryImageRaster && assets) {
     const directId = getStr(assets[node.id]);
     if (directId) return toDataUrl(directId);
     for (const altId of altIds) {
@@ -159,28 +165,28 @@ function resolveImageSrc(node: FigmaNode, assets: AssetMap | undefined): string 
     }
   }
 
-  // 6) IMAGE fills (imageHash, inline, ref, nodeId_fill_i with id variants)
-  if (node.fills) {
-    for (let i = 0; i < node.fills.length; i++) {
-      const fill = node.fills[i];
-      if (fill.type === "IMAGE") {
-        if (fill.imageHash && assets?.[fill.imageHash]) {
-          const fromFillHash = getStr(assets[fill.imageHash]);
-          if (fromFillHash) return toDataUrl(fromFillHash);
-        }
-        if (fill.imageData) return toDataUrl(fill.imageData);
-        if (fill.src) return toDataUrl(fill.src);
-        if (fill.imageBytes) return toDataUrl(fill.imageBytes);
-        const refVal = fill.imageRef && assets?.[fill.imageRef];
-        const refStr = extractAssetString(refVal as string | { data?: string } | undefined);
-        if (refStr) return toDataUrl(refStr);
-        const fillKey = `${node.id}_fill_${i}`;
-        const fillCandidates = [fillKey, ...altIds.map((alt) => `${alt}_fill_${i}`)];
-        for (const fk of fillCandidates) {
-          const fillVal = assets?.[fk];
-          const fillStr = extractAssetString(fillVal as string | { data?: string } | undefined);
-          if (fillStr) return toDataUrl(fillStr);
-        }
+  // 6) IMAGE fill only when it is the topmost visible fill (matches plugin export)
+  if (allowPrimaryImageRaster && node.fills && node.fills.length > 0) {
+    const primaryIdx = indexOfFirstVisibleFill(node.fills);
+    if (primaryIdx >= 0 && node.fills[primaryIdx]?.type === "IMAGE") {
+      const fill = node.fills[primaryIdx];
+      const i = primaryIdx;
+      if (fill.imageHash && assets?.[fill.imageHash]) {
+        const fromFillHash = getStr(assets[fill.imageHash]);
+        if (fromFillHash) return toDataUrl(fromFillHash);
+      }
+      if (fill.imageData) return toDataUrl(fill.imageData);
+      if (fill.src) return toDataUrl(fill.src);
+      if (fill.imageBytes) return toDataUrl(fill.imageBytes);
+      const refVal = fill.imageRef && assets?.[fill.imageRef];
+      const refStr = extractAssetString(refVal as string | { data?: string } | undefined);
+      if (refStr) return toDataUrl(refStr);
+      const fillKey = `${node.id}_fill_${i}`;
+      const fillCandidates = [fillKey, ...altIds.map((alt) => `${alt}_fill_${i}`)];
+      for (const fk of fillCandidates) {
+        const fillVal = assets?.[fk];
+        const fillStr = extractAssetString(fillVal as string | { data?: string } | undefined);
+        if (fillStr) return toDataUrl(fillStr);
       }
     }
   }
@@ -274,10 +280,20 @@ function convertNode(
   }
 
   const imageSrc = resolveImageSrc(node, assets);
-  if (imageSrc) {
+  const hasVectorPathData = !!node.vectorDetail?.vectorPaths?.length;
+  const hasVectorChildren = Array.isArray(node.children) && node.children.length > 0;
+  const isVectorLike = mapType(nodeType) === "VECTOR";
+  const preserveVectorStructure =
+    isVectorLike && (nodeType === "BOOLEAN_OPERATION" || hasVectorPathData || hasVectorChildren);
+  const useImageFillDisplay =
+    (nodeType === "IMAGE" || (nodeType !== "TEXT" && firstVisibleFillIsImage(fills))) &&
+    !preserveVectorStructure;
+  if (imageSrc && useImageFillDisplay) {
     props._hasImageFill = true;
     props._imageData = imageSrc;
-    const imageFill = fills.find((f) => f.type === "IMAGE");
+    const primaryIdx = indexOfFirstVisibleFill(fills);
+    const imageFill =
+      primaryIdx >= 0 && fills[primaryIdx]?.type === "IMAGE" ? fills[primaryIdx] : fills.find((f) => f.type === "IMAGE");
     props._imageScaleMode = imageFill?.scaleMode ?? "FILL";
   }
 
@@ -437,3 +453,4 @@ export function figmaToSceneNodes(
   const rootNode = convertNode(payload.frame, undefined, prefix, assets);
   return [rootNode];
 }
+

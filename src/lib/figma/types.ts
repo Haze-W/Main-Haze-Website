@@ -147,6 +147,7 @@ export interface FigmaNode {
     strokeJoin?: string;
     strokeMiterLimit?: number;
     dashPattern?: number[];
+    pointCount?: number;
   };
   children?: FigmaNode[];
 }

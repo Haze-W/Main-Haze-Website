@@ -9,6 +9,7 @@ import { buildPresetEmptyContainerHtml } from "./scene-export-presets";
 import { buildHazeComponentRootStyle } from "./component-content-tokens";
 import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
+import { getFillAlpha, isFillVisible } from "@/lib/figma/fill-visibility";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import { alignFigmaTextSegmentsToContent, type TextSegmentWithRange } from "@/lib/figma/text-segments";
@@ -52,19 +53,26 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function getFillAlpha(fill: Paint): number {
-  if (fill.alpha != null) return fill.alpha;
-  if (fill.opacity != null) return fill.opacity;
-  const c = fill.color as { a?: number } | undefined;
-  if (c && typeof c.a === "number") return c.a;
-  return 1;
-}
-
-function isFillVisible(fill: Paint): boolean {
-  if (fill.transparent === true) return false;
-  if (fill.visible === false) return false;
-  if (getFillAlpha(fill) === 0) return false;
-  return true;
+function figmaBlendModeToCssString(mode: string | undefined): string | undefined {
+  if (!mode || mode === "NORMAL" || mode === "PASS_THROUGH") return undefined;
+  const map: Record<string, string> = {
+    MULTIPLY: "multiply",
+    SCREEN: "screen",
+    OVERLAY: "overlay",
+    DARKEN: "darken",
+    LIGHTEN: "lighten",
+    COLOR_DODGE: "color-dodge",
+    COLOR_BURN: "color-burn",
+    HARD_LIGHT: "hard-light",
+    SOFT_LIGHT: "soft-light",
+    DIFFERENCE: "difference",
+    EXCLUSION: "exclusion",
+    HUE: "hue",
+    SATURATION: "saturation",
+    COLOR: "color",
+    LUMINOSITY: "luminosity",
+  };
+  return map[mode];
 }
 
 function getBackground(fills: Paint[], fillEnabled: boolean, isTextNode: boolean): string | undefined {
@@ -85,6 +93,43 @@ function getBackground(fills: Paint[], fillEnabled: boolean, isTextNode: boolean
           .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
           .join(", ");
         return `linear-gradient(${angle}deg, ${stopsStr})`;
+      }
+    }
+    if (fill.type === "GRADIENT_RADIAL") {
+      const resolvedStops = resolveGradientStops(fill);
+      if (resolvedStops && resolvedStops.length >= 2) {
+        const H = fill.gradientHandlePositions;
+        let atX = 50;
+        let atY = 50;
+        let ew = 70;
+        let eh = 70;
+        if (H && H.length >= 2) {
+          atX = Math.round(H[0].x * 10000) / 100;
+          atY = Math.round(H[0].y * 10000) / 100;
+          const rdx = H[1].x - H[0].x;
+          const rdy = H[1].y - H[0].y;
+          ew = Math.round(Math.sqrt(rdx * rdx + rdy * rdy) * 20000) / 100;
+          eh = ew;
+          if (H.length >= 3) {
+            const rdx2 = H[2].x - H[0].x;
+            const rdy2 = H[2].y - H[0].y;
+            eh = Math.round(Math.sqrt(rdx2 * rdx2 + rdy2 * rdy2) * 20000) / 100;
+          }
+        }
+        const stopsStr = resolvedStops
+          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
+          .join(", ");
+        return `radial-gradient(${ew}% ${eh}% at ${atX}% ${atY}%, ${stopsStr})`;
+      }
+    }
+    if (fill.type === "GRADIENT_ANGULAR" || fill.type === "GRADIENT_DIAMOND") {
+      const resolvedStops = resolveGradientStops(fill);
+      if (resolvedStops && resolvedStops.length >= 2) {
+        const angle = computeGradientAngle(fill.gradientHandlePositions);
+        const stopsStr = resolvedStops
+          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
+          .join(", ");
+        return `conic-gradient(from ${angle}deg, ${stopsStr})`;
       }
     }
   }
@@ -127,6 +172,13 @@ function getBoxShadow(effects: Effect[]): string | undefined {
 function getFilter(effects: Effect[]): string | undefined {
   if (!effects || effects.length === 0) return undefined;
   const blurs = effects.filter((e) => e.type === "LAYER_BLUR");
+  if (blurs.length === 0) return undefined;
+  return blurs.map((e) => `blur(${e.blur ?? 0}px)`).join(" ");
+}
+
+function getBackdropFilter(effects: Effect[]): string | undefined {
+  if (!effects || effects.length === 0) return undefined;
+  const blurs = effects.filter((e) => e.type === "BACKGROUND_BLUR");
   if (blurs.length === 0) return undefined;
   return blurs.map((e) => `blur(${e.blur ?? 0}px)`).join(" ");
 }
@@ -319,6 +371,8 @@ interface FigmaProps {
   strokeEnabled?: boolean;
   textHasNoBackgroundFill?: boolean;
   clipsContent?: boolean;
+  blendMode?: string;
+  transform2d?: { a: number; b: number; c: number; d: number } | null;
 }
 
 function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERTICAL" = "NONE", indent = 0): string {
@@ -362,18 +416,41 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
 
   if (node.opacity != null && node.opacity < 1) style.opacity = String(node.opacity);
 
-  // Apply rotation and flip transforms
   const transformParts: string[] = [];
-  if (node.rotation) transformParts.push(`rotate(${node.rotation}deg)`);
+  const t2d = figma?.transform2d;
+  if (
+    t2d &&
+    typeof t2d.a === "number" &&
+    typeof t2d.b === "number" &&
+    typeof t2d.c === "number" &&
+    typeof t2d.d === "number"
+  ) {
+    transformParts.push(`matrix(${t2d.a},${t2d.b},${t2d.c},${t2d.d},0,0)`);
+  }
+  // `transform2d` already includes rotation/skew/flip from Figma.
+  if (!t2d && node.rotation) transformParts.push(`rotate(${node.rotation}deg)`);
   if (node.props?.scaleX !== undefined) transformParts.push(`scaleX(${node.props.scaleX})`);
   if (node.props?.scaleY !== undefined) transformParts.push(`scaleY(${node.props.scaleY})`);
-  if (transformParts.length) style.transform = transformParts.join(" ");
+  if (transformParts.length) {
+    style.transform = transformParts.join(" ");
+    style.transformOrigin = "center";
+  }
 
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
     if (!hasImageFill && !isTextNode) {
       const bg = getBackground(figma.fills ?? [], fillEnabled, false);
-      if (bg) style.background = bg;
+      if (bg) {
+        if (
+          bg.startsWith("linear-gradient") ||
+          bg.startsWith("radial-gradient") ||
+          bg.startsWith("conic-gradient")
+        ) {
+          style.background = bg;
+        } else {
+          style.backgroundColor = bg;
+        }
+      }
     }
     /* Vectors need CSS borders too when stroke-only or stroke+fill (same as FigmaNodeRenderer). */
     if (!hasImageFill) {
@@ -381,14 +458,19 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
       const border = getBorder(figma.strokes ?? [], figma.strokeWeight ?? 0, strokeEnabled);
       if (border) style.border = border;
     }
-    if (!isVectorOrImageWithData) {
-      const shadow = getBoxShadow(figma.effects);
-      if (shadow) style.boxShadow = shadow;
-    }
+    const shadow = getBoxShadow(figma.effects);
+    if (shadow) style.boxShadow = shadow;
     const br = getBorderRadius(figma, isEllipse);
     if (br) style.borderRadius = br;
     const filter = getFilter(figma.effects);
     if (filter) style.filter = filter;
+    const backdrop = getBackdropFilter(figma.effects);
+    if (backdrop) {
+      style.backdropFilter = backdrop;
+      style.WebkitBackdropFilter = backdrop;
+    }
+    const blend = figmaBlendModeToCssString(figma.blendMode);
+    if (blend) style.mixBlendMode = blend;
     if (node.overflow === "HIDDEN") style.overflow = "hidden";
     else if (node.overflow === "SCROLL") style.overflow = "auto";
     else if (figma.clipsContent && !isVectorOrImageWithData) style.overflow = "hidden";
@@ -476,8 +558,6 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
         ...style,
         overflow: usesFlex ? "hidden" : "visible",
         ...(usesFlex ? { minWidth: "0", minHeight: "0" } : {}),
-        border: "none",
-        boxShadow: "none",
       };
       const containerStr = Object.entries(containerStyle).filter(([, v]) => v != null).map(([k, v]) => `${k.replace(/([A-Z])/g, "-$1").toLowerCase()}:${v}`).join(";");
       const imgSizing =
