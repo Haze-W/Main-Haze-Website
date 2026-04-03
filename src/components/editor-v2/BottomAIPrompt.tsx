@@ -18,6 +18,8 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
+  /** Coral = single-shot /api/ai/generate; Pipeline = multi-step /api/generate-ui (Claude SDK). */
+  const [agentMode, setAgentMode] = useState<"coral" | "pipeline">("coral");
   const taRef = useRef<HTMLTextAreaElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
   const colorMode = useEditorStore((s) => s.theme);
@@ -69,7 +71,85 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
       window.dispatchEvent(new CustomEvent("haze-set-ai-input", { detail: { text, mode: "ui", submit: true } }));
     }
     setPrompt("");
-  }, [prompt, loading, show]);
+
+    try {
+      const useRefine = shouldUseRefineForBottomBar(text, canvasNodes.length > 0);
+
+      if (useRefine) {
+        pushAiBuildStatus("Refining current canvas (partial update)…");
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, nodes: canvasNodes }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying refined layout…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — changes merged into your UI.");
+        } else {
+          const hint =
+            typeof (data as { suggestion?: string }).suggestion === "string"
+              ? (data as { suggestion: string }).suggestion
+              : "No changes returned. Try a more specific edit, or say “build a …” for a fresh layout.";
+          throw new Error(hint);
+        }
+      } else if (agentMode === "pipeline") {
+        pushAiBuildStatus("Claude pipeline: intent → layout → components → style…");
+        const res = await fetch("/api/generate-ui", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying pipeline UI to the canvas…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — Claude pipeline applied. Preview is open.");
+        } else {
+          throw new Error((data as { error?: string }).error || "No layout was returned from pipeline");
+        }
+      } else {
+        pushAiBuildStatus("Generating new layout from your prompt…");
+        const res = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: text,
+            style: colorMode,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+
+        if ((data as { nodes?: SceneNode[] }).nodes?.length) {
+          pushAiBuildStatus("Applying generated UI to the canvas…");
+          applyGeneratedLayout((data as { nodes: SceneNode[] }).nodes);
+          pushAiBuildStatus("Done — preview is open. Tweak in Design mode if needed.");
+        } else {
+          throw new Error((data as { error?: string }).error || "No layout was returned");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      show(err instanceof Error ? err.message : "Generation failed", "error");
+      pushAiBuildStatus(`Error: ${err instanceof Error ? err.message : "failed"}`);
+    } finally {
+      setLoading(false);
+      endAiBuildTicker(stopTicker);
+    }
+  }, [prompt, loading, applyGeneratedLayout, colorMode, canvasNodes, show, agentMode]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -125,18 +205,32 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
               className={styles.agentBtn}
               onClick={() => setShowAgent((v) => !v)}
             >
-              Coral 1.0
+              {agentMode === "pipeline" ? "Claude pipeline" : "Coral 1.0"}
               <ChevronDown size={16} />
             </button>
             {showAgent && (
               <div className={styles.dropdown}>
                 <button
                   type="button"
-                  className={`${styles.dropdownItem} ${styles.dropdownItemActive}`}
-                  onClick={() => setShowAgent(false)}
+                  className={`${styles.dropdownItem} ${agentMode === "coral" ? styles.dropdownItemActive : ""}`}
+                  onClick={() => {
+                    setAgentMode("coral");
+                    setShowAgent(false);
+                  }}
                 >
                   <span className={styles.dropdownDot} />
                   Coral 1.0
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.dropdownItem} ${agentMode === "pipeline" ? styles.dropdownItemActive : ""}`}
+                  onClick={() => {
+                    setAgentMode("pipeline");
+                    setShowAgent(false);
+                  }}
+                >
+                  <span className={styles.dropdownDot} />
+                  Claude pipeline
                 </button>
                 <div className={`${styles.dropdownItem} ${styles.dropdownItemDisabled}`}>
                   Hybrid Pro
@@ -172,3 +266,31 @@ export function BottomAIPrompt({ layout = "fixed" }: BottomAIPromptProps) {
     </div>
   );
 }
+function shouldUseRefineForBottomBar(text: string, arg1: boolean) {
+  throw new Error("Function not implemented.");
+}
+
+function pushAiBuildStatus(arg0: string) {
+  throw new Error("Function not implemented.");
+}
+
+function applyGeneratedLayout(nodes: SceneNode[]) {
+  throw new Error("Function not implemented.");
+}
+
+function show(arg0: string, arg1: string) {
+  throw new Error("Function not implemented.");
+}
+
+function setLoading(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+
+function endAiBuildTicker(stopTicker: any) {
+  throw new Error("Function not implemented.");
+}
+
+function send() {
+  throw new Error("Function not implemented.");
+}
+
