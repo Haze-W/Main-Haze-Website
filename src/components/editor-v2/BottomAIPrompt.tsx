@@ -21,7 +21,7 @@ const [loading, setLoading] = useState(false);
 const shouldUseRefine = (input: string, hasNodes: boolean) => {
 if (hasNodes) return true;
 
-```
+
 const lower = input.toLowerCase();
 
 if (
@@ -34,7 +34,6 @@ if (
 }
 
 return false;
-```
 
 };
 
@@ -42,7 +41,7 @@ const send = useCallback(() => {
 const prompt = text.trim();
 if (!prompt || loading) return;
 
-```
+
 setLoading(true);
 
 try {
@@ -58,7 +57,7 @@ try {
 } finally {
   setLoading(false);
 }
-```
+
 
 }, [text, hasNodes, loading, onGenerate, onRefine]);
 
@@ -77,13 +76,13 @@ send();
 }}
 />
 
-```
+
     <button onClick={send} disabled={loading}>
       {loading ? "..." : "Send"}
     </button>
   </div>
 );
-```
+
 
 }
 
@@ -103,7 +102,7 @@ send();
 }}
 />
 
-```
+
     <button
       onClick={send}
       disabled={loading}
@@ -113,7 +112,7 @@ send();
     </button>
   </div>
 </div>
-```
+
 
 );
 }
