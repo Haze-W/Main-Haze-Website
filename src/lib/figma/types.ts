@@ -113,6 +113,11 @@ export interface FigmaNode {
   strokeBottomWeight?: number | null;
   strokeLeftWeight?: number | null;
   strokeAlign: string;
+  /** Figma stroke geometry (Plugin API: strokeCap, strokeJoin, …) */
+  strokeCap?: string;
+  strokeJoin?: string;
+  strokeMiterLimit?: number;
+  dashPattern?: number[];
   effects: Effect[];
   layoutMode: string | null;
   paddingLeft: number;

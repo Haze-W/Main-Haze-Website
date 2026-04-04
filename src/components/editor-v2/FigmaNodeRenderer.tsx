@@ -7,6 +7,11 @@ import { useEditorStore } from "@/lib/editor/store";
 import { mergeDragTransform } from "@/lib/editor/drag-transform";
 import { loadGoogleFont } from "@/lib/editor/fonts";
 import { getFillAlpha, isFillVisible } from "@/lib/figma/fill-visibility";
+import {
+  getBackgroundFromFills,
+  getFigmaBorderSideStyles,
+  maxFigmaStrokeWidthPx,
+} from "@/lib/figma/gradient-css";
 import { hexAlpha, paintToSolidColor, fontStyleToFontWeight } from "@/lib/figma/types";
 import type { Paint, Effect } from "@/lib/figma/types";
 import {
@@ -15,34 +20,6 @@ import {
   type TextSegmentWithRange,
 } from "@/lib/figma/text-segments";
 import { ResizeHandles } from "./ResizeHandles";
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function resolveGradientStops(fill: Paint): Array<{ hex: string; alpha: number; position: number }> | null {
-  if (fill.stops && fill.stops.length >= 2) {
-    return fill.stops.filter((s) => s.hex != null).map((s) => ({ hex: s.hex!, alpha: s.alpha ?? 1, position: s.position ?? 0 }));
-  }
-  if (fill.gradientStops && fill.gradientStops.length >= 2) {
-    return fill.gradientStops.map((gs) => ({
-      hex: rgbToHex(gs.color.r, gs.color.g, gs.color.b),
-      alpha: gs.color.a ?? 1,
-      position: gs.position,
-    }));
-  }
-  return null;
-}
-
-function computeGradientAngle(handles?: Array<{ x: number; y: number }>): number {
-  if (!handles || handles.length < 2) return 180;
-  const [start, end] = handles;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const angleRad = Math.atan2(dy, dx);
-  return Math.round((angleRad * 180) / Math.PI + 90);
-}
 
 interface FigmaNodeRendererProps {
   node: SceneNode;
@@ -63,6 +40,10 @@ interface FigmaProps {
   strokeBottomWeight?: number | null;
   strokeLeftWeight?: number | null;
   strokeAlign: string;
+  strokeCap?: string;
+  strokeJoin?: string;
+  strokeMiterLimit?: number;
+  dashPattern?: number[];
   effects: Effect[];
   cornerRadius: number | null;
   topLeftRadius: number | null;
@@ -144,116 +125,6 @@ function getBorderRadius(f: FigmaProps, isEllipse: boolean): string | undefined 
   }
   if (cornerRadius != null && cornerRadius > 0) return `${cornerRadius}px`;
   return undefined;
-}
-
-function getBackground(
-  fills: Paint[],
-  fillEnabled: boolean,
-  isTextNode: boolean
-): string | undefined {
-  if (isTextNode) return undefined;
-  if (!fillEnabled || !fills || fills.length === 0) return undefined;
-
-  for (const fill of fills) {
-    if (!isFillVisible(fill)) continue;
-    if (!fill.type || fill.type === "SOLID") {
-      const solid = paintToSolidColor(fill);
-      if (solid) return solid;
-      if (fill.hex) return hexAlpha(fill.hex, getFillAlpha(fill));
-    }
-    if (fill.type === "GRADIENT_LINEAR") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const angle = computeGradientAngle(fill.gradientHandlePositions);
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `linear-gradient(${angle}deg, ${stopsStr})`;
-      }
-    }
-    if (fill.type === "GRADIENT_RADIAL") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const H = fill.gradientHandlePositions;
-        let atX = 50;
-        let atY = 50;
-        let ew = 70;
-        let eh = 70;
-        if (H && H.length >= 2) {
-          atX = Math.round(H[0].x * 10000) / 100;
-          atY = Math.round(H[0].y * 10000) / 100;
-          const rdx = H[1].x - H[0].x;
-          const rdy = H[1].y - H[0].y;
-          ew = Math.round(Math.sqrt(rdx * rdx + rdy * rdy) * 20000) / 100;
-          eh = ew;
-          if (H.length >= 3) {
-            const rdx2 = H[2].x - H[0].x;
-            const rdy2 = H[2].y - H[0].y;
-            eh = Math.round(Math.sqrt(rdx2 * rdx2 + rdy2 * rdy2) * 20000) / 100;
-          }
-        }
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `radial-gradient(${ew}% ${eh}% at ${atX}% ${atY}%, ${stopsStr})`;
-      }
-    }
-    if (fill.type === "GRADIENT_ANGULAR" || fill.type === "GRADIENT_DIAMOND") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const angle = computeGradientAngle(fill.gradientHandlePositions);
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `conic-gradient(from ${angle}deg, ${stopsStr})`;
-      }
-    }
-  }
-  return undefined;
-}
-
-function getBorder(
-  strokes: Paint[],
-  strokeWeight: number,
-  perSide: { top?: number | null; right?: number | null; bottom?: number | null; left?: number | null } | undefined,
-  strokeEnabled: boolean
-): { border?: string; borderTop?: string; borderRight?: string; borderBottom?: string; borderLeft?: string } | undefined {
-  if (!strokeEnabled || !strokes || strokes.length === 0) return undefined;
-  const stroke = strokes[0];
-  if (!isFillVisible(stroke)) return undefined;
-  const color = paintToSolidColor(stroke) ?? (stroke.hex ? hexAlpha(stroke.hex, getFillAlpha(stroke)) : undefined);
-  if (!color) return undefined;
-  const top = perSide?.top;
-  const right = perSide?.right;
-  const bottom = perSide?.bottom;
-  const left = perSide?.left;
-  const hasPerSide =
-    typeof top === "number" ||
-    typeof right === "number" ||
-    typeof bottom === "number" ||
-    typeof left === "number";
-  const anyPerSideWeight =
-    (typeof top === "number" && top > 0) ||
-    (typeof right === "number" && right > 0) ||
-    (typeof bottom === "number" && bottom > 0) ||
-    (typeof left === "number" && left > 0);
-
-  if (!hasPerSide) {
-    if (!strokeWeight) return undefined;
-    return { border: `${strokeWeight}px solid ${color}` };
-  }
-  if (!anyPerSideWeight && !strokeWeight) return undefined;
-  const base = strokeWeight || 0;
-  const wTop = typeof top === "number" ? top : base;
-  const wRight = typeof right === "number" ? right : base;
-  const wBottom = typeof bottom === "number" ? bottom : base;
-  const wLeft = typeof left === "number" ? left : base;
-  return {
-    ...(wTop > 0 ? { borderTop: `${wTop}px solid ${color}` } : {}),
-    ...(wRight > 0 ? { borderRight: `${wRight}px solid ${color}` } : {}),
-    ...(wBottom > 0 ? { borderBottom: `${wBottom}px solid ${color}` } : {}),
-    ...(wLeft > 0 ? { borderLeft: `${wLeft}px solid ${color}` } : {}),
-  };
 }
 
 function getBoxShadow(effects: Effect[]): string | undefined {
@@ -525,9 +396,30 @@ function FigmaNodeRendererInner({
   const showSelection = isSelected;
 
   const strokeWeight = figma?.strokeWeight ?? 0;
-  const hasStroke = figma?.strokeEnabled !== false && (figma?.strokes?.length ?? 0) > 0 && strokeWeight > 0;
+  const strokePerSide = figma
+    ? {
+        top: figma.strokeTopWeight,
+        right: figma.strokeRightWeight,
+        bottom: figma.strokeBottomWeight,
+        left: figma.strokeLeftWeight,
+      }
+    : undefined;
+  const borderSideStyles =
+    figma && !isTextNode
+      ? getFigmaBorderSideStyles(
+          figma.strokes ?? [],
+          strokeWeight,
+          strokePerSide,
+          figma.strokeEnabled !== false
+        )
+      : undefined;
+  const hasStroke = !!borderSideStyles;
   const isLine = figma?.originalType === "LINE";
-  const minDim = hasStroke && isLine ? Math.max(1, strokeWeight) : 0;
+  const lineStrokePx =
+    hasStroke && isLine && figma
+      ? Math.max(1, maxFigmaStrokeWidthPx(strokeWeight, strokePerSide))
+      : 0;
+  const minDim = lineStrokePx;
   const effectiveWidth = minDim ? Math.max(node.width, minDim) : node.width;
   const effectiveHeight = minDim ? Math.max(node.height, minDim) : node.height;
 
@@ -603,7 +495,7 @@ function FigmaNodeRendererInner({
     const fillEnabled = figma.fillEnabled !== false;
 
     if (!hasImageFill && !isTextNode) {
-      const bg = getBackground(figma.fills ?? [], fillEnabled, false);
+      const bg = getBackgroundFromFills(figma.fills ?? [], fillEnabled, false);
       if (bg) {
         if (
           bg.startsWith("linear-gradient") ||
@@ -617,25 +509,45 @@ function FigmaNodeRendererInner({
       }
     }
 
-    /* Vectors need CSS borders too when stroke-only or stroke+fill (no raster/SVG). */
-    if (!hasImageFill) {
-      const strokeEnabled = figma.strokeEnabled !== false;
-      const border = getBorder(
-        figma.strokes,
-        figma.strokeWeight,
-        {
-          top: figma.strokeTopWeight,
-          right: figma.strokeRightWeight,
-          bottom: figma.strokeBottomWeight,
-          left: figma.strokeLeftWeight,
-        },
-        strokeEnabled
-      );
-      if (border?.border) style.border = border.border;
-      if (border?.borderTop) style.borderTop = border.borderTop;
-      if (border?.borderRight) style.borderRight = border.borderRight;
-      if (border?.borderBottom) style.borderBottom = border.borderBottom;
-      if (border?.borderLeft) style.borderLeft = border.borderLeft;
+    if (borderSideStyles) {
+      if (borderSideStyles.border) style.border = borderSideStyles.border;
+      if (borderSideStyles.borderTop) style.borderTop = borderSideStyles.borderTop;
+      if (borderSideStyles.borderRight) style.borderRight = borderSideStyles.borderRight;
+      if (borderSideStyles.borderBottom) style.borderBottom = borderSideStyles.borderBottom;
+      if (borderSideStyles.borderLeft) style.borderLeft = borderSideStyles.borderLeft;
+      if (borderSideStyles.borderImage) {
+        (style as React.CSSProperties & { borderImage?: string; borderImageSlice?: number }).borderImage =
+          borderSideStyles.borderImage;
+        if (borderSideStyles.borderImageSlice != null) {
+          (style as React.CSSProperties & { borderImageSlice?: number }).borderImageSlice =
+            borderSideStyles.borderImageSlice;
+        }
+      }
+      const dash = figma.dashPattern;
+      const stroke0 = figma.strokes?.[0];
+      const solidBorderOnly =
+        stroke0 &&
+        isFillVisible(stroke0) &&
+        (!stroke0.type || stroke0.type === "SOLID") &&
+        !borderSideStyles.borderImage;
+      if (solidBorderOnly && Array.isArray(dash) && dash.length) {
+        if (borderSideStyles.border) {
+          style.borderStyle = "dashed";
+        } else {
+          if (borderSideStyles.borderTop && borderSideStyles.borderTop !== "none") {
+            style.borderTopStyle = "dashed";
+          }
+          if (borderSideStyles.borderRight && borderSideStyles.borderRight !== "none") {
+            style.borderRightStyle = "dashed";
+          }
+          if (borderSideStyles.borderBottom && borderSideStyles.borderBottom !== "none") {
+            style.borderBottomStyle = "dashed";
+          }
+          if (borderSideStyles.borderLeft && borderSideStyles.borderLeft !== "none") {
+            style.borderLeftStyle = "dashed";
+          }
+        }
+      }
     }
 
     const shadow = getBoxShadow(figma.effects);

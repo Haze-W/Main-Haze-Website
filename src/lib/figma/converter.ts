@@ -281,6 +281,12 @@ function convertNode(
       strokeBottomWeight: typeof node.strokeBottomWeight === "number" ? node.strokeBottomWeight : null,
       strokeLeftWeight: typeof node.strokeLeftWeight === "number" ? node.strokeLeftWeight : null,
       strokeAlign: node.strokeAlign ?? "INSIDE",
+      ...(node.strokeCap != null ? { strokeCap: node.strokeCap } : {}),
+      ...(node.strokeJoin != null ? { strokeJoin: node.strokeJoin } : {}),
+      ...(typeof node.strokeMiterLimit === "number" ? { strokeMiterLimit: node.strokeMiterLimit } : {}),
+      ...(Array.isArray(node.dashPattern) && node.dashPattern.length
+        ? { dashPattern: node.dashPattern }
+        : {}),
       effects,
       cornerRadius: node.cornerRadius ?? null,
       topLeftRadius: node.topLeftRadius ?? null,

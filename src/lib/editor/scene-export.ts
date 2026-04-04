@@ -10,40 +10,17 @@ import { buildHazeComponentRootStyle } from "./component-content-tokens";
 import { mergeRootOrphansIntoFrames } from "./placement";
 import { DEFAULT_CHROME_BAR_BG, defaultTitleColorForChromeBar, luminanceFromHex } from "./window-chrome";
 import { getFillAlpha, isFillVisible } from "@/lib/figma/fill-visibility";
+import {
+  getBackgroundFromFills,
+  getFigmaBorderSideStyles,
+  maxFigmaStrokeWidthPx,
+} from "@/lib/figma/gradient-css";
 import { hexAlpha, paintToSolidColor } from "@/lib/figma/types";
 import type { Paint, Effect, TextSegment } from "@/lib/figma/types";
 import { alignFigmaTextSegmentsToContent, type TextSegmentWithRange } from "@/lib/figma/text-segments";
 import type { TopBarConfig, TopBarLayout, InteractionList, Block, HoverPreset } from "./blocks";
 import { createDefaultTopBarConfig } from "./blocks";
 import { getIconSvg } from "@/lib/icon-svg";
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function resolveGradientStops(fill: Paint): Array<{ hex: string; alpha: number; position: number }> | null {
-  if (fill.stops && fill.stops.length >= 2) {
-    return fill.stops.filter((s) => s.hex != null).map((s) => ({ hex: s.hex!, alpha: s.alpha ?? 1, position: s.position ?? 0 }));
-  }
-  if (fill.gradientStops && fill.gradientStops.length >= 2) {
-    return fill.gradientStops.map((gs) => ({
-      hex: rgbToHex(gs.color.r, gs.color.g, gs.color.b),
-      alpha: gs.color.a ?? 1,
-      position: gs.position,
-    }));
-  }
-  return null;
-}
-
-function computeGradientAngle(handles?: Array<{ x: number; y: number }>): number {
-  if (!handles || handles.length < 2) return 180;
-  const [start, end] = handles;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const angleRad = Math.atan2(dy, dx);
-  return Math.round((angleRad * 180) / Math.PI + 90);
-}
 
 function escapeHtml(str: string): string {
   return str
@@ -73,76 +50,6 @@ function figmaBlendModeToCssString(mode: string | undefined): string | undefined
     LUMINOSITY: "luminosity",
   };
   return map[mode];
-}
-
-function getBackground(fills: Paint[], fillEnabled: boolean, isTextNode: boolean): string | undefined {
-  if (isTextNode) return undefined;
-  if (!fillEnabled || !fills || fills.length === 0) return undefined;
-  for (const fill of fills) {
-    if (!isFillVisible(fill)) continue;
-    if (!fill.type || fill.type === "SOLID") {
-      const solid = paintToSolidColor(fill);
-      if (solid) return solid;
-      if (fill.hex) return hexAlpha(fill.hex, getFillAlpha(fill));
-    }
-    if (fill.type === "GRADIENT_LINEAR") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const angle = computeGradientAngle(fill.gradientHandlePositions);
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `linear-gradient(${angle}deg, ${stopsStr})`;
-      }
-    }
-    if (fill.type === "GRADIENT_RADIAL") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const H = fill.gradientHandlePositions;
-        let atX = 50;
-        let atY = 50;
-        let ew = 70;
-        let eh = 70;
-        if (H && H.length >= 2) {
-          atX = Math.round(H[0].x * 10000) / 100;
-          atY = Math.round(H[0].y * 10000) / 100;
-          const rdx = H[1].x - H[0].x;
-          const rdy = H[1].y - H[0].y;
-          ew = Math.round(Math.sqrt(rdx * rdx + rdy * rdy) * 20000) / 100;
-          eh = ew;
-          if (H.length >= 3) {
-            const rdx2 = H[2].x - H[0].x;
-            const rdy2 = H[2].y - H[0].y;
-            eh = Math.round(Math.sqrt(rdx2 * rdx2 + rdy2 * rdy2) * 20000) / 100;
-          }
-        }
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `radial-gradient(${ew}% ${eh}% at ${atX}% ${atY}%, ${stopsStr})`;
-      }
-    }
-    if (fill.type === "GRADIENT_ANGULAR" || fill.type === "GRADIENT_DIAMOND") {
-      const resolvedStops = resolveGradientStops(fill);
-      if (resolvedStops && resolvedStops.length >= 2) {
-        const angle = computeGradientAngle(fill.gradientHandlePositions);
-        const stopsStr = resolvedStops
-          .map((s) => `${hexAlpha(s.hex, s.alpha)} ${Math.round(s.position * 100)}%`)
-          .join(", ");
-        return `conic-gradient(from ${angle}deg, ${stopsStr})`;
-      }
-    }
-  }
-  return undefined;
-}
-
-function getBorder(strokes: Paint[], strokeWeight: number, strokeEnabled: boolean): string | undefined {
-  if (!strokeEnabled || !strokes || strokes.length === 0 || strokeWeight === 0) return undefined;
-  const stroke = strokes[0];
-  if (!isFillVisible(stroke)) return undefined;
-  const color = paintToSolidColor(stroke) ?? (stroke.hex ? hexAlpha(stroke.hex, getFillAlpha(stroke)) : undefined);
-  if (!color) return undefined;
-  return `${strokeWeight}px solid ${color}`;
 }
 
 function getBorderRadius(f: { cornerRadius: number | null; topLeftRadius?: number | null; topRightRadius?: number | null; bottomLeftRadius?: number | null; bottomRightRadius?: number | null }, isEllipse: boolean): string | undefined {
@@ -360,7 +267,12 @@ interface FigmaProps {
   fills: Paint[];
   strokes: Paint[];
   strokeWeight: number;
+  strokeTopWeight?: number | null;
+  strokeRightWeight?: number | null;
+  strokeBottomWeight?: number | null;
+  strokeLeftWeight?: number | null;
   strokeAlign: string;
+  dashPattern?: number[];
   effects: Effect[];
   cornerRadius: number | null;
   topLeftRadius: number | null;
@@ -397,9 +309,30 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   const childLayout = layout !== "NONE" ? layout : "NONE";
 
   const strokeWeight = figma?.strokeWeight ?? 0;
-  const hasStroke = figma?.strokeEnabled !== false && (figma?.strokes?.length ?? 0) > 0 && strokeWeight > 0;
+  const strokePerSide = figma
+    ? {
+        top: figma.strokeTopWeight,
+        right: figma.strokeRightWeight,
+        bottom: figma.strokeBottomWeight,
+        left: figma.strokeLeftWeight,
+      }
+    : undefined;
+  const borderSideStyles =
+    figma && !isTextNode
+      ? getFigmaBorderSideStyles(
+          figma.strokes ?? [],
+          strokeWeight,
+          strokePerSide,
+          figma.strokeEnabled !== false
+        )
+      : undefined;
+  const hasStroke = !!borderSideStyles;
   const isLine = figma?.originalType === "LINE";
-  const minDim = hasStroke && isLine ? Math.max(1, strokeWeight) : 0;
+  const lineStrokePx =
+    hasStroke && isLine && figma
+      ? Math.max(1, maxFigmaStrokeWidthPx(strokeWeight, strokePerSide))
+      : 0;
+  const minDim = lineStrokePx;
   const w = minDim ? Math.max(node.width, minDim) : node.width;
   const h = minDim ? Math.max(node.height, minDim) : node.height;
 
@@ -439,7 +372,7 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
   if (figma) {
     const fillEnabled = figma.fillEnabled !== false;
     if (!hasImageFill && !isTextNode) {
-      const bg = getBackground(figma.fills ?? [], fillEnabled, false);
+      const bg = getBackgroundFromFills(figma.fills ?? [], fillEnabled, false);
       if (bg) {
         if (
           bg.startsWith("linear-gradient") ||
@@ -452,11 +385,41 @@ function nodeToHtml(node: SceneNode, parentLayout: "NONE" | "HORIZONTAL" | "VERT
         }
       }
     }
-    /* Vectors need CSS borders too when stroke-only or stroke+fill (same as FigmaNodeRenderer). */
-    if (!hasImageFill) {
-      const strokeEnabled = figma.strokeEnabled !== false;
-      const border = getBorder(figma.strokes ?? [], figma.strokeWeight ?? 0, strokeEnabled);
-      if (border) style.border = border;
+    if (borderSideStyles) {
+      if (borderSideStyles.border) style.border = borderSideStyles.border;
+      if (borderSideStyles.borderTop) style.borderTop = borderSideStyles.borderTop;
+      if (borderSideStyles.borderRight) style.borderRight = borderSideStyles.borderRight;
+      if (borderSideStyles.borderBottom) style.borderBottom = borderSideStyles.borderBottom;
+      if (borderSideStyles.borderLeft) style.borderLeft = borderSideStyles.borderLeft;
+      if (borderSideStyles.borderImage) style.borderImage = borderSideStyles.borderImage;
+      if (borderSideStyles.borderImageSlice != null) {
+        style.borderImageSlice = String(borderSideStyles.borderImageSlice);
+      }
+      const dash = figma.dashPattern;
+      const stroke0 = figma.strokes?.[0];
+      const solidBorderOnly =
+        stroke0 &&
+        isFillVisible(stroke0) &&
+        (!stroke0.type || stroke0.type === "SOLID") &&
+        !borderSideStyles.borderImage;
+      if (solidBorderOnly && Array.isArray(dash) && dash.length) {
+        if (borderSideStyles.border) {
+          style.borderStyle = "dashed";
+        } else {
+          if (borderSideStyles.borderTop && borderSideStyles.borderTop !== "none") {
+            style.borderTopStyle = "dashed";
+          }
+          if (borderSideStyles.borderRight && borderSideStyles.borderRight !== "none") {
+            style.borderRightStyle = "dashed";
+          }
+          if (borderSideStyles.borderBottom && borderSideStyles.borderBottom !== "none") {
+            style.borderBottomStyle = "dashed";
+          }
+          if (borderSideStyles.borderLeft && borderSideStyles.borderLeft !== "none") {
+            style.borderLeftStyle = "dashed";
+          }
+        }
+      }
     }
     const shadow = getBoxShadow(figma.effects);
     if (shadow) style.boxShadow = shadow;
@@ -886,7 +849,7 @@ export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", ca
   const rootBg = (() => {
     const figma = frames[0].props?._figma as FigmaProps | undefined;
     if (figma) {
-      const bg = getBackground(figma.fills ?? [], figma.fillEnabled !== false, false);
+      const bg = getBackgroundFromFills(figma.fills ?? [], figma.fillEnabled !== false, false);
       if (bg) return bg;
     }
     // Use frame's own backgroundColor prop if set
@@ -900,7 +863,7 @@ export function sceneNodesToHtml(rawNodes: SceneNode[], appName = "Haze App", ca
     const fFigma = f.props?._figma as FigmaProps | undefined;
     let fBg = rootBg;
     if (fFigma) {
-      const bg = getBackground(fFigma.fills ?? [], fFigma.fillEnabled !== false, false);
+      const bg = getBackgroundFromFills(fFigma.fills ?? [], fFigma.fillEnabled !== false, false);
       if (bg) fBg = bg;
     } else if (f.props?.backgroundColor) {
       fBg = f.props.backgroundColor as string;
