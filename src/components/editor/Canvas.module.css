@@ -1,0 +1,84 @@
+.canvasWrapper {
+  flex: 1;
+  overflow: hidden;
+  background: var(--canvas-bg);
+}
+
+.canvasWrapper.panning {
+  cursor: grabbing;
+}
+
+.canvasTransform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--space-8);
+  transform-origin: center center;
+}
+
+.canvas {
+  position: relative;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.canvas.dropOver {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Grid: reference only, never exported, not selectable */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--canvas-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--canvas-grid-color) 1px, transparent 1px);
+  background-size: var(--canvas-grid) var(--canvas-grid);
+  pointer-events: none;
+  user-select: none;
+}
+
+.frameLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.nodesLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nodesLayer > * {
+  pointer-events: auto;
+}
+
+.contextMenu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 160px;
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.contextMenu button {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  border-radius: var(--radius-sm);
+}
+
+.contextMenu button:hover {
+  background: var(--bg-hover);
+}

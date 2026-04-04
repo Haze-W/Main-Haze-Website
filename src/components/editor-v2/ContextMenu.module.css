@@ -1,0 +1,88 @@
+/* Dark floating menu: colors are fixed here. Do not use --fg-primary / --fg-disabled —
+   they follow editor light/dark and break contrast (e.g. #121212 on dark popover). */
+.menu {
+  --cm-bg: #2a2a32;
+  --cm-border: rgba(255, 255, 255, 0.12);
+  --cm-fg: #f4f4f5;
+  --cm-fg-disabled: #9ca3af;
+  --cm-shortcut: #8b8b94;
+  --cm-shortcut-disabled: #6b7280;
+  --cm-hover: rgba(255, 255, 255, 0.1);
+  --cm-divider: rgba(255, 255, 255, 0.1);
+
+  position: fixed;
+  z-index: 10000;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--cm-bg);
+  border: 1px solid var(--cm-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+  animation: popIn 0.1s ease forwards;
+  transform-origin: top left;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cm-fg);
+  border-radius: 5px;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.itemLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item:hover:not(:disabled) {
+  background: var(--cm-hover);
+  color: var(--cm-fg);
+}
+
+.item:disabled {
+  opacity: 1;
+  color: var(--cm-fg-disabled);
+  cursor: default;
+  -webkit-text-fill-color: var(--cm-fg-disabled);
+}
+
+.shortcut {
+  font-size: 10px;
+  color: var(--cm-shortcut);
+  font-family: monospace, ui-monospace, monospace;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.item:hover:not(:disabled) .shortcut {
+  color: var(--cm-shortcut);
+}
+
+.item:disabled .shortcut {
+  color: var(--cm-shortcut-disabled);
+  -webkit-text-fill-color: var(--cm-shortcut-disabled);
+}
+
+.divider {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--cm-divider);
+}

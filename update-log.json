@@ -1,0 +1,135 @@
+{
+  "version": "1.1.3",
+  "lastUpdated": "2026-03-20",
+  "entries": [
+    {
+      "category": "AI Layout & Editor (Mar 2026)",
+      "changes": [
+        {
+          "title": "Bottom bar generation fix",
+          "file": "src/components/editor-v2/BottomAIPrompt.tsx",
+          "description": "Apply AI results with applyGeneratedLayout + POST /api/ai/generate (removed invalid addNodesToCanvas). Optional refine path: when canvas has nodes and message looks like an edit, POST /api/ai/chat for partial updates (generate-intent.ts)."
+        },
+        {
+          "title": "On-canvas AI build progress",
+          "files": [
+            "src/lib/editor/store.ts",
+            "src/lib/editor/ai-build-ui.ts",
+            "src/components/editor-v2/EditorShell.tsx",
+            "src/components/editor-v2/EditorShell.module.css",
+            "src/components/editor-v2/ComponentsPanel.tsx"
+          ],
+          "description": "aiBuild store state; ticker + pushAiBuildStatus; overlay on canvas (spinner + live log, aria-live). Wired from bottom prompt and Components panel generate/extract flows. Overlay uses rgba background for browser compatibility."
+        },
+        {
+          "title": "Layout accuracy & anti-template",
+          "file": "src/lib/ai/agent/layout-generator.ts",
+          "description": "Fixed isLayoutMinimal (recursive content count). PRIORITY user block; trimmed JSON shape reference for cloud; tuned tokens/temperature; Ollama prompt order and shorter num_predict. Keyword-aware inferFallbackCards + titleFromUserPrompt."
+        },
+        {
+          "title": "Elite FAST pipeline (single-call)",
+          "files": [
+            "src/lib/ai/agent/layout-generator.ts",
+            "src/lib/ai/agent/generate-intent.ts"
+          ],
+          "description": "System prompt: archetype-style regions, anti-repetition, expand short prompts. Archetype keyword routes (chatbot, ecommerce, landing, etc.). STYLE_VARIATIONS + hash for distinct palettes/structure per prompt. New generate-intent helpers for greenfield vs patch."
+        },
+        {
+          "title": "Layout refiner — partial regeneration",
+          "file": "src/lib/ai/agent/layout-refiner.ts",
+          "description": "REFINE_SYSTEM_PROMPT emphasizes edit-in-place, preserve unrelated UI, full rebuild only when explicit. maxTokens 8192 → 4096 for speed."
+        }
+      ]
+    },
+    {
+      "category": "AI UI Generator",
+      "changes": [
+        {
+          "title": "Adapter improvements",
+          "file": "src/lib/ai/schema/adapter.ts",
+          "description": "Map semantic types (sidebar, card, navbar, hero, modal, settings, topbar) to CONTAINER with variant for correct editor styling; use getValidIconName() for icon validation; fix TOPBAR variant to use variant: 'topbar' instead of 'navbar'"
+        },
+        {
+          "title": "ComponentsPanel enhancements",
+          "file": "src/components/editor-v2/ComponentsPanel.tsx",
+          "description": "Replace vs Append toggle (default: Append); Theme selector (Light/Dark); Model selector (GPT-4o, GPT-4o Mini, GPT-4 Turbo); Retry button on error; Loading skeleton during generation"
+        },
+        {
+          "title": "EditorShell append/replace modes",
+          "files": ["src/components/editor-v2/EditorShell.tsx", "src/components/editor/EditorShell.tsx"],
+          "description": "Append mode: viewport-aware positioning; Replace mode: replace canvas contents"
+        },
+        {
+          "title": "Prompt parser theme support",
+          "file": "src/lib/ai/agent/prompt-parser.ts",
+          "description": "Added theme (light/dark) from prompt or UI; Added parsePromptWithOptions() for theme override"
+        },
+        {
+          "title": "Layout generator improvements",
+          "file": "src/lib/ai/agent/layout-generator.ts",
+          "description": "Dark/light theme support with theme colors; 30s timeout for OpenAI calls; clearTimeout on all early-return paths to avoid timer leaks; Fallback layouts for login, form, table, pricing, settings, gallery, modal"
+        },
+        {
+          "title": "Rules engine overlap resolution",
+          "file": "src/lib/ai/agent/rules-engine.ts",
+          "description": "Iterative overlap resolution until no overlaps remain (instead of single pass); Bounds validation so children stay within parent"
+        },
+        {
+          "title": "API route enhancements",
+          "file": "src/app/api/ai/generate/route.ts",
+          "description": "Rate limiting (20 requests per minute); Coral as fallback when no OPENAI_API_KEY; Accepts model and style in request body; Clearer error messages including timeout"
+        }
+      ]
+    },
+    {
+      "category": "Website Fixes",
+      "changes": [
+        {
+          "title": "EditorShell broken imports",
+          "file": "src/components/editor/EditorShell.tsx",
+          "description": "Fixed ComponentsPanel, PropertiesPanel, PreviewPanel imports from ./ComponentsPanel etc. to @/components/editor-v2/ComponentsPanel"
+        },
+        {
+          "title": "Build script",
+          "file": "package.json",
+          "description": "Added --webpack to build script to avoid Turbopack/WASM issues"
+        }
+      ]
+    },
+    {
+      "category": "Bug Fixes",
+      "changes": [
+        {
+          "title": "Timeout leak in layout-generator",
+          "file": "src/lib/ai/agent/layout-generator.ts",
+          "description": "Added clearTimeout(timeoutId) before each early return (API error, empty content, parse failure)"
+        },
+        {
+          "title": "TOPBAR variant mismatch",
+          "file": "src/lib/ai/schema/adapter.ts",
+          "description": "TOPBAR nodes no longer receive variant: 'navbar'; variant set only for CONTAINER types"
+        },
+        {
+          "title": "Overlap resolution iteration",
+          "file": "src/lib/ai/agent/rules-engine.ts",
+          "description": "Replaced single-pass overlap fix with iterative loop until no overlaps remain, with iteration limit to avoid infinite loops"
+        }
+      ]
+    },
+    {
+      "category": "Lucide DynamicIcon",
+      "changes": [
+        {
+          "title": "DynamicIcon fallback prop",
+          "files": [
+            "src/components/editor-v2/SceneNodeRenderer.tsx",
+            "src/components/editor/IconPickerContent.tsx",
+            "src/components/editor/IconPickerModal.tsx",
+            "src/components/editor/CanvasNode.tsx"
+          ],
+          "description": "Added fallback prop to all DynamicIcon usages to prevent '[lucide-react]: Name in Lucide DynamicIcon not found' console errors; CanvasNode uses getValidIconName() with proper top-level import"
+        }
+      ]
+    }
+  ]
+}

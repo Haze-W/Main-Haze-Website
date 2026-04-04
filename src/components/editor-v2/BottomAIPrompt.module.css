@@ -1,0 +1,228 @@
+/* ═══════════════════════════════════════════════════════════════
+   Bottom AI Prompt — 1:1 Brainwave design
+═══════════════════════════════════════════════════════════════ */
+
+.wrapper {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--spacing) * 3);
+  transform: translateX(-50%);
+  z-index: 10;
+  width: min(560px, 92vw);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--box-shadow-prompt-input);
+  border: 1px solid var(--color-s-01);
+  background: var(--surface-01);
+  border-radius: 1rem;
+}
+
+/* Sits in EditorShell bottom row next to AI Chat — not independently centered */
+.wrapperInline {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Main prompt box - Brainwave style */
+.promptBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+}
+
+.textarea {
+  flex: 1;
+  min-width: 140px;
+  min-height: 20px;
+  max-height: 72px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--shade-09);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+}
+
+.textarea::placeholder {
+  color: var(--shade-06);
+  white-space: nowrap;
+}
+
+
+.actionBtn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--shade-09);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.actionBtn:hover {
+  background: var(--surface-03);
+}
+
+.agentBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 100px;
+  height: 36px;
+  padding: 0 var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--shade-09);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.agentBtn:hover {
+  background: var(--surface-03);
+}
+
+.micBtn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.micBtn:hover {
+  color: var(--shade-09);
+  background: var(--surface-03);
+}
+
+/* Light gray squircle with black arrow - Brainwave send style */
+.sendBtn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+  color: #121212;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.8) inset,
+    0 1px 2px rgba(0,0,0,0.06);
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fafafa 0%, #eee 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.9) inset,
+    0 2px 4px rgba(0,0,0,0.08);
+}
+
+.sendBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Dropdowns */
+.dropdownWrap {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-01);
+  border-radius: 8px;
+  box-shadow: var(--box-shadow-popover);
+  padding: 4px;
+  z-index: 100;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--shade-09);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.dropdownItem:hover {
+  background: var(--surface-03);
+}
+
+.dropdownItemActive {
+  color: var(--accent);
+}
+
+.dropdownDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #5e5ce6);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.dropdownItemDisabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dropdownItemDisabled:hover {
+  background: none;
+}
+
+.comingSoonBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent, #5e5ce6);
+  background: rgba(94, 92, 230, 0.12);
+  border-radius: 4px;
+  margin-left: auto;
+}

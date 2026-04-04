@@ -1,0 +1,318 @@
+/* ═══════════════════════════════════════════════════════════════
+   Haze - Design System (Brainwave-inspired)
+   Coral = AI model | Haze = main product
+═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Base palette - Brainwave-inspired surfaces */
+  --bg-base: #000000;
+  --bg-raised: rgba(28, 28, 30, 0.6);
+  --bg-overlay: rgba(40, 40, 44, 0.7);
+  --bg-dropdown: #1c1c1e;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(255, 255, 255, 0.12);
+
+  /* Brainwave design tokens (LIGHT theme) - used in editor */
+  --spacing: 0.25rem;
+  --shade-01: #fcfcfc;
+  --shade-01_95: #fcfcfcf2;
+  --shade-02: #f8f7f7;
+  --shade-03: #f1f1f1;
+  --shade-04: #ececec;
+  --shade-05: #e2e2e2;
+  --shade-06: #7b7b7b;
+  --shade-06_30: #7b7b7b4d;
+  --shade-06_50: #7b7b7b80;
+  --shade-07: #323232;
+  --shade-07_05: #3232320d;
+  --shade-07_10: #3232321a;
+  --shade-08: #222;
+  --shade-08_05: #2222220d;
+  --shade-08_10: #2222221a;
+  --shade-09: #121212;
+  --shade-09_05: #1212120d;
+  --shade-09_10: #1212121a;
+  --shade-09_35: #12121259;
+  --surface-01: var(--shade-01);
+  --surface-02: var(--shade-02);
+  --surface-03: var(--shade-03);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000013, 0px 8px 16px -12px #00000020;
+  --box-shadow-prompt-input: inset 0 2px 0 0 #fff, 0px 18px 24px -20px #00000020, 0px 8px 16px -12px #00000013;
+  --box-shadow-depth-01: 0 6px 3px 0 #00000003, 0 3px 3px 0 #00000005, 0 1px 1px 0 #00000005;
+  --box-shadow-popover: 0 153px 61px 0 #00000003, 0 86px 52px 0 #0000000a, 0 38px 38px 0 #0000000f, 0 10px 21px 0 #00000012;
+  
+  /* Toolbar action buttons (View Code, Export) - always dark text on light gray */
+  --toolbar-btn-text: #121212;
+  
+  --fg-primary: #ffffff;
+  --fg-secondary: #a1a1a6;
+  --fg-muted: #636366;
+  --fg-disabled: #3a3a3c;
+  
+  /* Accent - Haze/Coral purple/indigo */
+  --accent: #5e5ce6;
+  --accent-muted: #7d7aff;
+  --accent-glow: rgba(94, 92, 230, 0.2);
+  --accent-subtle: rgba(94, 92, 230, 0.15);
+  
+  /* Semantic */
+  --success: #32d74b;
+  --warning: #ffd60a;
+  --error: #ff453a;
+  --info: #0a84ff;
+  
+  /* Borders */
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-muted: rgba(255, 255, 255, 0.05);
+  --border-focus: var(--accent);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  --shadow-glow: 0 0 20px var(--accent-glow);
+  
+  /* Spacing system */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+  
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+  
+  /* Canvas */
+  --canvas-grid: 8px;
+  --canvas-grid-color: rgba(255, 255, 255, 0.05);
+  --canvas-bg: #000000;
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* Editor layout - light theme */
+  --editor-bg: #f1f1f1;
+  --sidebar-bg: #fbfbfb;
+
+  /* Component preset chrome — keep in sync with src/lib/editor/component-content-tokens.ts */
+  --haze-comp-surface: #ffffff;
+  --haze-comp-surface-subtle: #f8fafc;
+  --haze-comp-header-bar: #f1f5f9;
+  --haze-comp-surface-nav: #0f172a;
+  --haze-comp-surface-dark: #0c1222;
+  --haze-comp-surface-code: #0b1020;
+  --haze-comp-text: #0f172a;
+  --haze-comp-text-secondary: #334155;
+  --haze-comp-text-muted: #64748b;
+  --haze-comp-text-on-dark: #e8eef7;
+  --haze-comp-text-on-dark-muted: #94a3b8;
+  --haze-comp-border: #e2e8f0;
+  --haze-comp-border-strong: #cbd5e1;
+  --haze-comp-border-on-dark: rgba(148, 163, 184, 0.28);
+  --haze-comp-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --haze-comp-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --haze-comp-toast-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  --haze-comp-modal-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+  --haze-comp-accent: #5e5ce6;
+  --haze-comp-accent-soft-bg: rgba(94, 92, 230, 0.1);
+  --haze-comp-accent-soft-border: rgba(94, 92, 230, 0.28);
+  --haze-comp-success: #16a34a;
+  --haze-comp-input-bg: #f8fafc;
+  --haze-comp-kanban-card-bg: #ffffff;
+  --haze-comp-progress-track: #e2e8f0;
+  --haze-comp-spinner-track: rgba(15, 23, 42, 0.12);
+}
+
+/* Dark theme - next-themes adds class="dark" to html */
+html.dark {
+  --shade-01: #1a1a1c;
+  --shade-02: #252528;
+  --shade-03: #2e2e32;
+  --shade-04: #363638;
+  --shade-05: #48484c;
+  --shade-06: #8e8e93;
+  --shade-07: #aeaeb2;
+  --shade-08: #c7c7cc;
+  --shade-09: #f5f5f7;
+}
+
+/*
+ * Light editor UI: reset Brainwave + foreground tokens on the shell so they stay
+ * readable when html.dark is set (site dark mode) but the user picks a light editor.
+ * Custom properties inherit from this node into all editor-v2 panels.
+ */
+[data-editor-theme="light"] {
+  --shade-01: #fcfcfc;
+  --shade-01_95: #fcfcfcf2;
+  --shade-02: #f8f7f7;
+  --shade-03: #f1f1f1;
+  --shade-04: #ececec;
+  --shade-05: #e2e2e2;
+  --shade-06: #7b7b7b;
+  --shade-06_30: #7b7b7b4d;
+  --shade-06_50: #7b7b7b80;
+  --shade-07: #323232;
+  --shade-07_05: #3232320d;
+  --shade-07_10: #3232321a;
+  --shade-08: #222;
+  --shade-08_05: #2222220d;
+  --shade-08_10: #2222221a;
+  --shade-09: #121212;
+  --shade-09_05: #1212120d;
+  --shade-09_10: #1212121a;
+  --shade-09_35: #12121259;
+  --surface-01: var(--shade-01);
+  --surface-02: var(--shade-02);
+  --surface-03: var(--shade-03);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000013, 0px 8px 16px -12px #00000020;
+  --box-shadow-prompt-input: inset 0 2px 0 0 #fff, 0px 18px 24px -20px #00000020, 0px 8px 16px -12px #00000013;
+  --box-shadow-depth-01: 0 6px 3px 0 #00000003, 0 3px 3px 0 #00000005, 0 1px 1px 0 #00000005;
+  --box-shadow-popover: 0 153px 61px 0 #00000003, 0 86px 52px 0 #0000000a, 0 38px 38px 0 #0000000f, 0 10px 21px 0 #00000012;
+  --toolbar-btn-text: #121212;
+  --editor-bg: #f1f1f1;
+  --sidebar-bg: #fbfbfb;
+  --fg-primary: #121212;
+  --fg-secondary: #5c5c5c;
+  --fg-muted: #6b6b6b;
+  --fg-disabled: #a1a1aa;
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-muted: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.06) inset;
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
+/* Dark theme overrides for editor */
+[data-editor-theme="dark"] {
+  --toolbar-btn-text: #121212;
+  --editor-bg: #252528;
+  --sidebar-bg: #1a1a1c;
+  --surface-01: #252528;
+  --surface-02: #252528;
+  --surface-03: #252528;
+  --shade-01: #252528;
+  --shade-02: #2e2e32;
+  --shade-03: #363638;
+  --shade-04: #3a3a3e;
+  --shade-05: #48484c;
+  --shade-06: #8e8e93;
+  --shade-07: #aeaeb2;
+  --shade-08: #c7c7cc;
+  --shade-09: #f5f5f7;
+  --shade-07_05: rgba(174,174,178,0.08);
+  --shade-07_10: rgba(0,0,0,0.2);
+  --shade-09_10: rgba(0,0,0,0.15);
+  --shade-09_35: rgba(0,0,0,0.5);
+  --color-s-01: var(--shade-04);
+  --color-s-02: var(--shade-05);
+  --box-shadow-toolbar: 0px 1px 4px -4px #00000040, 0px 8px 16px -12px #00000030;
+  --box-shadow-prompt-input: inset 0 2px 0 0 rgba(255,255,255,0.06), 0px 18px 24px -20px #00000040, 0px 8px 16px -12px #00000030;
+  --box-shadow-depth-01: 0 6px 3px 0 rgba(0,0,0,0.2), 0 3px 3px 0 rgba(0,0,0,0.15), 0 1px 1px 0 rgba(0,0,0,0.1);
+  --box-shadow-popover: 0 24px 48px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.08);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--shade-09);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--shade-07);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Custom Webkit Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-muted);
+  color: #fff;
+}

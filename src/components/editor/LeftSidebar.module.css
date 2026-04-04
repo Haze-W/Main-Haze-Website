@@ -1,0 +1,287 @@
+.sidebar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  padding: var(--space-2);
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+}
+
+.tab:hover {
+  color: var(--fg-secondary);
+}
+
+.tabActive {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.frameList {
+  padding: var(--space-2);
+}
+
+.addFrameBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addFrameBtn:hover {
+  background: var(--accent-glow);
+  border-style: solid;
+}
+
+.addFrameIcon {
+  font-size: 16px;
+}
+
+.frameItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.frameItem:hover {
+  background: var(--bg-hover);
+}
+
+.frameItem.frameActive {
+  background: var(--accent-subtle);
+}
+
+.frameItemMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.frameIcon {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.frameNameInput {
+  flex: 1;
+  padding: 2px 4px;
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+}
+
+.frameNameInput:focus {
+  outline: 1px solid var(--accent);
+}
+
+.frameActions {
+  display: flex;
+  gap: 2px;
+  opacity: 0.6;
+}
+
+.frameItem:hover .frameActions {
+  opacity: 1;
+}
+
+.frameActions button {
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  background: transparent;
+  border-radius: 2px;
+}
+
+.frameActions button:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.iconLibraryBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.iconLibraryBtn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.iconLibraryIcon {
+  font-size: 16px;
+}
+
+.emptyHint {
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.search {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.searchInput {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.searchInput::placeholder {
+  color: var(--fg-muted);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.componentList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.category {
+  margin-bottom: var(--space-4);
+}
+
+.categoryLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.componentItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-primary);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  transition: background var(--transition-fast);
+  margin-bottom: var(--space-1);
+}
+
+.componentItem:hover {
+  background: var(--bg-hover);
+}
+
+.componentItem:active {
+  cursor: grabbing;
+}
+
+.componentItem.dragging {
+  opacity: 0.5;
+}
+
+.componentIcon {
+  font-size: 14px;
+  color: var(--accent);
+  width: 20px;
+  text-align: center;
+}
+
+.treeView {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.emptyTree {
+  padding: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.treeNode {
+  margin-bottom: 2px;
+}
+
+.treeItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.treeItem:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.treeItem.selected {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.treeIcon {
+  font-size: 8px;
+  color: var(--fg-muted);
+}
+
+.treeLabel {
+  text-transform: capitalize;
+}

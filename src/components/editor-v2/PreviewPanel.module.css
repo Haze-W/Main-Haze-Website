@@ -1,0 +1,402 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface-03);
+}
+
+/* ── Floating options ───────────────────────── */
+.floatingOptions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.playBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--surface-02);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
+  color: var(--shade-09);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.playBtn:hover {
+  background: var(--shade-07_05);
+}
+
+.playBtnActive {
+  background: var(--shade-07_10);
+  border-color: var(--shade-06_30);
+}
+
+.optionsDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  padding: 12px;
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-02);
+  border-radius: 12px;
+  box-shadow: var(--box-shadow-popover);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.optionsSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.optionsSectionLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 44px;
+}
+
+.optionsDivider {
+  height: 1px;
+  background: var(--color-s-02);
+  margin: 2px 0;
+}
+
+.optionsDropdown .deviceGroup {
+  flex: 1;
+}
+
+.optionsDropdown .zoomGroup {
+  flex: 1;
+}
+
+.optionsDropdown .refreshBtn {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.optionsDropdown .refreshBtn span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.deviceGroup {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.deviceBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deviceBtn:hover {
+  color: var(--shade-09);
+  background: var(--shade-07_05);
+}
+
+.deviceActive {
+  background: var(--surface-01) !important;
+  color: var(--shade-09) !important;
+  box-shadow: 0 1px 2px var(--shade-07_10);
+}
+
+.sizeLabel {
+  font-size: 0.6875rem;
+  color: var(--shade-06);
+  font-variant-numeric: tabular-nums;
+  min-width: 118px;
+  text-align: center;
+}
+
+.zoomGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  padding: 3px 6px;
+}
+
+.zoomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.zoomBtn:hover {
+  color: var(--shade-09);
+  background: var(--shade-07_05);
+}
+
+.zoomLabel {
+  font-size: 0.6875rem;
+  color: var(--shade-06);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: center;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  color: var(--shade-06);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.refreshBtn:hover {
+  color: var(--shade-09);
+  background: var(--shade-07_05);
+}
+
+/* ── Preview area ─────────────────────────────── */
+.previewArea {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--surface-03);
+  position: relative;
+  user-select: none;
+  scrollbar-width: none;
+}
+
+.previewArea::-webkit-scrollbar {
+  display: none;
+}
+
+.previewArea.panning {
+  cursor: grabbing;
+}
+
+.previewTransform {
+  flex-shrink: 0;
+  transform-origin: center center;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.previewArea.panning .previewTransform {
+  transition: none;
+}
+
+.previewFrame {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--box-shadow-popover);
+  flex-shrink: 0;
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-02);
+}
+
+.iframe {
+  display: block;
+  border: none;
+  background: var(--surface-01);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.iframeVisible {
+  opacity: 1;
+}
+
+/* ── Prototype nav + transitions ───────────────── */
+.previewTopBar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 12;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  pointer-events: none;
+  gap: 8px;
+}
+
+.previewTopBar > * {
+  pointer-events: auto;
+}
+
+.previewTopBar .floatingOptions {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 11;
+}
+
+.previewBackBtn {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--shade-09);
+  background: var(--surface-01);
+  border: 1px solid var(--color-s-02);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.previewBackBtn:hover {
+  background: var(--shade-07_05);
+}
+
+.protoDissolve {
+  animation: protoFadeIn var(--proto-dur, 300ms) ease forwards;
+}
+
+@keyframes protoFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.protoPushLeft {
+  animation: protoPushLeftIn var(--proto-dur, 300ms) ease forwards;
+}
+
+@keyframes protoPushLeftIn {
+  from {
+    opacity: 0.85;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.protoPushRight {
+  animation: protoPushRightIn var(--proto-dur, 300ms) ease forwards;
+}
+
+@keyframes protoPushRightIn {
+  from {
+    opacity: 0.85;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.protoSlideUp {
+  animation: protoSlideUpIn var(--proto-dur, 300ms) ease forwards;
+}
+
+@keyframes protoSlideUpIn {
+  from {
+    opacity: 0.85;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Loading ──────────────────────────────────── */
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--shade-09_35);
+  z-index: 10;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-s-02);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Empty state ──────────────────────────────── */
+.empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.emptyIcon {
+  font-size: 36px;
+  opacity: 0.3;
+  color: var(--shade-06);
+}
+
+.emptyText {
+  font-size: 0.8125rem;
+  color: var(--shade-06);
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.5;
+}

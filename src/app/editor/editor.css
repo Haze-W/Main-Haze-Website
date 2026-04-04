@@ -1,0 +1,16 @@
+/* Editor page - hide scrollbars, fix overflow, prevent browser zoom */
+.editor-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--editor-bg);
+  color: var(--shade-09);
+  touch-action: pan-x pan-y; /* Prevent pinch-zoom in editor */
+}
+
+/* Hide all scrollbars in editor - no white bars */
+.editor-page * {
+  scrollbar-width: none;
+}
+.editor-page *::-webkit-scrollbar {
+  display: none;
+}

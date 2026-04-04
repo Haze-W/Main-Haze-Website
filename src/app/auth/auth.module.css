@@ -1,0 +1,248 @@
+/* Auth pages - full viewport, form left, chat right */
+
+.page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: #fafafa;
+}
+
+.card {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  min-height: 100%;
+}
+
+/* Left panel - Form (narrower, centered) */
+.formPanel {
+  flex: 0 0 38%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fafafa;
+}
+
+.formContent {
+  width: 100%;
+  max-width: 320px;
+}
+
+.formTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #121212;
+  margin: 0 0 40px;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #323232;
+  background: linear-gradient(to bottom, #e5e5e5, #e2e2e2);
+  border: 1px solid #d4d4d4;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 4px -1px rgba(0, 0, 0, 0.15), 0 1px 0 0 rgba(255, 255, 255, 0.33) inset;
+  transition: opacity 0.15s;
+}
+
+.googleBtn:hover {
+  opacity: 0.9;
+}
+
+.googleBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.githubBtn {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #323232;
+  background: linear-gradient(to bottom, #e5e5e5, #e2e2e2);
+  border: 1px solid #d4d4d4;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 4px -1px rgba(0, 0, 0, 0.15), 0 1px 0 0 rgba(255, 255, 255, 0.33) inset;
+  transition: opacity 0.15s;
+}
+
+.githubBtn:hover {
+  opacity: 0.9;
+}
+
+.githubBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.githubBtn svg {
+  color: #24292f;
+}
+
+.orDivider {
+  margin: 24px 0;
+  font-size: 0.875rem;
+  color: #7b7b7b;
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #323232;
+}
+
+.forgotLink {
+  font-size: 0.875rem;
+  color: #7b7b7b;
+  text-decoration: none;
+}
+
+.forgotLink:hover {
+  color: #121212;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 22px;
+  font-size: 1rem;
+  color: #121212;
+  background: white;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 12px;
+  transition: border-color 0.15s;
+}
+
+.input::placeholder {
+  color: #9b9b9b;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #a3a3a3;
+}
+
+.error {
+  font-size: 0.875rem;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  margin: 0;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 10px 24px;
+  height: 44px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(to bottom, #2a2a2a, #121212);
+  border: 1px solid #333;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 0.5px 1px 0 rgba(255, 255, 255, 0.15) inset, 0 2px 4px -1px rgba(13, 13, 13, 0.5), 0 -1px 1.2px 0.35px #121212 inset;
+  transition: opacity 0.15s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.authFooter {
+  margin-top: 16px;
+  font-size: 0.875rem;
+  color: #7b7b7b;
+  text-align: center;
+}
+
+.authLink {
+  color: #121212;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.authLink:hover {
+  text-decoration: underline;
+}
+
+/* Right panel - AI Chat (wider) */
+.chatPanel {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: #f5f5f5;
+}
+
+@media (max-width: 1024px) {
+  .formPanel {
+    flex: 0 0 42%;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    flex-direction: column;
+  }
+  .card {
+    flex-direction: column;
+  }
+  .formPanel {
+    flex: none;
+    min-height: auto;
+    padding: 40px 24px;
+    justify-content: center;
+  }
+  .chatPanel {
+    width: 100%;
+    min-height: 320px;
+    flex-shrink: 0;
+  }
+}

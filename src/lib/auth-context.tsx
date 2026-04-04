@@ -1,0 +1,154 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
+import { authClient } from "@/lib/auth-client";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
+  onboardingCompleted?: boolean;
+  preferredRuntime?: string | null;
+  preferredLanguage?: string | null;
+}
+
+interface AuthState {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+interface AuthContextValue extends AuthState {
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ error?: { message: string } }>;
+  signup: (
+    email: string,
+    name?: string,
+    password?: string
+  ) => Promise<{ error?: { message: string } }>;
+  signInWithGoogle: (callbackURL?: string) => Promise<{ error?: { message: string } }>;
+  signInWithGithub: (callbackURL?: string) => Promise<{ error?: { message: string } }>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const { data: session, isPending } = authClient.useSession();
+
+  const user: AuthUser | null = useMemo(() => {
+    if (!session?.user) return null;
+    const u = session.user as AuthUser;
+    return {
+      id: u.id,
+      email: u.email ?? "",
+      name: u.name ?? null,
+      image: u.image ?? null,
+      onboardingCompleted: u.onboardingCompleted ?? false,
+      preferredRuntime: u.preferredRuntime ?? null,
+      preferredLanguage: u.preferredLanguage ?? null,
+    };
+  }, [session?.user]);
+
+  const isAuthenticated = !!session?.user;
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.email({
+        email,
+        password,
+        callbackURL: "/dashboard",
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Sign in failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const signup = useCallback(
+    async (
+      email: string,
+      name?: string,
+      password?: string
+    ): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signUp.email({
+        email,
+        password: password ?? "",
+        name: name ?? "",
+        callbackURL: "/onboarding",
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Sign up failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const signInWithGoogle = useCallback(
+    async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "Google sign in failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const signInWithGithub = useCallback(
+    async (callbackURL = "/dashboard"): Promise<{ error?: { message: string } }> => {
+      const result = await authClient.signIn.social({
+        provider: "github",
+        callbackURL,
+      });
+      if (result.error) {
+        return { error: { message: result.error.message ?? "GitHub sign in failed" } };
+      }
+      return {};
+    },
+    []
+  );
+
+  const logout = useCallback(async () => {
+    await authClient.signOut();
+  }, []);
+
+  const value: AuthContextValue = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      isLoading: isPending,
+      login,
+      signup,
+      signInWithGoogle,
+      signInWithGithub,
+      logout,
+    }),
+    [user, isAuthenticated, isPending, login, signup, signInWithGoogle, signInWithGithub, logout]
+  );
+
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+}

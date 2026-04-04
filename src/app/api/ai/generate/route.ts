@@ -1,0 +1,94 @@
+/**
+ * AI UI Generation API
+ * POST /api/ai/generate
+ */
+
+import { NextResponse } from "next/server";
+import { generateLayoutFromPrompt } from "@/lib/ai/agent/layout-generator";
+import { aiLayoutToSceneNodes } from "@/lib/ai/schema/adapter";
+import { coralGenerate } from "@/lib/ai/coral-engine";
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+const requestTimestamps: number[] = [];
+
+function checkRateLimit(): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  while (requestTimestamps.length > 0 && requestTimestamps[0] < cutoff) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  requestTimestamps.push(now);
+  return true;
+}
+
+export async function POST(req: Request) {
+  let promptText = "";
+  try {
+    if (!checkRateLimit()) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again in a minute." },
+        { status: 429 }
+      );
+    }
+
+    const body = await req.json();
+    promptText = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    const model = typeof body.model === "string" ? body.model : undefined;
+    const style = body.style === "light" || body.style === "dark" ? body.style : undefined;
+    const runtimeTarget = typeof body.runtimeTarget === "string" ? body.runtimeTarget : undefined;
+    const languageTarget = typeof body.languageTarget === "string" ? body.languageTarget : undefined;
+    const viewport = ["desktop", "tablet", "mobile"].includes(body.viewport)
+      ? body.viewport
+      : undefined;
+    const theme = body.theme && typeof body.theme === "object" ? body.theme : undefined;
+
+    if (!promptText) {
+      return NextResponse.json({ error: "Missing or invalid prompt" }, { status: 400 });
+    }
+
+    const layout = await generateLayoutFromPrompt(promptText, {
+      model,
+      style,
+      runtimeTarget,
+      languageTarget,
+      viewport,
+      designTheme: theme,
+    });
+    const nodes = aiLayoutToSceneNodes(layout);
+    if (process.env.NODE_ENV === "development") {
+      const root = nodes[0];
+      // eslint-disable-next-line no-console
+      console.debug("[Haze AI] /generate → root.props", root?.props, "child types", root?.children?.map((c) => c.type));
+    }
+
+    return NextResponse.json({
+      nodes,
+      metadata: layout.metadata,
+    });
+  } catch (err) {
+    const coralResult = coralGenerate({
+      prompt: promptText || "(describe what you want)",
+      mode: "ui",
+      nodes: [],
+      projectName: "Untitled",
+    });
+    if (coralResult.action === "GENERATE_UI" && coralResult.nodes && coralResult.nodes.length > 0) {
+      return NextResponse.json({
+        nodes: coralResult.nodes,
+        metadata: { generatedAt: new Date().toISOString() },
+      });
+    }
+    console.error("AI generate error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json(
+      {
+        error: message.includes("abort") ? "Request timed out. Please try again." : "Failed to generate UI",
+      },
+      { status: 500 }
+    );
+  }
+}

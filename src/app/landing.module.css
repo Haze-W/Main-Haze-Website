@@ -1,0 +1,297 @@
+/* Haze Landing - Bento Pro inspired, dark theme */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #121212;
+}
+
+/* ===== NAVBAR ===== */
+.navbar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 1100px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 100;
+  background: rgba(28, 28, 30, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  animation: navbarFade 0.6s ease-out;
+}
+
+@keyframes navbarFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.logoWrap {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+
+.logoWrap:hover {
+  transform: scale(1.02);
+}
+
+.logoContainer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.logoWrap:hover .logoContainer {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.logoImg {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  animation: navActionsFade 0.6s ease-out 0.1s both;
+}
+
+@keyframes navActionsFade {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.navBtn {
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-radius: 100px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.navBtnPrimary {
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+  border-radius: 100px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.navBtnPrimary:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+/* ===== HERO ===== */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(56px + 40px + 48px) 24px 64px;
+  text-align: center;
+}
+
+.heroTitle {
+  position: relative;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.04em;
+  margin: 0 0 16px;
+  animation: heroTitleFade 0.8s ease-out 0.2s both;
+}
+
+@keyframes heroTitleFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 12px;
+  padding: 4px 10px;
+  font-size: 0.5em;
+  font-weight: 600;
+  color: white;
+  background: #3b82f6;
+  border-radius: 100px;
+  vertical-align: super;
+}
+
+.heroSubtitle {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: clamp(11px, 1.5vw, 14px);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.35em;
+  margin: 0;
+  animation: heroSubtitleFade 0.8s ease-out 0.35s both;
+}
+
+@keyframes heroSubtitleFade {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== BENTO GRID ===== */
+.bentoSection {
+  padding: 0 32px 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.bentoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  animation: bentoFade 1s ease-out 0.5s both;
+}
+
+@keyframes bentoFade {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bentoCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 24px;
+  overflow: hidden;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.bentoCard:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.bentoCardItem {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.bentoCardTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 8px;
+}
+
+.bentoCardDesc {
+  flex: 1;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 16px;
+}
+
+.bentoDiscover {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s ease;
+}
+
+.bentoCard:hover .bentoDiscover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 900px) {
+  .bentoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 0 20px;
+  }
+  .navActions {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+  .navBtn,
+  .navBtnPrimary {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+  }
+  .bentoSection {
+    padding: 0 20px 60px;
+  }
+}

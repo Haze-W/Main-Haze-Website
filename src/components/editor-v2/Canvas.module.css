@@ -1,0 +1,145 @@
+.wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #2a2a2e;
+  position: relative;
+}
+
+.wrapper.panning {
+  cursor: grabbing;
+}
+
+.transform {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
+}
+
+/* Grid – fits entire canvas (8000×8000) */
+.grid {
+  position: absolute;
+  top: -50000px;
+  left: -50000px;
+  width: 100000px;
+  height: 100000px;
+  pointer-events: none;
+}
+
+/* Dots (Figma-style) */
+.gridDots {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.18) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* Lines (horizontal + vertical) */
+.gridLines {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Cross (dots at intersections, subtle) */
+.gridCross {
+  background-image:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.content > * {
+  pointer-events: auto;
+}
+
+/* Zoom tooltip – top center */
+.zoomTooltip {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.zoomTooltipValue {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoomTooltipHint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.marquee {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid var(--accent);
+  background: rgba(88, 166, 255, 0.08);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.emptyState {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.2);
+  font-size: var(--text-sm);
+  pointer-events: none;
+  z-index: 100;
+  line-height: 1.8;
+}
+
+.emptyHint {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  max-width: 280px;
+  color: rgba(255, 255, 255, 0.12);
+}
+
+.createFramePreview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid var(--accent);
+  background: rgba(88, 166, 255, 0.04);
+  pointer-events: none;
+  z-index: 1000;
+}

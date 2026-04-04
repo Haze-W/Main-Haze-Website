@@ -1,0 +1,115 @@
+/* ═══════════════════════════════════════════════════════════════
+   Editor Settings Panel — Brainwave style
+═══════════════════════════════════════════════════════════════ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--shade-09);
+  margin: 0;
+}
+
+.backBtn {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--shade-06);
+  background: var(--surface-03);
+  border: 1px solid var(--color-s-02);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.backBtn:hover {
+  color: var(--shade-09);
+  background: var(--surface-03);
+  border-color: var(--color-s-02);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+
+.themeRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--shade-09);
+}
+
+.themeToggle {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--color-s-02);
+  background: var(--surface-03);
+  border-radius: 12px;
+  box-shadow: inset 0px 1px 2px 0 var(--shade-07_10);
+}
+
+.themeBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--shade-06);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.themeBtn:hover {
+  color: var(--shade-09);
+}
+
+.themeBtnActive {
+  color: var(--shade-09);
+  background: var(--surface-01);
+  box-shadow: 0 1.25px 3px 0px var(--shade-07_10), inset 0px 1.25px 1px 0px rgba(255,255,255,0.5);
+}
+
+.description {
+  font-size: 0.8125rem;
+  color: var(--shade-06);
+  line-height: 1.5;
+  margin: 0;
+}
