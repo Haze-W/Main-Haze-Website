@@ -77,12 +77,12 @@ send();
 }}
 />
 
-```
+
   <button onClick={send} disabled={loading}>
     {loading ? "..." : "Send"}
   </button>
 </div>
-```
+
 
 );
 }
@@ -105,7 +105,7 @@ return (
         }}
       />
 
-```
+
   <button
     onClick={send}
     disabled={loading}
@@ -114,7 +114,7 @@ return (
     {loading ? "..." : "Send"}
   </button>
 </div>
-```
+
 
   </div>
 );
